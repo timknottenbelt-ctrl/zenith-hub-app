@@ -379,7 +379,7 @@ export default function FDACreator() {
   if (selectedProject) {
     return (
       <DashboardLayout title={t('fda.title')}>
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -406,177 +406,156 @@ export default function FDACreator() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Form */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Vessel Info */}
-              <Card className="card-premium">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Ship className="w-4 h-4 text-primary" />
-                    Vessel Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>LBH Number *</Label>
-                    <Input value={formData.lbh_number} onChange={(e) => handleInputChange('lbh_number', e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Ship Name *</Label>
-                    <Input value={formData.ship_name} onChange={(e) => handleInputChange('ship_name', e.target.value)} />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label>FDA Responsible</Label>
-                    <Input value={formData.fda_responsible} onChange={(e) => handleInputChange('fda_responsible', e.target.value)} />
-                  </div>
-                </CardContent>
-              </Card>
+          {/* All form fields in horizontal layout */}
+          <Card className="card-premium">
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {/* Vessel Info */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Ship className="w-3 h-3" /> LBH Number *
+                  </Label>
+                  <Input value={formData.lbh_number} onChange={(e) => handleInputChange('lbh_number', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Ship className="w-3 h-3" /> Ship Name *
+                  </Label>
+                  <Input value={formData.ship_name} onChange={(e) => handleInputChange('ship_name', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">FDA Responsible</Label>
+                  <Input value={formData.fda_responsible} onChange={(e) => handleInputChange('fda_responsible', e.target.value)} />
+                </div>
 
-              {/* Client Info */}
-              <Card className="card-premium">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <User className="w-4 h-4 text-primary" />
-                    Client Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Client Name</Label>
-                    <Input value={formData.client} onChange={(e) => handleInputChange('client', e.target.value)} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
-                      <Input type="email" value={formData.client_email} onChange={(e) => handleInputChange('client_email', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1"><Phone className="w-3 h-3" /> Phone</Label>
-                      <Input value={formData.client_phone} onChange={(e) => handleInputChange('client_phone', e.target.value)} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                {/* Client Info */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <User className="w-3 h-3" /> Client Name
+                  </Label>
+                  <Input value={formData.client} onChange={(e) => handleInputChange('client', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Mail className="w-3 h-3" /> Client Email
+                  </Label>
+                  <Input type="email" value={formData.client_email} onChange={(e) => handleInputChange('client_email', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Phone className="w-3 h-3" /> Client Phone
+                  </Label>
+                  <Input value={formData.client_phone} onChange={(e) => handleInputChange('client_phone', e.target.value)} />
+                </div>
 
-              {/* Billing Info */}
-              <Card className="card-premium">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-primary" />
-                    Billing Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Company Name</Label>
-                      <Input value={formData.billing_company} onChange={(e) => handleInputChange('billing_company', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
-                      <Input type="email" value={formData.billing_email} onChange={(e) => handleInputChange('billing_email', e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Billing Address</Label>
-                    <Input value={formData.billing_address} onChange={(e) => handleInputChange('billing_address', e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-1"><Phone className="w-3 h-3" /> Phone</Label>
-                    <Input value={formData.billing_phone} onChange={(e) => handleInputChange('billing_phone', e.target.value)} />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                {/* Billing Info */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Building2 className="w-3 h-3" /> Billing Company
+                  </Label>
+                  <Input value={formData.billing_company} onChange={(e) => handleInputChange('billing_company', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Mail className="w-3 h-3" /> Billing Email
+                  </Label>
+                  <Input type="email" value={formData.billing_email} onChange={(e) => handleInputChange('billing_email', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Receipt className="w-3 h-3" /> Billing Address
+                  </Label>
+                  <Input value={formData.billing_address} onChange={(e) => handleInputChange('billing_address', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Phone className="w-3 h-3" /> Billing Phone
+                  </Label>
+                  <Input value={formData.billing_phone} onChange={(e) => handleInputChange('billing_phone', e.target.value)} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Sidebar - Files */}
-            <div className="space-y-6">
-              <Card className="card-premium sticky top-6">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-primary" />
-                    Invoice PDFs
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {selectedProject.status !== 'sent' && (
-                    <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-all group">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                        <Upload className="w-6 h-6 text-primary" />
-                      </div>
-                      <span className="text-sm font-medium">Upload PDFs</span>
-                      <span className="text-xs text-muted-foreground mt-1">Click or drag files</span>
-                      <input
-                        type="file"
-                        multiple
-                        accept=".pdf"
-                        className="hidden"
-                        onChange={handleFileUpload}
-                        disabled={uploadingFiles}
-                      />
-                    </label>
-                  )}
-
-                  {uploadingFiles && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Uploading...
-                    </div>
-                  )}
-
-                  <Separator />
-
-                  {projectInvoices.length === 0 ? (
-                    <div className="text-center py-6 text-muted-foreground">
-                      <FileUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No files uploaded</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium">
-                        {projectInvoices.length} file{projectInvoices.length !== 1 ? 's' : ''}
-                      </p>
-                      {projectInvoices.map((invoice) => (
-                        <div key={invoice.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg group">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <CheckCircle className="w-4 h-4 text-success shrink-0" />
-                            <span className="text-sm truncate">{invoice.file_name}</span>
-                          </div>
-                          {selectedProject.status !== 'sent' && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="shrink-0 opacity-0 group-hover:opacity-100"
-                              onClick={() => handleDeleteInvoice(invoice)}
-                            >
-                              <X className="w-4 h-4 text-destructive" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Danger Zone */}
-              {selectedProject.status !== 'sent' && (
-                <Card className="border-destructive/30">
-                  <CardContent className="pt-6">
-                    <Button
-                      variant="destructive"
-                      className="w-full"
-                      onClick={() => handleDeleteProject(selectedProject.id)}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete Project
+          {/* Invoice PDFs Section - Full Width Below */}
+          <Card className="card-premium">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  Invoice PDFs ({projectInvoices.length})
+                </CardTitle>
+                {selectedProject.status !== 'sent' && (
+                  <label className="cursor-pointer">
+                    <Button variant="outline" size="sm" asChild>
+                      <span>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload PDF
+                      </span>
                     </Button>
-                  </CardContent>
-                </Card>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      disabled={uploadingFiles}
+                    />
+                  </label>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {uploadingFiles && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Uploading...
+                </div>
               )}
+
+              {projectInvoices.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                  <FileUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No files uploaded yet</p>
+                  <p className="text-xs">Upload invoice PDFs using the button above</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                  {projectInvoices.map((invoice) => (
+                    <div key={invoice.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg group">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CheckCircle className="w-4 h-4 text-success shrink-0" />
+                        <span className="text-sm truncate">{invoice.file_name}</span>
+                      </div>
+                      {selectedProject.status !== 'sent' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 opacity-0 group-hover:opacity-100 h-6 w-6"
+                          onClick={() => handleDeleteInvoice(invoice)}
+                        >
+                          <X className="w-3 h-3 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Danger Zone */}
+          {selectedProject.status !== 'sent' && (
+            <div className="flex justify-end">
+              <Button
+                variant="destructive"
+                onClick={() => handleDeleteProject(selectedProject.id)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Project
+              </Button>
             </div>
-          </div>
+          )}
         </div>
       </DashboardLayout>
     );
