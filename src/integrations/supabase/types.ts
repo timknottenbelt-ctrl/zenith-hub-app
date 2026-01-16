@@ -188,6 +188,30 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_files: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          type?: string
+        }
+        Relationships: []
+      }
       linksss: {
         Row: {
           created_at: string
@@ -259,6 +283,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           company: string | null
           created_at: string | null
           email: string | null
@@ -269,6 +294,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          avatar_url?: string | null
           company?: string | null
           created_at?: string | null
           email?: string | null
@@ -279,6 +305,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          avatar_url?: string | null
           company?: string | null
           created_at?: string | null
           email?: string | null
