@@ -1,19 +1,38 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const env = import.meta.env as Record<string, string | undefined>;
 
-let supabase: SupabaseClient;
+// Support both naming schemes:
+// - VITE_* (standard Vite client-side env)
+// - SUPABASE_* (some deployments expose secrets without the VITE_ prefix)
+const supabaseUrl = env.VITE_SUPABASE_URL ?? env.SUPABASE_URL ?? '';
+const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY ?? env.SUPABASE_ANON_KEY ?? '';
 
-if (supabaseUrl && supabaseAnonKey) {
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
-} else {
-  console.warn('Supabase credentials not configured. Using mock client.');
-  // Create a mock client that won't crash
-  supabase = createClient('https://placeholder.supabase.co', 'placeholder-key');
+console.info('[supabase] env present', {
+  VITE_SUPABASE_URL: Boolean(env.VITE_SUPABASE_URL),
+  SUPABASE_URL: Boolean(env.SUPABASE_URL),
+  VITE_SUPABASE_ANON_KEY: Boolean(env.VITE_SUPABASE_ANON_KEY),
+  SUPABASE_ANON_KEY: Boolean(env.SUPABASE_ANON_KEY),
+});
+
+function createDisabledClient(): SupabaseClient {
+  return new Proxy(
+    {},
+    {
+      get() {
+        throw new Error(
+          'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (or SUPABASE_URL / SUPABASE_ANON_KEY) in project secrets.'
+        );
+      },
+    }
+  ) as unknown as SupabaseClient;
 }
 
-export { supabase };
+export const supabase: SupabaseClient =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : createDisabledClient();
+
 
 // Database types
 export interface Email {
