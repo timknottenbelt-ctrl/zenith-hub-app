@@ -38,8 +38,18 @@ export default function FDACreator() {
     lbh_number: '',
     ship_name: '',
     shipper: '',
+    shipper_email: '',
+    shipper_phone: '',
     consignee: '',
+    consignee_email: '',
+    consignee_phone: '',
     client: '',
+    client_email: '',
+    client_phone: '',
+    billing_company: '',
+    billing_address: '',
+    billing_email: '',
+    billing_phone: '',
     fda_responsible: '',
   });
 
@@ -97,7 +107,14 @@ export default function FDACreator() {
     } else {
       toast({ title: t('common.success'), description: 'Project created' });
       setShowNewDialog(false);
-      setNewProject({ code: '', lbh_number: '', ship_name: '', shipper: '', consignee: '', client: '', fda_responsible: '' });
+      setNewProject({ 
+        code: '', lbh_number: '', ship_name: '', 
+        shipper: '', shipper_email: '', shipper_phone: '',
+        consignee: '', consignee_email: '', consignee_phone: '',
+        client: '', client_email: '', client_phone: '',
+        billing_company: '', billing_address: '', billing_email: '', billing_phone: '',
+        fda_responsible: '' 
+      });
       fetchProjects();
       if (data) setSelectedProject(data);
     }
@@ -378,34 +395,179 @@ export default function FDACreator() {
                 {t('fda.newProject')}
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{t('fda.newProject')}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label>{t('fda.code')}</Label>
-                  <Input
-                    value={newProject.code}
-                    onChange={(e) => setNewProject({ ...newProject, code: e.target.value })}
-                    placeholder="FDA-2024-001"
-                  />
+              <div className="space-y-6 pt-4">
+                {/* Basic Info */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium text-muted-foreground">Basic Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t('fda.code')} *</Label>
+                      <Input
+                        value={newProject.code}
+                        onChange={(e) => setNewProject({ ...newProject, code: e.target.value })}
+                        placeholder="FDA-2024-001"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('fda.lbhNumber')}</Label>
+                      <Input
+                        value={newProject.lbh_number}
+                        onChange={(e) => setNewProject({ ...newProject, lbh_number: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t('fda.shipName')}</Label>
+                      <Input
+                        value={newProject.ship_name}
+                        onChange={(e) => setNewProject({ ...newProject, ship_name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('fda.responsible')}</Label>
+                      <Input
+                        value={newProject.fda_responsible}
+                        onChange={(e) => setNewProject({ ...newProject, fda_responsible: e.target.value })}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t('fda.shipName')}</Label>
-                  <Input
-                    value={newProject.ship_name}
-                    onChange={(e) => setNewProject({ ...newProject, ship_name: e.target.value })}
-                  />
+
+                {/* Shipper */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium text-muted-foreground">{t('fda.shipper')}</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Name</Label>
+                      <Input
+                        value={newProject.shipper}
+                        onChange={(e) => setNewProject({ ...newProject, shipper: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={newProject.shipper_email}
+                        onChange={(e) => setNewProject({ ...newProject, shipper_email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input
+                        type="tel"
+                        value={newProject.shipper_phone}
+                        onChange={(e) => setNewProject({ ...newProject, shipper_phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t('fda.client')}</Label>
-                  <Input
-                    value={newProject.client}
-                    onChange={(e) => setNewProject({ ...newProject, client: e.target.value })}
-                  />
+
+                {/* Consignee */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium text-muted-foreground">{t('fda.consignee')}</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Name</Label>
+                      <Input
+                        value={newProject.consignee}
+                        onChange={(e) => setNewProject({ ...newProject, consignee: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={newProject.consignee_email}
+                        onChange={(e) => setNewProject({ ...newProject, consignee_email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input
+                        type="tel"
+                        value={newProject.consignee_phone}
+                        onChange={(e) => setNewProject({ ...newProject, consignee_phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <Button onClick={handleCreateProject} className="w-full">
+
+                {/* Client */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium text-muted-foreground">{t('fda.client')}</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Name</Label>
+                      <Input
+                        value={newProject.client}
+                        onChange={(e) => setNewProject({ ...newProject, client: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={newProject.client_email}
+                        onChange={(e) => setNewProject({ ...newProject, client_email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input
+                        type="tel"
+                        value={newProject.client_phone}
+                        onChange={(e) => setNewProject({ ...newProject, client_phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Billing Information */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium text-muted-foreground">Billing Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Company</Label>
+                      <Input
+                        value={newProject.billing_company}
+                        onChange={(e) => setNewProject({ ...newProject, billing_company: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={newProject.billing_email}
+                        onChange={(e) => setNewProject({ ...newProject, billing_email: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Address</Label>
+                      <Input
+                        value={newProject.billing_address}
+                        onChange={(e) => setNewProject({ ...newProject, billing_address: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input
+                        type="tel"
+                        value={newProject.billing_phone}
+                        onChange={(e) => setNewProject({ ...newProject, billing_phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Button onClick={handleCreateProject} className="w-full" disabled={!newProject.code}>
                   Create Project
                 </Button>
               </div>

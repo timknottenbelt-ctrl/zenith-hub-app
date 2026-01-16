@@ -53,8 +53,18 @@ export interface FdaProject {
   lbh_number: string | null;
   ship_name: string | null;
   shipper: string | null;
+  shipper_email: string | null;
+  shipper_phone: string | null;
   consignee: string | null;
+  consignee_email: string | null;
+  consignee_phone: string | null;
   client: string | null;
+  client_email: string | null;
+  client_phone: string | null;
+  billing_company: string | null;
+  billing_address: string | null;
+  billing_email: string | null;
+  billing_phone: string | null;
   fda_responsible: string | null;
   created_at: string;
   sent_at: string | null;
