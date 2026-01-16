@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // BUILD_ID forces rebuild when changed
-export const BUILD_ID = '1768578800000';
+export const BUILD_ID = '1768579405123';
 
 // Env presence checks (boolean only, never log actual values)
 export const ENV_STATUS = {
@@ -55,8 +55,8 @@ export function getSupabaseInitError(): string | null {
 }
 
 /**
- * Quick connectivity test: SELECT 1
- * Returns { ok: true } or { ok: false, error: string, code?: string }
+ * Quick connectivity test.
+ * We do a simple select against a likely table and surface the exact API error.
  */
 export async function testSupabaseConnection(): Promise<{
   ok: boolean;
@@ -69,21 +69,23 @@ export async function testSupabaseConnection(): Promise<{
   }
 
   try {
-    const { data, error } = await client.rpc('', {}).maybeSingle();
-    // rpc with empty name will fail, so let's use a raw query instead
-    const result = await client.from('_dummy_ping_').select('1').limit(1);
-    
-    // We expect a 404 or similar because table doesn't exist, but connection works
-    // If we get a network error or auth error, that's the real issue
+    // If this errors with RLS/auth, we want to see it.
+    // If the table does not exist yet, treat that as "connected".
+    const result = await client.from('fda_projects').select('id').limit(1);
+
     if (result.error) {
-      // PGRST116 = table not found (expected, connection works)
-      // 42P01 = relation does not exist (expected, connection works)
       const code = result.error.code || '';
-      if (code === 'PGRST116' || code === '42P01' || result.error.message?.includes('does not exist')) {
-        return { ok: true }; // Connection works, table just doesn't exist
-      }
+      const msg = result.error.message || '';
+      const tableMissing =
+        code === 'PGRST116' ||
+        code === '42P01' ||
+        msg.toLowerCase().includes('does not exist') ||
+        msg.toLowerCase().includes('not found');
+
+      if (tableMissing) return { ok: true };
       return { ok: false, error: result.error.message, code };
     }
+
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };

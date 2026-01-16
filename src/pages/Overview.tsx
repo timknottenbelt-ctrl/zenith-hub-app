@@ -74,7 +74,10 @@ export default function Overview() {
     <DashboardLayout title={t('overview.title')}>
       <div className="space-y-6">
         {/* Debug Panel - only visible in dev/preview */}
-        <SupabaseDebugPanel />
+        {(import.meta.env.DEV ||
+          (typeof window !== 'undefined' &&
+            (window.location.hostname.includes('lovable.app') ||
+              window.location.hostname.includes('lovableproject.com')))) && <SupabaseDebugPanel />}
 
         {/* Quick Actions */}
         <div className="flex gap-3">

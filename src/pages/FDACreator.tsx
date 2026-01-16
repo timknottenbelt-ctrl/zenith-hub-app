@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { supabase, FdaProject, FdaInvoice } from '@/lib/supabase';
+import { getSupabaseClient, FdaProject, FdaInvoice } from '@/lib/supabase';
 import { toast } from '@/hooks/use-toast';
 import {
   Plus,
@@ -69,6 +69,17 @@ export default function FDACreator() {
 
   async function fetchProjects() {
     setLoading(true);
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('fda_projects')
       .select('*')
@@ -83,10 +94,10 @@ export default function FDACreator() {
   }
 
   async function fetchInvoices(projectId: string) {
-    const { data, error } = await supabase
-      .from('fda_invoices')
-      .select('*')
-      .eq('fda_project_id', projectId);
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    const { data, error } = await supabase.from('fda_invoices').select('*').eq('fda_project_id', projectId);
 
     if (error) {
       console.error('Error fetching invoices:', error);
@@ -96,24 +107,41 @@ export default function FDACreator() {
   }
 
   async function handleCreateProject() {
-    const { data, error } = await supabase
-      .from('fda_projects')
-      .insert(newProject)
-      .select()
-      .single();
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const { data, error } = await supabase.from('fda_projects').insert(newProject).select().single();
 
     if (error) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
     } else {
       toast({ title: t('common.success'), description: 'Project created' });
       setShowNewDialog(false);
-      setNewProject({ 
-        code: '', lbh_number: '', ship_name: '', 
-        shipper: '', shipper_email: '', shipper_phone: '',
-        consignee: '', consignee_email: '', consignee_phone: '',
-        client: '', client_email: '', client_phone: '',
-        billing_company: '', billing_address: '', billing_email: '', billing_phone: '',
-        fda_responsible: '' 
+      setNewProject({
+        code: '',
+        lbh_number: '',
+        ship_name: '',
+        shipper: '',
+        shipper_email: '',
+        shipper_phone: '',
+        consignee: '',
+        consignee_email: '',
+        consignee_phone: '',
+        client: '',
+        client_email: '',
+        client_phone: '',
+        billing_company: '',
+        billing_address: '',
+        billing_email: '',
+        billing_phone: '',
+        fda_responsible: '',
       });
       fetchProjects();
       if (data) setSelectedProject(data);
@@ -121,6 +149,16 @@ export default function FDACreator() {
   }
 
   async function handleDeleteProject(id: string) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const { error } = await supabase.from('fda_projects').delete().eq('id', id);
     if (error) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
@@ -135,6 +173,17 @@ export default function FDACreator() {
     if (!selectedProject) return;
     setUploading(true);
 
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      setUploading(false);
+      return;
+    }
+
     for (const file of Array.from(files)) {
       if (file.type !== 'application/pdf') {
         toast({ title: 'Error', description: 'Only PDF files are allowed', variant: 'destructive' });
@@ -142,23 +191,19 @@ export default function FDACreator() {
       }
 
       const filePath = `${selectedProject.id}/${Date.now()}-${file.name}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('fda-invoices')
-        .upload(filePath, file);
+
+      const { error: uploadError } = await supabase.storage.from('fda-invoices').upload(filePath, file);
 
       if (uploadError) {
         toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
         continue;
       }
 
-      const { error: insertError } = await supabase
-        .from('fda_invoices')
-        .insert({
-          fda_project_id: selectedProject.id,
-          file_path: filePath,
-          file_name: file.name,
-        });
+      const { error: insertError } = await supabase.from('fda_invoices').insert({
+        fda_project_id: selectedProject.id,
+        file_path: filePath,
+        file_name: file.name,
+      });
 
       if (insertError) {
         toast({ title: 'Error saving invoice', description: insertError.message, variant: 'destructive' });
@@ -171,6 +216,16 @@ export default function FDACreator() {
   }
 
   async function handleDeleteInvoice(invoice: FdaInvoice) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     await supabase.storage.from('fda-invoices').remove([invoice.file_path]);
     await supabase.from('fda_invoices').delete().eq('id', invoice.id);
     await fetchInvoices(selectedProject!.id);
@@ -178,15 +233,27 @@ export default function FDACreator() {
   }
 
   async function getSignedUrl(filePath: string) {
-    const { data } = await supabase.storage
-      .from('fda-invoices')
-      .createSignedUrl(filePath, 3600);
+    const supabase = getSupabaseClient();
+    if (!supabase) return undefined;
+
+    const { data } = await supabase.storage.from('fda-invoices').createSignedUrl(filePath, 3600);
     return data?.signedUrl;
   }
 
   async function handleCreateFDA() {
     if (!selectedProject) return;
     setSending(true);
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      setSending(false);
+      return;
+    }
 
     const invoiceUrls = await Promise.all(
       invoices.map(async (inv) => ({

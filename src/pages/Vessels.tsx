@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { supabase, Vessel } from '@/lib/supabase';
+import { getSupabaseClient, Vessel } from '@/lib/supabase';
 import { toast } from '@/hooks/use-toast';
 import { Search, Ship, Loader2 } from 'lucide-react';
 
@@ -39,10 +39,18 @@ export default function Vessels() {
 
   async function fetchVessels() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('vessels')
-      .select('*')
-      .order('name');
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase.from('vessels').select('*').order('name');
 
     if (error) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
