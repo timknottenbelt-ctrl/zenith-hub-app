@@ -25,11 +25,10 @@ import {
 } from 'lucide-react';
 
 type Email = Tables<'email'>;
-type EmailType = 'Cargo Agent' | 'Owners Agent' | 'Out of Scope';
 
-const EMAIL_TYPE_MAP: Record<string, EmailType> = {
-  'CARGO_AGENT': 'Cargo Agent',
-  'OWNERS_AGENT': 'Owners Agent',
+const EMAIL_TYPE_MAP: Record<string, string> = {
+  'CARGO_AGENT': 'CARGO AGENT',
+  'OWNERS_AGENT': 'OWNERS_AGENT',
   'OUT_OF_SCOPE': 'Out of Scope',
 };
 
