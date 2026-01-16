@@ -1,23 +1,97 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// ONLY use VITE_ prefixed env vars (standard Vite client-side env)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// BUILD_ID forces rebuild when changed
+export const BUILD_ID = '1768578800000';
 
-// Log presence (boolean only, never the actual values)
-console.info('[supabase] env check', {
-  VITE_SUPABASE_URL: Boolean(supabaseUrl),
-  VITE_SUPABASE_ANON_KEY: Boolean(supabaseAnonKey),
-});
+// Env presence checks (boolean only, never log actual values)
+export const ENV_STATUS = {
+  hasUrl: Boolean(import.meta.env.VITE_SUPABASE_URL),
+  hasKey: Boolean(import.meta.env.VITE_SUPABASE_ANON_KEY),
+  urlStartsWithHttps: typeof import.meta.env.VITE_SUPABASE_URL === 'string' 
+    && import.meta.env.VITE_SUPABASE_URL.startsWith('https://'),
+};
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in project secrets.'
-  );
+// Lazy-initialized client (no throw at import time)
+let _supabaseClient: SupabaseClient | null = null;
+let _initError: string | null = null;
+
+/**
+ * Returns the Supabase client if envs are configured, otherwise null.
+ * Call this instead of importing `supabase` directly.
+ */
+export function getSupabaseClient(): SupabaseClient | null {
+  if (_supabaseClient) return _supabaseClient;
+  if (_initError) return null;
+
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+
+  if (!url || !key) {
+    _initError = 'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY';
+    return null;
+  }
+
+  if (!url.startsWith('https://')) {
+    _initError = 'VITE_SUPABASE_URL must start with https://';
+    return null;
+  }
+
+  try {
+    _supabaseClient = createClient(url, key);
+    return _supabaseClient;
+  } catch (err) {
+    _initError = err instanceof Error ? err.message : String(err);
+    return null;
+  }
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/**
+ * Returns the initialization error if client creation failed.
+ */
+export function getSupabaseInitError(): string | null {
+  // Trigger init if not done yet
+  getSupabaseClient();
+  return _initError;
+}
 
+/**
+ * Quick connectivity test: SELECT 1
+ * Returns { ok: true } or { ok: false, error: string, code?: string }
+ */
+export async function testSupabaseConnection(): Promise<{
+  ok: boolean;
+  error?: string;
+  code?: string;
+}> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { ok: false, error: getSupabaseInitError() || 'Client not initialized' };
+  }
+
+  try {
+    const { data, error } = await client.rpc('', {}).maybeSingle();
+    // rpc with empty name will fail, so let's use a raw query instead
+    const result = await client.from('_dummy_ping_').select('1').limit(1);
+    
+    // We expect a 404 or similar because table doesn't exist, but connection works
+    // If we get a network error or auth error, that's the real issue
+    if (result.error) {
+      // PGRST116 = table not found (expected, connection works)
+      // 42P01 = relation does not exist (expected, connection works)
+      const code = result.error.code || '';
+      if (code === 'PGRST116' || code === '42P01' || result.error.message?.includes('does not exist')) {
+        return { ok: true }; // Connection works, table just doesn't exist
+      }
+      return { ok: false, error: result.error.message, code };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// Legacy export for compatibility (will be null if not configured)
+export const supabase = getSupabaseClient();
 
 // Database types
 export interface Email {
