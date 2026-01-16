@@ -1,37 +1,22 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
-const env = import.meta.env as Record<string, string | undefined>;
+// ONLY use VITE_ prefixed env vars (standard Vite client-side env)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-// Support both naming schemes:
-// - VITE_* (standard Vite client-side env)
-// - SUPABASE_* (some deployments expose secrets without the VITE_ prefix)
-const supabaseUrl = env.VITE_SUPABASE_URL ?? env.SUPABASE_URL ?? '';
-const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY ?? env.SUPABASE_ANON_KEY ?? '';
-
-console.info('[supabase] env present', {
-  VITE_SUPABASE_URL: Boolean(env.VITE_SUPABASE_URL),
-  SUPABASE_URL: Boolean(env.SUPABASE_URL),
-  VITE_SUPABASE_ANON_KEY: Boolean(env.VITE_SUPABASE_ANON_KEY),
-  SUPABASE_ANON_KEY: Boolean(env.SUPABASE_ANON_KEY),
+// Log presence (boolean only, never the actual values)
+console.info('[supabase] env check', {
+  VITE_SUPABASE_URL: Boolean(supabaseUrl),
+  VITE_SUPABASE_ANON_KEY: Boolean(supabaseAnonKey),
 });
 
-function createDisabledClient(): SupabaseClient {
-  return new Proxy(
-    {},
-    {
-      get() {
-        throw new Error(
-          'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (or SUPABASE_URL / SUPABASE_ANON_KEY) in project secrets.'
-        );
-      },
-    }
-  ) as unknown as SupabaseClient;
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in project secrets.'
+  );
 }
 
-export const supabase: SupabaseClient =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : createDisabledClient();
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 
 // Database types
