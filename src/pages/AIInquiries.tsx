@@ -249,7 +249,13 @@ export default function AIInquiries() {
                         {selectedEmail.doc_link && (
                           <a href={selectedEmail.doc_link} target="_blank" rel="noopener noreferrer" 
                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
-                            <ExternalLink className="w-3.5 h-3.5" /> Doc Link
+                            <ExternalLink className="w-3.5 h-3.5" /> Doc Link 1
+                          </a>
+                        )}
+                        {selectedEmail.dock_link_2 && (
+                          <a href={selectedEmail.dock_link_2} target="_blank" rel="noopener noreferrer" 
+                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
+                            <ExternalLink className="w-3.5 h-3.5" /> Doc Link 2
                           </a>
                         )}
                         {selectedEmail['Google sheet url'] && (

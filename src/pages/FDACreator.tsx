@@ -599,36 +599,125 @@ export default function FDACreator() {
                 Create FDA
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New FDA Project</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label>LBH Number *</Label>
-                  <Input
-                    value={formData.lbh_number}
-                    onChange={(e) => handleInputChange('lbh_number', e.target.value)}
-                    placeholder="LBH-2024-001"
-                  />
+              <div className="space-y-6 pt-4">
+                {/* Vessel Info */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Ship className="w-4 h-4 text-primary" /> Vessel Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>LBH Number *</Label>
+                      <Input
+                        value={formData.lbh_number}
+                        onChange={(e) => handleInputChange('lbh_number', e.target.value)}
+                        placeholder="LBH-2024-001"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ship Name *</Label>
+                      <Input
+                        value={formData.ship_name}
+                        onChange={(e) => handleInputChange('ship_name', e.target.value)}
+                        placeholder="MV Ocean King"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>FDA Responsible</Label>
+                    <Input
+                      value={formData.fda_responsible}
+                      onChange={(e) => handleInputChange('fda_responsible', e.target.value)}
+                      placeholder="John Doe"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Ship Name *</Label>
-                  <Input
-                    value={formData.ship_name}
-                    onChange={(e) => handleInputChange('ship_name', e.target.value)}
-                    placeholder="MV Ocean King"
-                  />
+
+                <Separator />
+
+                {/* Client Info */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" /> Client Details
+                  </h3>
+                  <div className="space-y-2">
+                    <Label>Client Name</Label>
+                    <Input
+                      value={formData.client}
+                      onChange={(e) => handleInputChange('client', e.target.value)}
+                      placeholder="Client Name"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
+                      <Input
+                        type="email"
+                        value={formData.client_email}
+                        onChange={(e) => handleInputChange('client_email', e.target.value)}
+                        placeholder="client@company.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1"><Phone className="w-3 h-3" /> Phone</Label>
+                      <Input
+                        value={formData.client_phone}
+                        onChange={(e) => handleInputChange('client_phone', e.target.value)}
+                        placeholder="+1 234 567 890"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>FDA Responsible</Label>
-                  <Input
-                    value={formData.fda_responsible}
-                    onChange={(e) => handleInputChange('fda_responsible', e.target.value)}
-                    placeholder="John Doe"
-                  />
+
+                <Separator />
+
+                {/* Billing Info */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-primary" /> Billing Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Company Name</Label>
+                      <Input
+                        value={formData.billing_company}
+                        onChange={(e) => handleInputChange('billing_company', e.target.value)}
+                        placeholder="Billing Company"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
+                      <Input
+                        type="email"
+                        value={formData.billing_email}
+                        onChange={(e) => handleInputChange('billing_email', e.target.value)}
+                        placeholder="billing@company.com"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Billing Address</Label>
+                    <Input
+                      value={formData.billing_address}
+                      onChange={(e) => handleInputChange('billing_address', e.target.value)}
+                      placeholder="123 Business Street, City"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1"><Phone className="w-3 h-3" /> Phone</Label>
+                    <Input
+                      value={formData.billing_phone}
+                      onChange={(e) => handleInputChange('billing_phone', e.target.value)}
+                      placeholder="+1 234 567 890"
+                    />
+                  </div>
                 </div>
-                <Button onClick={handleCreateProject} disabled={saving} className="w-full">
+
+                <Button onClick={handleCreateProject} disabled={saving} className="w-full" size="lg">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
                   Create Project
                 </Button>
