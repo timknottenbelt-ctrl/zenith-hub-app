@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard,
   MessageSquare,
@@ -9,6 +11,7 @@ import {
   Ship,
   Users,
   Settings,
+  LogOut,
 } from 'lucide-react';
 
 const navItems = [
@@ -23,6 +26,7 @@ const navItems = [
 
 export function Sidebar() {
   const { t } = useLanguage();
+  const { user, signOut } = useAuth();
 
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-sidebar border-r border-sidebar-border flex flex-col z-50">
@@ -60,17 +64,30 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-sidebar-border">
+      {/* Footer with User Info */}
+      <div className="p-4 border-t border-sidebar-border space-y-3">
         <div className="flex items-center gap-3 px-2">
-          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-            <Users className="w-4 h-4 text-muted-foreground" />
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Users className="w-4 h-4 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">User</p>
-            <p className="text-xs text-muted-foreground truncate">user@example.com</p>
+            <p className="text-sm font-medium text-foreground truncate">
+              {user?.user_metadata?.name || 'Gebruiker'}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              {user?.email || ''}
+            </p>
           </div>
         </div>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="w-full justify-start text-muted-foreground hover:text-destructive"
+          onClick={signOut}
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Uitloggen
+        </Button>
       </div>
     </aside>
   );
