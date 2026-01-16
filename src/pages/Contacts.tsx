@@ -15,7 +15,6 @@ import { toast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, Users, Loader2 } from 'lucide-react';
 
 type Contact = Tables<'contacts'>;
-type ContactRole = 'AGENT' | 'CLIENT' | 'SERVICE_PROVIDER';
 
 const emptyContact = {
   name: '',
@@ -24,7 +23,7 @@ const emptyContact = {
   email: '',
   phone: '',
   function: '',
-  role: '' as ContactRole | '',
+  role: '',
 };
 
 export default function Contacts() {
@@ -60,7 +59,7 @@ export default function Contacts() {
       email: contact.email || '',
       phone: contact.phone || '',
       function: contact.function || '',
-      role: (contact.role || '') as ContactRole | '',
+      role: contact.role || '',
     });
     setShowDialog(true);
   }
@@ -258,7 +257,7 @@ export default function Contacts() {
                 <Label>{t('contacts.role')} *</Label>
                 <Select
                   value={form.role}
-                  onValueChange={(v) => setForm({ ...form, role: v as ContactRole })}
+                  onValueChange={(v) => setForm({ ...form, role: v })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select role" />
