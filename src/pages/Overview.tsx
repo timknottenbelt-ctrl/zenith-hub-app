@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { SupabaseDebugPanel } from '@/components/SupabaseDebugPanel';
 import {
   MessageSquare,
   FileText,
@@ -72,6 +73,9 @@ export default function Overview() {
   return (
     <DashboardLayout title={t('overview.title')}>
       <div className="space-y-6">
+        {/* Debug Panel - only visible in dev/preview */}
+        <SupabaseDebugPanel />
+
         {/* Quick Actions */}
         <div className="flex gap-3">
           <Button onClick={() => navigate('/inquiries')} className="gap-2">
