@@ -6,13 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getSupabaseClient, Contact } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, Users, Loader2 } from 'lucide-react';
 
+type Contact = Tables<'contacts'>;
 type ContactRole = 'AGENT' | 'CLIENT' | 'SERVICE_PROVIDER';
 
 const emptyContact = {
@@ -39,17 +41,6 @@ export default function Contacts() {
 
   async function fetchContacts() {
     setLoading(true);
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      toast({
-        title: t('common.error'),
-        description: 'Supabase is not configured in this build.',
-        variant: 'destructive',
-      });
-      setLoading(false);
-      return;
-    }
-
     const { data, error } = await supabase.from('contacts').select('*').order('name');
 
     if (error) {
@@ -69,7 +60,7 @@ export default function Contacts() {
       email: contact.email || '',
       phone: contact.phone || '',
       function: contact.function || '',
-      role: contact.role || '',
+      role: (contact.role || '') as ContactRole | '',
     });
     setShowDialog(true);
   }
@@ -81,18 +72,8 @@ export default function Contacts() {
   }
 
   async function handleSave() {
-    if (!form.name) {
-      toast({ title: 'Error', description: 'Name is required', variant: 'destructive' });
-      return;
-    }
-
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      toast({
-        title: t('common.error'),
-        description: 'Supabase is not configured in this build.',
-        variant: 'destructive',
-      });
+    if (!form.name || !form.role) {
+      toast({ title: 'Error', description: 'Name and role are required', variant: 'destructive' });
       return;
     }
 
@@ -103,7 +84,7 @@ export default function Contacts() {
       email: form.email || null,
       phone: form.phone || null,
       function: form.function || null,
-      role: form.role || null,
+      role: form.role,
     };
 
     if (editingContact) {
@@ -129,16 +110,6 @@ export default function Contacts() {
   }
 
   async function handleDelete(id: string) {
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      toast({
-        title: t('common.error'),
-        description: 'Supabase is not configured in this build.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     const { error } = await supabase.from('contacts').delete().eq('id', id);
     if (error) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
@@ -177,6 +148,9 @@ export default function Contacts() {
               <div className="text-center p-12">
                 <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">{t('common.noData')}</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Note: Contacts require authentication to access (RLS protected)
+                </p>
               </div>
             ) : (
               <Table>
@@ -200,7 +174,7 @@ export default function Contacts() {
                       <TableCell>
                         {contact.role && (
                           <Badge className={getRoleBadge(contact.role)} variant="secondary">
-                            {t(`contacts.${contact.role.toLowerCase()}`)}
+                            {contact.role}
                           </Badge>
                         )}
                       </TableCell>
@@ -281,7 +255,7 @@ export default function Contacts() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>{t('contacts.role')}</Label>
+                <Label>{t('contacts.role')} *</Label>
                 <Select
                   value={form.role}
                   onValueChange={(v) => setForm({ ...form, role: v as ContactRole })}
