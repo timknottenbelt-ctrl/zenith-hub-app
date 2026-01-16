@@ -24,9 +24,21 @@ import {
   Ship,
   MapPin,
   Calendar,
+  Upload,
+  FileText,
+  X,
 } from 'lucide-react';
 
 type Email = Tables<'email'>;
+
+interface EmailAttachment {
+  id: string;
+  email_id: number;
+  file_path: string;
+  file_name: string;
+  file_size: number | null;
+  created_at: string;
+}
 
 const EMAIL_TYPE_MAP: Record<string, string> = {
   'CARGO_AGENT': 'CARGO AGENT',
@@ -41,6 +53,8 @@ export default function AIInquiries() {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [emailAttachments, setEmailAttachments] = useState<EmailAttachment[]>([]);
   
   // Form state for editing
   const [editSubject, setEditSubject] = useState('');
@@ -55,6 +69,9 @@ export default function AIInquiries() {
     if (selectedEmail) {
       setEditSubject(selectedEmail.subject || '');
       setEditBody(selectedEmail.body || '');
+      fetchEmailAttachments(selectedEmail.id);
+    } else {
+      setEmailAttachments([]);
     }
   }, [selectedEmail]);
 
@@ -74,6 +91,66 @@ export default function AIInquiries() {
       setEmails(data || []);
     }
     setLoading(false);
+  }
+
+  async function fetchEmailAttachments(emailId: number) {
+    const { data } = await supabase
+      .from('email_attachments')
+      .select('*')
+      .eq('email_id', emailId)
+      .order('created_at', { ascending: false });
+    
+    setEmailAttachments((data as EmailAttachment[]) || []);
+  }
+
+  async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || !selectedEmail) return;
+
+    setUploadingPdf(true);
+
+    for (const file of Array.from(files)) {
+      if (file.type !== 'application/pdf') {
+        toast({ title: 'Error', description: 'Only PDF files are allowed', variant: 'destructive' });
+        continue;
+      }
+
+      const filePath = `email-attachments/${selectedEmail.id}/${Date.now()}-${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('pdfs')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+        continue;
+      }
+
+      const { error: insertError } = await supabase.from('email_attachments').insert({
+        email_id: selectedEmail.id,
+        file_path: filePath,
+        file_name: file.name,
+        file_size: file.size,
+      });
+
+      if (insertError) {
+        toast({ title: 'Error', description: insertError.message, variant: 'destructive' });
+      }
+    }
+
+    await fetchEmailAttachments(selectedEmail.id);
+    setUploadingPdf(false);
+    toast({ title: 'Success', description: 'PDF uploaded' });
+    e.target.value = '';
+  }
+
+  async function handleDeleteAttachment(attachment: EmailAttachment) {
+    await supabase.storage.from('pdfs').remove([attachment.file_path]);
+    await supabase.from('email_attachments').delete().eq('id', attachment.id);
+    if (selectedEmail) {
+      await fetchEmailAttachments(selectedEmail.id);
+    }
+    toast({ title: 'Success', description: 'Attachment deleted' });
   }
 
   async function handleUpdateStatus(status: 'approved' | 'rejected') {
@@ -276,6 +353,66 @@ export default function AIInquiries() {
                         <div className="p-4 bg-muted/50 rounded-lg border">
                           <p className="text-xs font-medium mb-2 text-muted-foreground">Original Email:</p>
                           <pre className="whitespace-pre-wrap text-sm max-h-48 overflow-auto">{selectedEmail.original_email}</pre>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* PDF Attachments */}
+                  <Card className="card-premium">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-primary" />
+                          PDF Attachments ({emailAttachments.length})
+                        </CardTitle>
+                        <label className="cursor-pointer">
+                          <Button variant="outline" size="sm" asChild disabled={uploadingPdf}>
+                            <span>
+                              {uploadingPdf ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              ) : (
+                                <Upload className="w-4 h-4 mr-2" />
+                              )}
+                              Upload PDF
+                            </span>
+                          </Button>
+                          <input
+                            type="file"
+                            multiple
+                            accept=".pdf"
+                            className="hidden"
+                            onChange={handlePdfUpload}
+                            disabled={uploadingPdf}
+                          />
+                        </label>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {emailAttachments.length === 0 ? (
+                        <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg">
+                          <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No PDFs attached yet</p>
+                          <p className="text-xs">Click "Upload PDF" to add attachments</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {emailAttachments.map((attachment) => (
+                            <div key={attachment.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg group">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <CheckCircle className="w-4 h-4 text-success shrink-0" />
+                                <span className="text-sm truncate">{attachment.file_name}</span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="shrink-0 opacity-0 group-hover:opacity-100 h-6 w-6"
+                                onClick={() => handleDeleteAttachment(attachment)}
+                              >
+                                <X className="w-3 h-3 text-destructive" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </CardContent>

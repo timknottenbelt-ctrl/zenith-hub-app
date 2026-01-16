@@ -188,6 +188,41 @@ export type Database = {
         }
         Relationships: []
       }
+      email_attachments: {
+        Row: {
+          created_at: string
+          email_id: number
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          email_id: number
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          email_id?: number
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_attachments_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "email"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fda_invoices: {
         Row: {
           created_at: string
