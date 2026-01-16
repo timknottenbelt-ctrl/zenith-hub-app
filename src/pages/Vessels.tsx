@@ -6,9 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getSupabaseClient, Vessel } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 import { Search, Ship, Loader2 } from 'lucide-react';
+
+type Vessel = Tables<'vessels'>;
 
 export default function Vessels() {
   const { t } = useLanguage();
@@ -29,7 +32,7 @@ export default function Vessels() {
         vessels.filter(
           (v) =>
             v.name.toLowerCase().includes(lower) ||
-            v.imo?.toLowerCase().includes(lower)
+            v.imo_number?.toLowerCase().includes(lower)
         )
       );
     } else {
@@ -39,16 +42,6 @@ export default function Vessels() {
 
   async function fetchVessels() {
     setLoading(true);
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      toast({
-        title: t('common.error'),
-        description: 'Supabase is not configured in this build.',
-        variant: 'destructive',
-      });
-      setLoading(false);
-      return;
-    }
 
     const { data, error } = await supabase.from('vessels').select('*').order('name');
 
@@ -109,16 +102,16 @@ export default function Vessels() {
                       onClick={() => setSelectedVessel(vessel)}
                     >
                       <TableCell className="font-medium">{vessel.name}</TableCell>
-                      <TableCell>{vessel.imo || '-'}</TableCell>
+                      <TableCell>{vessel.imo_number || '-'}</TableCell>
                       <TableCell>
                         {vessel.status && (
                           <Badge variant="secondary">{vessel.status}</Badge>
                         )}
                       </TableCell>
-                      <TableCell>{vessel.type || '-'}</TableCell>
+                      <TableCell>{vessel.vessel_type || '-'}</TableCell>
                       <TableCell>{vessel.flag || '-'}</TableCell>
                       <TableCell>{vessel.year_built || '-'}</TableCell>
-                      <TableCell>{vessel.dwt?.toLocaleString() || '-'}</TableCell>
+                      <TableCell>{vessel.dwt_mt?.toLocaleString() || '-'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -141,7 +134,7 @@ export default function Vessels() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">{t('vessels.imo')}</p>
-                    <p className="font-medium">{selectedVessel.imo || '-'}</p>
+                    <p className="font-medium">{selectedVessel.imo_number || '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">{t('vessels.status')}</p>
@@ -149,7 +142,7 @@ export default function Vessels() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">{t('vessels.type')}</p>
-                    <p className="font-medium">{selectedVessel.type || '-'}</p>
+                    <p className="font-medium">{selectedVessel.vessel_type || '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">{t('vessels.flag')}</p>
@@ -170,15 +163,15 @@ export default function Vessels() {
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">{t('vessels.loa')}</p>
-                      <p className="font-medium">{selectedVessel.loa ? `${selectedVessel.loa}m` : '-'}</p>
+                      <p className="font-medium">{selectedVessel.loa_m ? `${selectedVessel.loa_m}m` : '-'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">{t('vessels.beam')}</p>
-                      <p className="font-medium">{selectedVessel.beam ? `${selectedVessel.beam}m` : '-'}</p>
+                      <p className="font-medium">{selectedVessel.beam_m ? `${selectedVessel.beam_m}m` : '-'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">{t('vessels.draft')}</p>
-                      <p className="font-medium">{selectedVessel.draft ? `${selectedVessel.draft}m` : '-'}</p>
+                      <p className="font-medium">{selectedVessel.draft_m ? `${selectedVessel.draft_m}m` : '-'}</p>
                     </div>
                   </div>
                 </div>
@@ -188,7 +181,7 @@ export default function Vessels() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">{t('vessels.dwt')}</p>
-                      <p className="font-medium">{selectedVessel.dwt?.toLocaleString() || '-'}</p>
+                      <p className="font-medium">{selectedVessel.dwt_mt?.toLocaleString() || '-'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">{t('vessels.grossTonnage')}</p>
