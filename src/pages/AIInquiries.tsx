@@ -55,11 +55,24 @@ export default function AIInquiries() {
   const [sending, setSending] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [emailAttachments, setEmailAttachments] = useState<EmailAttachment[]>([]);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   
   // Form state for editing
   const [editSubject, setEditSubject] = useState('');
   const [editBody, setEditBody] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+
+  async function handlePreviewPdf(attachment: EmailAttachment) {
+    const { data } = await supabase.storage
+      .from('pdfs')
+      .createSignedUrl(attachment.file_path, 3600); // 1 hour
+    
+    if (data?.signedUrl) {
+      setPreviewPdfUrl(data.signedUrl);
+    } else {
+      toast({ title: 'Error', description: 'Could not load PDF preview', variant: 'destructive' });
+    }
+  }
 
   useEffect(() => {
     fetchEmails();
@@ -399,9 +412,13 @@ export default function AIInquiries() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           {emailAttachments.map((attachment) => (
                             <div key={attachment.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg group">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <CheckCircle className="w-4 h-4 text-success shrink-0" />
+                              <div 
+                                className="flex items-center gap-2 min-w-0 cursor-pointer hover:text-primary transition-colors"
+                                onClick={() => handlePreviewPdf(attachment)}
+                              >
+                                <FileText className="w-4 h-4 text-primary shrink-0" />
                                 <span className="text-sm truncate">{attachment.file_name}</span>
+                                <Eye className="w-3 h-3 text-muted-foreground" />
                               </div>
                               <Button
                                 variant="ghost"
@@ -413,6 +430,35 @@ export default function AIInquiries() {
                               </Button>
                             </div>
                           ))}
+                        </div>
+                      )}
+
+                      {/* PDF Preview Modal */}
+                      {previewPdfUrl && (
+                        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                          <div className="bg-background rounded-lg w-full max-w-5xl h-[90vh] flex flex-col">
+                            <div className="flex items-center justify-between p-4 border-b">
+                              <h3 className="font-semibold">PDF Preview</h3>
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" asChild>
+                                  <a href={previewPdfUrl} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="w-4 h-4 mr-2" />
+                                    Open in New Tab
+                                  </a>
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => setPreviewPdfUrl(null)}>
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex-1 p-4">
+                              <iframe
+                                src={previewPdfUrl}
+                                className="w-full h-full rounded border"
+                                title="PDF Preview"
+                              />
+                            </div>
+                          </div>
                         </div>
                       )}
                     </CardContent>
