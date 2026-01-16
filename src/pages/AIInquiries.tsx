@@ -14,7 +14,6 @@ import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 import {
   Eye,
-  Send,
   RefreshCw,
   Mail,
   Clock,
@@ -22,6 +21,9 @@ import {
   XCircle,
   Loader2,
   ExternalLink,
+  Ship,
+  MapPin,
+  Calendar,
 } from 'lucide-react';
 
 type Email = Tables<'email'>;
@@ -128,9 +130,9 @@ export default function AIInquiries() {
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Email List */}
-            <Card className="card-premium">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Email List - Smaller */}
+            <Card className="card-premium lg:col-span-1">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -143,7 +145,7 @@ export default function AIInquiries() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <ScrollArea className="h-[600px]">
+                <ScrollArea className="h-[calc(100vh-280px)]">
                   {loading ? (
                     <div className="flex items-center justify-center p-8">
                       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -158,26 +160,26 @@ export default function AIInquiries() {
                         <div
                           key={email.id}
                           onClick={() => setSelectedEmail(email)}
-                          className={`p-4 cursor-pointer transition-colors hover:bg-muted/50 ${
-                            selectedEmail?.id === email.id ? 'bg-muted' : ''
+                          className={`p-3 cursor-pointer transition-colors hover:bg-muted/50 ${
+                            selectedEmail?.id === email.id ? 'bg-primary/5 border-l-2 border-primary' : ''
                           }`}
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{email.subject || 'No subject'}</p>
-                              <p className="text-xs text-muted-foreground truncate">{email.email_to_person}</p>
-                              {email.vessel_name && (
-                                <p className="text-xs text-muted-foreground mt-1">🚢 {email.vessel_name}</p>
-                              )}
-                            </div>
-                            <Badge className={getStatusBadge(email.status)} variant="secondary">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="text-sm font-medium line-clamp-2">{email.subject || 'No subject'}</p>
+                            <Badge className={`${getStatusBadge(email.status)} text-xs shrink-0`} variant="secondary">
                               {getStatusIcon(email.status)}
-                              <span className="ml-1">{email.status}</span>
                             </Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(email.created_at).toLocaleString()}
-                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{email.email_to_person}</p>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                            {email.vessel_name && (
+                              <span className="flex items-center gap-1">
+                                <Ship className="w-3 h-3" />
+                                {email.vessel_name}
+                              </span>
+                            )}
+                            <span>{new Date(email.created_at).toLocaleDateString()}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -186,89 +188,94 @@ export default function AIInquiries() {
               </CardContent>
             </Card>
 
-            {/* Email Detail */}
-            <div className="space-y-4">
+            {/* Email Detail - Larger */}
+            <div className="lg:col-span-2 space-y-4">
               {selectedEmail ? (
                 <>
-                  {/* Email Info */}
+                  {/* Email Meta Info */}
                   <Card className="card-premium">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-medium">Email Details</CardTitle>
+                        <div className="space-y-1">
+                          <CardTitle className="text-lg font-semibold">{selectedEmail.subject || 'No subject'}</CardTitle>
+                          <p className="text-sm text-muted-foreground">To: {selectedEmail.email_to_person}</p>
+                        </div>
                         <Button variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)}>
                           <Eye className="w-4 h-4 mr-1" />
                           {showPreview ? 'Hide' : 'Show'} Original
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">To:</span>
-                          <p className="font-medium">{selectedEmail.email_to_person}</p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Created:</span>
-                          <p className="font-medium">{new Date(selectedEmail.created_at).toLocaleString()}</p>
-                        </div>
+                    <CardContent>
+                      {/* Quick Info Grid */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg mb-4">
                         {selectedEmail.vessel_name && (
-                          <div>
-                            <span className="text-muted-foreground">Vessel:</span>
-                            <p className="font-medium">{selectedEmail.vessel_name}</p>
+                          <div className="flex items-center gap-2">
+                            <Ship className="w-4 h-4 text-primary" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">Vessel</p>
+                              <p className="text-sm font-medium">{selectedEmail.vessel_name}</p>
+                            </div>
                           </div>
                         )}
                         {selectedEmail.port && (
-                          <div>
-                            <span className="text-muted-foreground">Port:</span>
-                            <p className="font-medium">{selectedEmail.port}</p>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-primary" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">Port</p>
+                              <p className="text-sm font-medium">{selectedEmail.port}</p>
+                            </div>
                           </div>
                         )}
                         {selectedEmail.eta && (
-                          <div>
-                            <span className="text-muted-foreground">ETA:</span>
-                            <p className="font-medium">{selectedEmail.eta}</p>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-primary" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">ETA</p>
+                              <p className="text-sm font-medium">{selectedEmail.eta}</p>
+                            </div>
                           </div>
                         )}
                         {selectedEmail.imo && (
                           <div>
-                            <span className="text-muted-foreground">IMO:</span>
-                            <p className="font-medium">{selectedEmail.imo}</p>
+                            <p className="text-xs text-muted-foreground">IMO</p>
+                            <p className="text-sm font-medium">{selectedEmail.imo}</p>
                           </div>
                         )}
                       </div>
 
                       {/* Links */}
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-3 mb-4">
                         {selectedEmail.doc_link && (
                           <a href={selectedEmail.doc_link} target="_blank" rel="noopener noreferrer" 
-                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                            <ExternalLink className="w-3 h-3" /> Doc Link
+                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
+                            <ExternalLink className="w-3.5 h-3.5" /> Doc Link
                           </a>
                         )}
                         {selectedEmail['Google sheet url'] && (
                           <a href={selectedEmail['Google sheet url']} target="_blank" rel="noopener noreferrer"
-                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                            <ExternalLink className="w-3 h-3" /> Google Sheet
+                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-success/10 text-success rounded-lg hover:bg-success/20 transition-colors">
+                            <ExternalLink className="w-3.5 h-3.5" /> Google Sheet
                           </a>
                         )}
                         {selectedEmail.pdf_url && (
                           <a href={selectedEmail.pdf_url} target="_blank" rel="noopener noreferrer"
-                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                            <ExternalLink className="w-3 h-3" /> PDF
+                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-warning/10 text-warning rounded-lg hover:bg-warning/20 transition-colors">
+                            <ExternalLink className="w-3.5 h-3.5" /> PDF
                           </a>
                         )}
                       </div>
 
                       {showPreview && selectedEmail.original_email && (
-                        <div className="mt-4 p-4 bg-muted/50 rounded-lg max-h-64 overflow-auto">
+                        <div className="p-4 bg-muted/50 rounded-lg border">
                           <p className="text-xs font-medium mb-2 text-muted-foreground">Original Email:</p>
-                          <pre className="whitespace-pre-wrap text-sm">{selectedEmail.original_email}</pre>
+                          <pre className="whitespace-pre-wrap text-sm max-h-48 overflow-auto">{selectedEmail.original_email}</pre>
                         </div>
                       )}
                     </CardContent>
                   </Card>
 
-                  {/* Edit Email */}
+                  {/* Edit Response - Full Height */}
                   <Card className="card-premium">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium">Edit Response</CardTitle>
@@ -286,16 +293,17 @@ export default function AIInquiries() {
                         <Textarea
                           value={editBody}
                           onChange={(e) => setEditBody(e.target.value)}
-                          rows={8}
-                          className="resize-none"
+                          rows={16}
+                          className="resize-none font-mono text-sm"
                         />
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-3 pt-2">
                         <Button
                           onClick={() => handleUpdateStatus('approved')}
                           disabled={sending}
                           className="flex-1 gap-2"
+                          size="lg"
                         >
                           {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                           Approve & Send
@@ -305,6 +313,7 @@ export default function AIInquiries() {
                           onClick={() => handleUpdateStatus('rejected')}
                           disabled={sending}
                           className="gap-2"
+                          size="lg"
                         >
                           <XCircle className="w-4 h-4" />
                           Reject
@@ -314,9 +323,10 @@ export default function AIInquiries() {
                   </Card>
                 </>
               ) : (
-                <Card className="card-premium">
-                  <CardContent className="flex items-center justify-center h-96 text-muted-foreground">
-                    Select an email to view details
+                <Card className="card-premium h-[calc(100vh-280px)] flex items-center justify-center">
+                  <CardContent className="text-center text-muted-foreground">
+                    <Mail className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Select an email to view details</p>
                   </CardContent>
                 </Card>
               )}
