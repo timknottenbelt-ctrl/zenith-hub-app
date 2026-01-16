@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { supabase, Profile } from '@/lib/supabase';
+import { getSupabaseClient, Profile } from '@/lib/supabase';
 import { toast } from '@/hooks/use-toast';
 import { Language } from '@/lib/i18n';
 import { User, Globe, Loader2 } from 'lucide-react';
@@ -29,10 +29,23 @@ export default function Settings() {
 
   async function fetchProfile() {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (user) {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
@@ -55,7 +68,20 @@ export default function Settings() {
 
   async function handleSave() {
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      setSaving(false);
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       toast({ title: 'Error', description: 'Not authenticated', variant: 'destructive' });
@@ -63,16 +89,14 @@ export default function Settings() {
       return;
     }
 
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({
-        id: user.id,
-        name: profile.name,
-        email: profile.email,
-        phone: profile.phone,
-        company: profile.company,
-        language,
-      });
+    const { error } = await supabase.from('profiles').upsert({
+      id: user.id,
+      name: profile.name,
+      email: profile.email,
+      phone: profile.phone,
+      company: profile.company,
+      language,
+    });
 
     if (error) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });

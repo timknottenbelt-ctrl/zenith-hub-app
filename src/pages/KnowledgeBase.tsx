@@ -3,7 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { supabase, KnowledgeFile } from '@/lib/supabase';
+import { getSupabaseClient, KnowledgeFile } from '@/lib/supabase';
 import { toast } from '@/hooks/use-toast';
 import {
   Upload,
@@ -42,6 +42,17 @@ export default function KnowledgeBase() {
 
   async function fetchFiles() {
     setLoading(true);
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('knowledge_files')
       .select('*')
@@ -68,6 +79,16 @@ export default function KnowledgeBase() {
 
   async function handleFileUpload(type: KnowledgeType, fileList: FileList) {
     setUploading(type);
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      setUploading(null);
+      return;
+    }
 
     for (const file of Array.from(fileList)) {
       if (file.type !== 'application/pdf') {
@@ -76,7 +97,7 @@ export default function KnowledgeBase() {
       }
 
       const filePath = `${type}/${Date.now()}-${file.name}`;
-      
+
       const { error: uploadError } = await supabase.storage
         .from('knowledge-pdfs')
         .upload(filePath, file);
@@ -86,13 +107,11 @@ export default function KnowledgeBase() {
         continue;
       }
 
-      const { error: insertError } = await supabase
-        .from('knowledge_files')
-        .insert({
-          type,
-          file_path: filePath,
-          file_name: file.name,
-        });
+      const { error: insertError } = await supabase.from('knowledge_files').insert({
+        type,
+        file_path: filePath,
+        file_name: file.name,
+      });
 
       if (insertError) {
         toast({ title: 'Error saving file', description: insertError.message, variant: 'destructive' });
@@ -105,6 +124,16 @@ export default function KnowledgeBase() {
   }
 
   async function handleDeleteFile(file: KnowledgeFile) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     await supabase.storage.from('knowledge-pdfs').remove([file.file_path]);
     await supabase.from('knowledge_files').delete().eq('id', file.id);
     await fetchFiles();
@@ -112,9 +141,10 @@ export default function KnowledgeBase() {
   }
 
   async function getSignedUrl(filePath: string) {
-    const { data } = await supabase.storage
-      .from('knowledge-pdfs')
-      .createSignedUrl(filePath, 3600);
+    const supabase = getSupabaseClient();
+    if (!supabase) return undefined;
+
+    const { data } = await supabase.storage.from('knowledge-pdfs').createSignedUrl(filePath, 3600);
     return data?.signedUrl;
   }
 

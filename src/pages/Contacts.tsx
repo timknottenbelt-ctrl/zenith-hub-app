@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { supabase, Contact } from '@/lib/supabase';
+import { getSupabaseClient, Contact } from '@/lib/supabase';
 import { toast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, Users, Loader2 } from 'lucide-react';
 
@@ -39,10 +39,18 @@ export default function Contacts() {
 
   async function fetchContacts() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('contacts')
-      .select('*')
-      .order('name');
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase.from('contacts').select('*').order('name');
 
     if (error) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
@@ -78,6 +86,16 @@ export default function Contacts() {
       return;
     }
 
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const payload = {
       name: form.name,
       company: form.company || null,
@@ -89,10 +107,7 @@ export default function Contacts() {
     };
 
     if (editingContact) {
-      const { error } = await supabase
-        .from('contacts')
-        .update(payload)
-        .eq('id', editingContact.id);
+      const { error } = await supabase.from('contacts').update(payload).eq('id', editingContact.id);
 
       if (error) {
         toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
@@ -114,6 +129,16 @@ export default function Contacts() {
   }
 
   async function handleDelete(id: string) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      toast({
+        title: t('common.error'),
+        description: 'Supabase is not configured in this build.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const { error } = await supabase.from('contacts').delete().eq('id', id);
     if (error) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
