@@ -55,15 +55,26 @@ export function SupabaseDebugPanel() {
       <CardContent className="space-y-4">
         {/* Environment Status */}
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold uppercase text-muted-foreground">Environment Variables</h4>
+          <h4 className="text-xs font-semibold uppercase text-muted-foreground">
+            Environment Variables
+          </h4>
           <div className="grid gap-1 text-sm font-mono">
-            <div className="flex items-center gap-2">
+            <div>MODE: {ENV_STATUS.mode}</div>
+            <div>DEV: {String(ENV_STATUS.isDev)} | PROD: {String(ENV_STATUS.isProd)}</div>
+            <div>
+              Host: {typeof window !== 'undefined' ? window.location.hostname : '(server)'}
+            </div>
+            <div className="flex items-center gap-2 pt-1">
               <StatusIcon ok={ENV_STATUS.hasUrl} />
-              <span>VITE_SUPABASE_URL present: {String(ENV_STATUS.hasUrl)}</span>
+              <span>
+                VITE_SUPABASE_URL present: {String(ENV_STATUS.hasUrl)} (len {ENV_STATUS.urlLength})
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <StatusIcon ok={ENV_STATUS.hasKey} />
-              <span>VITE_SUPABASE_ANON_KEY present: {String(ENV_STATUS.hasKey)}</span>
+              <span>
+                VITE_SUPABASE_ANON_KEY present: {String(ENV_STATUS.hasKey)} (len {ENV_STATUS.keyLength})
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <StatusIcon ok={ENV_STATUS.urlStartsWithHttps} />

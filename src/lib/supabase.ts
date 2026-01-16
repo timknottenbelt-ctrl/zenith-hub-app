@@ -3,12 +3,27 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // BUILD_ID forces rebuild when changed
 export const BUILD_ID = '1768579405123';
 
-// Env presence checks (boolean only, never log actual values)
+// Env presence checks (boolean/metadata only, never log actual secret values)
 export const ENV_STATUS = {
+  mode: import.meta.env.MODE,
+  isDev: Boolean(import.meta.env.DEV),
+  isProd: Boolean(import.meta.env.PROD),
+
   hasUrl: Boolean(import.meta.env.VITE_SUPABASE_URL),
   hasKey: Boolean(import.meta.env.VITE_SUPABASE_ANON_KEY),
-  urlStartsWithHttps: typeof import.meta.env.VITE_SUPABASE_URL === 'string' 
-    && import.meta.env.VITE_SUPABASE_URL.startsWith('https://'),
+
+  urlLength:
+    typeof import.meta.env.VITE_SUPABASE_URL === 'string'
+      ? import.meta.env.VITE_SUPABASE_URL.length
+      : 0,
+  keyLength:
+    typeof import.meta.env.VITE_SUPABASE_ANON_KEY === 'string'
+      ? import.meta.env.VITE_SUPABASE_ANON_KEY.length
+      : 0,
+
+  urlStartsWithHttps:
+    typeof import.meta.env.VITE_SUPABASE_URL === 'string' &&
+    import.meta.env.VITE_SUPABASE_URL.startsWith('https://'),
 };
 
 // Lazy-initialized client (no throw at import time)
@@ -94,7 +109,6 @@ export async function testSupabaseConnection(): Promise<{
 
 // Legacy export for compatibility (will be null if not configured)
 export const supabase = getSupabaseClient();
-
 // Database types
 export interface Email {
   id: string;
