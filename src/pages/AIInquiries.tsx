@@ -9,46 +9,41 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { supabase, Email, EmailAttachment } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 import {
   Eye,
   Send,
-  Upload,
-  Download,
-  Trash2,
-  ExternalLink,
   RefreshCw,
   Mail,
   Clock,
   CheckCircle,
   XCircle,
   Loader2,
+  ExternalLink,
 } from 'lucide-react';
 
-type Category = 'CARGO_AGENT' | 'OWNERS_AGENT' | 'OUT_OF_SCOPE';
+type Email = Tables<'email'>;
+type EmailType = 'Cargo Agent' | 'Owners Agent' | 'Out of Scope';
 
-const WEBHOOKS: Record<Category, string> = {
-  CARGO_AGENT: 'https://lbhcuracao.app.n8n.cloud/webhook-test/Send-Email-Loading-Discharge',
-  OWNERS_AGENT: 'https://lbhcuracao.app.n8n.cloud/webhook-test/Send-Email-Owners-Agent',
-  OUT_OF_SCOPE: 'https://lbhcuracao.app.n8n.cloud/webhook-test/SEND-REFERRAL-EMAIL',
+const EMAIL_TYPE_MAP: Record<string, EmailType> = {
+  'CARGO_AGENT': 'Cargo Agent',
+  'OWNERS_AGENT': 'Owners Agent',
+  'OUT_OF_SCOPE': 'Out of Scope',
 };
 
 export default function AIInquiries() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<Category>('CARGO_AGENT');
+  const [activeTab, setActiveTab] = useState<string>('CARGO_AGENT');
   const [emails, setEmails] = useState<Email[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
-  const [attachments, setAttachments] = useState<EmailAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [uploading, setUploading] = useState(false);
   
-  // Form state
-  const [toName, setToName] = useState('');
-  const [toEmail, setToEmail] = useState('');
-  const [composedSubject, setComposedSubject] = useState('');
-  const [composedMessage, setComposedMessage] = useState('');
+  // Form state for editing
+  const [editSubject, setEditSubject] = useState('');
+  const [editBody, setEditBody] = useState('');
   const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
@@ -57,21 +52,20 @@ export default function AIInquiries() {
 
   useEffect(() => {
     if (selectedEmail) {
-      setToName(selectedEmail.to_name || '');
-      setToEmail(selectedEmail.to_email || '');
-      setComposedSubject(selectedEmail.composed_subject || selectedEmail.subject);
-      setComposedMessage(selectedEmail.composed_message || '');
-      fetchAttachments(selectedEmail.id);
+      setEditSubject(selectedEmail.subject || '');
+      setEditBody(selectedEmail.body || '');
     }
   }, [selectedEmail]);
 
   async function fetchEmails() {
     setLoading(true);
+    const emailType = EMAIL_TYPE_MAP[activeTab];
+    
     const { data, error } = await supabase
       .from('email')
       .select('*')
-      .eq('category', activeTab)
-      .order('received_at', { ascending: false });
+      .eq('Email Type', emailType)
+      .order('created_at', { ascending: false });
 
     if (error) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
@@ -81,188 +75,53 @@ export default function AIInquiries() {
     setLoading(false);
   }
 
-  async function fetchAttachments(emailId: string) {
-    const { data, error } = await supabase
-      .from('email_attachments')
-      .select('*')
-      .eq('email_id', emailId);
-
-    if (error) {
-      console.error('Error fetching attachments:', error);
-    } else {
-      setAttachments(data || []);
-    }
-  }
-
-  async function handleFileUpload(files: FileList) {
-    if (!selectedEmail) return;
-    setUploading(true);
-
-    for (const file of Array.from(files)) {
-      if (file.type !== 'application/pdf') {
-        toast({ title: 'Error', description: 'Only PDF files are allowed', variant: 'destructive' });
-        continue;
-      }
-
-      const filePath = `${selectedEmail.id}/${Date.now()}-${file.name}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('email-pdfs')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
-        continue;
-      }
-
-      const { error: insertError } = await supabase
-        .from('email_attachments')
-        .insert({
-          email_id: selectedEmail.id,
-          file_path: filePath,
-          file_name: file.name,
-          mime_type: file.type,
-          size_bytes: file.size,
-        });
-
-      if (insertError) {
-        toast({ title: 'Error saving attachment', description: insertError.message, variant: 'destructive' });
-      }
-    }
-
-    await fetchAttachments(selectedEmail.id);
-    setUploading(false);
-    toast({ title: t('common.success'), description: 'Files uploaded successfully' });
-  }
-
-  async function handleDeleteAttachment(attachment: EmailAttachment) {
-    const { error: deleteStorageError } = await supabase.storage
-      .from('email-pdfs')
-      .remove([attachment.file_path]);
-
-    if (deleteStorageError) {
-      toast({ title: 'Error', description: deleteStorageError.message, variant: 'destructive' });
-      return;
-    }
-
-    const { error: deleteRecordError } = await supabase
-      .from('email_attachments')
-      .delete()
-      .eq('id', attachment.id);
-
-    if (deleteRecordError) {
-      toast({ title: 'Error', description: deleteRecordError.message, variant: 'destructive' });
-      return;
-    }
-
-    await fetchAttachments(selectedEmail!.id);
-    toast({ title: t('common.success'), description: 'Attachment deleted' });
-  }
-
-  async function getSignedUrl(filePath: string) {
-    const { data } = await supabase.storage
-      .from('email-pdfs')
-      .createSignedUrl(filePath, 3600);
-    return data?.signedUrl;
-  }
-
-  async function handleSend() {
+  async function handleUpdateStatus(status: 'approved' | 'rejected') {
     if (!selectedEmail) return;
     setSending(true);
 
-    // Update status to sending
-    await supabase
+    const { error } = await supabase
       .from('email')
       .update({ 
-        status: 'sending',
-        to_name: toName,
-        to_email: toEmail,
-        composed_subject: composedSubject,
-        composed_message: composedMessage,
+        status,
+        subject: editSubject,
+        body: editBody,
+        sent_at: status === 'approved' ? new Date().toISOString() : null,
       })
       .eq('id', selectedEmail.id);
 
-    // Get signed URLs for attachments
-    const pdfUrls = await Promise.all(
-      attachments.map(async (att) => ({
-        url: await getSignedUrl(att.file_path),
-        filename: att.file_name,
-      }))
-    );
-
-    const payload = {
-      email_id: selectedEmail.id,
-      category: activeTab,
-      original_email: {
-        subject: selectedEmail.subject,
-        from: selectedEmail.from_email,
-        received_at: selectedEmail.received_at,
-        body_html: selectedEmail.body_html,
-        body_text: selectedEmail.body_text,
-      },
-      composed_email: {
-        to_name: toName,
-        to_email: toEmail,
-        subject: composedSubject,
-        message: composedMessage,
-      },
-      sheet_links: selectedEmail.sheet_links || [],
-      pdfs: pdfUrls,
-    };
-
-    try {
-      const response = await fetch(WEBHOOKS[activeTab], {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) throw new Error('Webhook failed');
-
-      await supabase
-        .from('email')
-        .update({ status: 'sent', sent_at: new Date().toISOString() })
-        .eq('id', selectedEmail.id);
-
-      toast({ title: t('common.success'), description: 'Email sent successfully' });
+    if (error) {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: t('common.success'), description: `Email ${status}` });
       fetchEmails();
-    } catch (error) {
-      await supabase
-        .from('email')
-        .update({ status: 'failed', error_message: (error as Error).message })
-        .eq('id', selectedEmail.id);
-
-      toast({ title: t('common.error'), description: 'Failed to send email', variant: 'destructive' });
+      setSelectedEmail(null);
     }
-
     setSending(false);
   }
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      new: 'badge-new',
-      draft: 'badge-draft',
-      ready: 'badge-ready',
-      sending: 'badge-sending',
-      sent: 'badge-sent',
-      failed: 'badge-failed',
+      draft: 'bg-muted text-muted-foreground',
+      approved: 'bg-success/10 text-success',
+      sent: 'bg-success/10 text-success',
+      rejected: 'bg-destructive/10 text-destructive',
     };
-    return styles[status] || '';
+    return styles[status] || 'bg-muted text-muted-foreground';
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'new': return <Mail className="w-3 h-3" />;
       case 'draft': return <Clock className="w-3 h-3" />;
+      case 'approved': 
       case 'sent': return <CheckCircle className="w-3 h-3" />;
-      case 'failed': return <XCircle className="w-3 h-3" />;
-      default: return null;
+      case 'rejected': return <XCircle className="w-3 h-3" />;
+      default: return <Mail className="w-3 h-3" />;
     }
   };
 
   return (
     <DashboardLayout title={t('inquiries.title')}>
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Category)} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50">
           <TabsTrigger value="CARGO_AGENT">{t('inquiries.cargoAgent')}</TabsTrigger>
           <TabsTrigger value="OWNERS_AGENT">{t('inquiries.ownersAgent')}</TabsTrigger>
@@ -274,10 +133,15 @@ export default function AIInquiries() {
             {/* Email List */}
             <Card className="card-premium">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  Emails
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    Emails ({emails.length})
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" onClick={fetchEmails}>
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="h-[600px]">
@@ -301,8 +165,11 @@ export default function AIInquiries() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{email.subject}</p>
-                              <p className="text-xs text-muted-foreground truncate">{email.from_email}</p>
+                              <p className="text-sm font-medium truncate">{email.subject || 'No subject'}</p>
+                              <p className="text-xs text-muted-foreground truncate">{email.email_to_person}</p>
+                              {email.vessel_name && (
+                                <p className="text-xs text-muted-foreground mt-1">🚢 {email.vessel_name}</p>
+                              )}
                             </div>
                             <Badge className={getStatusBadge(email.status)} variant="secondary">
                               {getStatusIcon(email.status)}
@@ -310,7 +177,7 @@ export default function AIInquiries() {
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(email.received_at).toLocaleString()}
+                            {new Date(email.created_at).toLocaleString()}
                           </p>
                         </div>
                       ))}
@@ -324,202 +191,134 @@ export default function AIInquiries() {
             <div className="space-y-4">
               {selectedEmail ? (
                 <>
-                  {/* Original Email */}
+                  {/* Email Info */}
                   <Card className="card-premium">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-medium">Original Email</CardTitle>
+                        <CardTitle className="text-sm font-medium">Email Details</CardTitle>
                         <Button variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)}>
                           <Eye className="w-4 h-4 mr-1" />
-                          {t('inquiries.previewTemplate')}
+                          {showPreview ? 'Hide' : 'Show'} Original
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="text-muted-foreground">{t('inquiries.from')}:</span>
-                          <p className="font-medium">{selectedEmail.from_name || selectedEmail.from_email}</p>
+                          <span className="text-muted-foreground">To:</span>
+                          <p className="font-medium">{selectedEmail.email_to_person}</p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">{t('inquiries.receivedAt')}:</span>
-                          <p className="font-medium">{new Date(selectedEmail.received_at).toLocaleString()}</p>
+                          <span className="text-muted-foreground">Created:</span>
+                          <p className="font-medium">{new Date(selectedEmail.created_at).toLocaleString()}</p>
                         </div>
+                        {selectedEmail.vessel_name && (
+                          <div>
+                            <span className="text-muted-foreground">Vessel:</span>
+                            <p className="font-medium">{selectedEmail.vessel_name}</p>
+                          </div>
+                        )}
+                        {selectedEmail.port && (
+                          <div>
+                            <span className="text-muted-foreground">Port:</span>
+                            <p className="font-medium">{selectedEmail.port}</p>
+                          </div>
+                        )}
+                        {selectedEmail.eta && (
+                          <div>
+                            <span className="text-muted-foreground">ETA:</span>
+                            <p className="font-medium">{selectedEmail.eta}</p>
+                          </div>
+                        )}
+                        {selectedEmail.imo && (
+                          <div>
+                            <span className="text-muted-foreground">IMO:</span>
+                            <p className="font-medium">{selectedEmail.imo}</p>
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <span className="text-sm text-muted-foreground">{t('inquiries.subject')}:</span>
-                        <p className="font-medium">{selectedEmail.subject}</p>
+
+                      {/* Links */}
+                      <div className="flex flex-wrap gap-2">
+                        {selectedEmail.doc_link && (
+                          <a href={selectedEmail.doc_link} target="_blank" rel="noopener noreferrer" 
+                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                            <ExternalLink className="w-3 h-3" /> Doc Link
+                          </a>
+                        )}
+                        {selectedEmail['Google sheet url'] && (
+                          <a href={selectedEmail['Google sheet url']} target="_blank" rel="noopener noreferrer"
+                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                            <ExternalLink className="w-3 h-3" /> Google Sheet
+                          </a>
+                        )}
+                        {selectedEmail.pdf_url && (
+                          <a href={selectedEmail.pdf_url} target="_blank" rel="noopener noreferrer"
+                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                            <ExternalLink className="w-3 h-3" /> PDF
+                          </a>
+                        )}
                       </div>
-                      {showPreview && (
+
+                      {showPreview && selectedEmail.original_email && (
                         <div className="mt-4 p-4 bg-muted/50 rounded-lg max-h-64 overflow-auto">
-                          {selectedEmail.body_html ? (
-                            <div dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }} />
-                          ) : (
-                            <pre className="whitespace-pre-wrap text-sm">{selectedEmail.body_text}</pre>
-                          )}
+                          <p className="text-xs font-medium mb-2 text-muted-foreground">Original Email:</p>
+                          <pre className="whitespace-pre-wrap text-sm">{selectedEmail.original_email}</pre>
                         </div>
                       )}
                     </CardContent>
                   </Card>
 
-                  {/* Template Editor */}
+                  {/* Edit Email */}
                   <Card className="card-premium">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium">Compose Reply</CardTitle>
+                      <CardTitle className="text-sm font-medium">Edit Response</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>{t('inquiries.toName')}</Label>
-                          <Input
-                            value={toName}
-                            onChange={(e) => setToName(e.target.value)}
-                            placeholder="Recipient name"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>{t('inquiries.toEmail')}</Label>
-                          <Input
-                            value={toEmail}
-                            onChange={(e) => setToEmail(e.target.value)}
-                            type="email"
-                            placeholder="recipient@example.com"
-                          />
-                        </div>
-                      </div>
                       <div className="space-y-2">
                         <Label>{t('inquiries.subject')}</Label>
                         <Input
-                          value={composedSubject}
-                          onChange={(e) => setComposedSubject(e.target.value)}
+                          value={editSubject}
+                          onChange={(e) => setEditSubject(e.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>{t('inquiries.message')}</Label>
+                        <Label>Message Body</Label>
                         <Textarea
-                          value={composedMessage}
-                          onChange={(e) => setComposedMessage(e.target.value)}
-                          rows={6}
+                          value={editBody}
+                          onChange={(e) => setEditBody(e.target.value)}
+                          rows={8}
                           className="resize-none"
                         />
                       </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleUpdateStatus('approved')}
+                          disabled={sending}
+                          className="flex-1 gap-2"
+                        >
+                          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                          Approve & Send
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleUpdateStatus('rejected')}
+                          disabled={sending}
+                          className="gap-2"
+                        >
+                          <XCircle className="w-4 h-4" />
+                          Reject
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
-
-                  {/* Google Sheets Links */}
-                  {selectedEmail.sheet_links && selectedEmail.sheet_links.length > 0 && (
-                    <Card className="card-premium">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">{t('inquiries.sheetLinks')}</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {selectedEmail.sheet_links.map((link, i) => (
-                            <a
-                              key={i}
-                              href={link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-sm text-primary hover:underline"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                              Sheet {i + 1}
-                            </a>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* PDF Attachments */}
-                  <Card className="card-premium">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium">{t('inquiries.attachments')}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Upload Zone */}
-                      <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors">
-                        <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                        <span className="text-sm text-muted-foreground">{t('inquiries.dropPdfs')}</span>
-                        <input
-                          type="file"
-                          multiple
-                          accept=".pdf"
-                          className="hidden"
-                          onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
-                          disabled={uploading}
-                        />
-                      </label>
-
-                      {uploading && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Uploading...
-                        </div>
-                      )}
-
-                      {/* Attachment List */}
-                      {attachments.length > 0 && (
-                        <div className="space-y-2">
-                          {attachments.map((att) => (
-                            <div key={att.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
-                              <span className="text-sm truncate flex-1">{att.file_name}</span>
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={async () => {
-                                    const url = await getSignedUrl(att.file_path);
-                                    if (url) window.open(url, '_blank');
-                                  }}
-                                >
-                                  <Download className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteAttachment(att)}
-                                >
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Send Button */}
-                  <div className="flex justify-end gap-2">
-                    {selectedEmail.status === 'failed' && (
-                      <Button variant="outline" onClick={handleSend} disabled={sending}>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        {t('inquiries.retry')}
-                      </Button>
-                    )}
-                    <Button
-                      onClick={handleSend}
-                      disabled={sending || !toEmail || !composedSubject}
-                      className="gap-2"
-                    >
-                      {sending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          {t('inquiries.sending')}
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          {t('inquiries.send')}
-                        </>
-                      )}
-                    </Button>
-                  </div>
                 </>
               ) : (
-                <Card className="card-premium h-[600px] flex items-center justify-center">
-                  <p className="text-muted-foreground">{t('inquiries.selectEmail')}</p>
+                <Card className="card-premium">
+                  <CardContent className="flex items-center justify-center h-96 text-muted-foreground">
+                    Select an email to view details
+                  </CardContent>
                 </Card>
               )}
             </div>
