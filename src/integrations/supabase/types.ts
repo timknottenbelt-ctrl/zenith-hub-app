@@ -381,6 +381,7 @@ export type Database = {
           pda_link_1: string | null
           pda_link_2: string | null
           pdf_count: number | null
+          pdf_path: string | null
           port: string | null
           port_stay: number | null
           status: string | null
@@ -412,6 +413,7 @@ export type Database = {
           pda_link_1?: string | null
           pda_link_2?: string | null
           pdf_count?: number | null
+          pdf_path?: string | null
           port?: string | null
           port_stay?: number | null
           status?: string | null
@@ -443,6 +445,7 @@ export type Database = {
           pda_link_1?: string | null
           pda_link_2?: string | null
           pdf_count?: number | null
+          pdf_path?: string | null
           port?: string | null
           port_stay?: number | null
           status?: string | null
