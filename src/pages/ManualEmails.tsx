@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Mail,
-  Clock,
   CheckCircle,
   XCircle,
   Loader2,
@@ -81,6 +80,23 @@ export default function ManualEmails() {
   const [manualPdfFile, setManualPdfFile] = useState<File | null>(null);
   const [manualSending, setManualSending] = useState(false);
 
+
+  const areEmailsEquivalentForUI = (a: ManualEmail, b: ManualEmail) =>
+    a.id === b.id &&
+    a.status === b.status &&
+    a.subject === b.subject &&
+    a.body === b.body &&
+    a.pda_link_1 === b.pda_link_1 &&
+    a.pda_link_2 === b.pda_link_2 &&
+    a.pdf_path === b.pdf_path &&
+    a.vessel_name === b.vessel_name &&
+    a.imo === b.imo &&
+    a.port === b.port &&
+    a.company_name === b.company_name &&
+    a.contact_name === b.contact_name &&
+    a.email_content === b.email_content &&
+    a.agent_type === b.agent_type;
+
   useEffect(() => {
     fetchManualEmails();
   }, [filterAgentType]);
@@ -88,6 +104,7 @@ export default function ManualEmails() {
   // Auto-refresh polling for processing emails (silent, no UI flicker)
   useEffect(() => {
     if (selectedEmail?.status !== 'processing') return;
+    if (selectedEmail.id < 0) return; // optimistic placeholder, wait for realtime/id-based reconcile
 
     const interval = setInterval(async () => {
       const { data, error } = await supabase
@@ -96,11 +113,23 @@ export default function ManualEmails() {
         .eq('id', selectedEmail.id)
         .single();
 
-      if (!error && data) {
-        const updated = data as ManualEmail;
-        setSelectedEmail(updated);
-        setEmails((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
-      }
+      if (error || !data) return;
+
+      const updated = data as ManualEmail;
+
+      setSelectedEmail((prev) => {
+        if (!prev || prev.id !== updated.id) return prev;
+        return areEmailsEquivalentForUI(prev, updated) ? prev : updated;
+      });
+
+      setEmails((prev) => {
+        const idx = prev.findIndex((e) => e.id === updated.id);
+        if (idx === -1) return prev;
+        if (areEmailsEquivalentForUI(prev[idx], updated)) return prev;
+        const next = [...prev];
+        next[idx] = updated;
+        return next;
+      });
     }, 3000);
 
     return () => clearInterval(interval);
@@ -119,6 +148,8 @@ export default function ManualEmails() {
         },
         (payload) => {
           const eventType = payload.eventType;
+          const newRow = payload.new as ManualEmail | undefined;
+          const oldRow = payload.old as { id?: number } | undefined;
 
           setEmails((prev) => {
             const next = [...prev];
@@ -126,25 +157,45 @@ export default function ManualEmails() {
             const matchesFilter = (agentType?: string | null) =>
               filterAgentType === 'all' || agentType === filterAgentType;
 
-            if (eventType === 'INSERT') {
-              const row = payload.new as ManualEmail;
+            const findOptimisticMatchIndex = (row: ManualEmail) =>
+              next.findIndex(
+                (e) =>
+                  e.id < 0 &&
+                  e.agent_type === row.agent_type &&
+                  e.email_content === row.email_content
+              );
+
+            if (eventType === 'INSERT' && newRow) {
+              const row = newRow;
               if (!matchesFilter(row.agent_type)) return prev;
+
+              const optimisticIdx = findOptimisticMatchIndex(row);
+              if (optimisticIdx !== -1) {
+                next[optimisticIdx] = row;
+                return next;
+              }
+
               if (next.some((e) => e.id === row.id)) return prev;
               next.unshift(row);
               return next;
             }
 
-            if (eventType === 'UPDATE') {
-              const row = payload.new as ManualEmail;
+            if (eventType === 'UPDATE' && newRow) {
+              const row = newRow;
               const idx = next.findIndex((e) => e.id === row.id);
 
               if (!matchesFilter(row.agent_type)) {
-                // If it no longer matches, remove it
                 if (idx !== -1) next.splice(idx, 1);
                 return next;
               }
 
               if (idx === -1) {
+                const optimisticIdx = findOptimisticMatchIndex(row);
+                if (optimisticIdx !== -1) {
+                  next[optimisticIdx] = row;
+                  return next;
+                }
+
                 next.unshift(row);
                 return next;
               }
@@ -154,18 +205,28 @@ export default function ManualEmails() {
             }
 
             if (eventType === 'DELETE') {
-              const oldRow = payload.old as { id?: number };
-              return next.filter((e) => e.id !== oldRow.id);
+              const idToRemove = oldRow?.id;
+              return typeof idToRemove === 'number' ? next.filter((e) => e.id !== idToRemove) : prev;
             }
 
             return prev;
           });
 
-          // Keep details pane in sync
-          if (eventType === 'UPDATE' && selectedEmail?.id === (payload.new as { id: number }).id) {
-            setSelectedEmail(payload.new as ManualEmail);
+          // Keep details pane in sync (also replace optimistic selection)
+          if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRow) {
+            const isSameSelected = selectedEmail?.id === newRow.id;
+            const isOptimisticSelectedMatch =
+              !!selectedEmail &&
+              selectedEmail.id < 0 &&
+              selectedEmail.agent_type === newRow.agent_type &&
+              selectedEmail.email_content === newRow.email_content;
+
+            if (isSameSelected || isOptimisticSelectedMatch) {
+              setSelectedEmail(newRow);
+            }
           }
-          if (eventType === 'DELETE' && selectedEmail?.id === (payload.old as { id: number }).id) {
+
+          if (eventType === 'DELETE' && oldRow?.id && selectedEmail?.id === oldRow.id) {
             setSelectedEmail(null);
           }
         }
@@ -175,7 +236,7 @@ export default function ManualEmails() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedEmail?.id, filterAgentType]);
+  }, [selectedEmail?.id, selectedEmail?.agent_type, selectedEmail?.email_content, filterAgentType]);
 
   async function fetchManualEmails(options: { showLoading?: boolean } = {}) {
     const shouldShowLoading = options.showLoading ?? emails.length === 0;
@@ -195,7 +256,25 @@ export default function ManualEmails() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      setEmails((data as ManualEmail[]) || []);
+      const serverRows = (data as ManualEmail[]) || [];
+      setEmails((prev) => {
+        const optimistic = prev.filter(
+          (e) => e.id < 0 && (filterAgentType === 'all' || e.agent_type === filterAgentType)
+        );
+
+        // If the server already has the row, replace the optimistic placeholder (prevents "2 emails")
+        const resolvedOptimistic = optimistic.map((o) => {
+          const match = serverRows.find(
+            (row) => row.agent_type === o.agent_type && row.email_content === o.email_content
+          );
+          return match ?? o;
+        });
+
+        const resolvedIds = new Set(resolvedOptimistic.filter((e) => e.id > 0).map((e) => e.id));
+        const remainingServer = serverRows.filter((row) => !resolvedIds.has(row.id));
+
+        return [...resolvedOptimistic, ...remainingServer];
+      });
     }
 
     if (shouldShowLoading) setLoading(false);
@@ -207,19 +286,49 @@ export default function ManualEmails() {
       return;
     }
 
+    // Snapshot current inputs so we can clear the form without losing what we sent
+    const originalEmailContent = manualEmailContent;
+    const originalAgentType = manualAgentType;
+    const originalSubject = manualSubject.trim();
+
+    // Optimistic placeholder so it shows immediately in history (no disappearing / no flicker)
+    const optimisticId = -Date.now();
+    const optimisticEmail: ManualEmail = {
+      id: optimisticId,
+      created_at: new Date().toISOString(),
+      email_content: originalEmailContent,
+      agent_type: originalAgentType,
+      vessel_name: null,
+      imo: null,
+      port: null,
+      status: 'processing',
+      subject: originalSubject || 'AI is thinking…',
+      body: null,
+      pda_link_1: null,
+      pda_link_2: null,
+      company_name: null,
+      contact_name: null,
+      pdf_path: null,
+    };
+
+    // Make sure the user can see the new record even if a filter was active
+    if (filterAgentType !== 'all' && filterAgentType !== originalAgentType) {
+      setFilterAgentType('all');
+    }
+
+    setEmails((prev) => [optimisticEmail, ...prev]);
+    setSelectedEmail(optimisticEmail);
+    setActiveTab('history');
     setManualSending(true);
 
     try {
       // n8n is responsible for inserting/updating Supabase.
       // We only send the original email (email_content) + optional PDF.
       const formData = new FormData();
-      formData.append('email_content', manualEmailContent);
-      formData.append('agent_type', manualAgentType);
-      if (manualSubject.trim()) formData.append('subject', manualSubject.trim());
+      formData.append('email_content', originalEmailContent);
+      formData.append('agent_type', originalAgentType);
+      if (originalSubject) formData.append('subject', originalSubject);
       if (manualPdfFile) formData.append('pdf', manualPdfFile);
-
-      // Switch to history so user can immediately see incoming record(s)
-      setActiveTab('history');
 
       const response = await fetch('https://lbhcuracao.app.n8n.cloud/webhook-test/MANUAL-EMAIL-CREATION', {
         method: 'POST',
@@ -230,7 +339,7 @@ export default function ManualEmails() {
         throw new Error('Webhook request failed');
       }
 
-      // Best-effort: if n8n returns an id, try to auto-select it after refresh
+      // If n8n returns the Supabase id, we can immediately reconcile the optimistic placeholder
       let returnedId: number | null = null;
       try {
         const json = await response.clone().json();
@@ -241,24 +350,47 @@ export default function ManualEmails() {
         // ignore
       }
 
-      // Silent refresh so the list updates without blinking
-      setTimeout(() => {
-        fetchManualEmails({ showLoading: false });
-        if (returnedId) {
-          supabase
+      const reconcileWithRealRow = (real: ManualEmail) => {
+        setEmails((prev) => {
+          const withoutOptimistic = prev.filter((e) => e.id !== optimisticId);
+          if (withoutOptimistic.some((e) => e.id === real.id)) return withoutOptimistic;
+          return [real, ...withoutOptimistic];
+        });
+        setSelectedEmail(real);
+      };
+
+      if (returnedId) {
+        const tryFetchById = async () => {
+          const { data } = await supabase
             .from('manual_emails')
             .select('*')
             .eq('id', returnedId)
-            .single()
-            .then(({ data }) => {
-              if (data) setSelectedEmail(data as ManualEmail);
-            });
+            .single();
+          return (data as ManualEmail | null) ?? null;
+        };
+
+        const immediate = await tryFetchById();
+        if (immediate) {
+          reconcileWithRealRow(immediate);
+        } else {
+          const startedAt = Date.now();
+          const interval = window.setInterval(async () => {
+            const row = await tryFetchById();
+            if (row) {
+              window.clearInterval(interval);
+              reconcileWithRealRow(row);
+              return;
+            }
+            if (Date.now() - startedAt > 15000) {
+              window.clearInterval(interval);
+            }
+          }, 1500);
         }
-      }, 1000);
+      }
 
       toast({
         title: 'Email Submitted',
-        description: 'Email is being processed. Check the history for updates.',
+        description: 'AI is thinking… it will update automatically in the list.',
       });
 
       setManualEmailContent('');
@@ -267,6 +399,10 @@ export default function ManualEmails() {
       const fileInput = document.getElementById('manual-pdf-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
     } catch (error) {
+      // Remove optimistic placeholder if submission failed
+      setEmails((prev) => prev.filter((e) => e.id !== optimisticId));
+      setSelectedEmail((prev) => (prev?.id === optimisticId ? null : prev));
+
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to process email',
@@ -340,12 +476,17 @@ export default function ManualEmails() {
 
   const getStatusIcon = (status: string | null) => {
     switch (status) {
-      case 'processing': return <Clock className="w-3 h-3" />;
-      case 'completed': return <CheckCircle className="w-3 h-3" />;
-      case 'error': return <XCircle className="w-3 h-3" />;
-      default: return <Clock className="w-3 h-3" />;
+      case 'processing':
+        return <Loader2 className="w-3 h-3 animate-spin" />;
+      case 'completed':
+        return <CheckCircle className="w-3 h-3" />;
+      case 'error':
+        return <XCircle className="w-3 h-3" />;
+      default:
+        return <Loader2 className="w-3 h-3 animate-spin" />;
     }
   };
+
 
   return (
     <DashboardLayout title="Manual Emails">
