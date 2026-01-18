@@ -709,14 +709,18 @@ export default function ManualEmails() {
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="text-sm font-medium line-clamp-2">
-                              {email.vessel_name || email.subject || 'No subject'}
+                            <p className="text-sm font-medium line-clamp-1">
+                              {email.vessel_name || 'TBN'}
                             </p>
-                            <Badge className={`${getStatusBadge(email.status)} text-xs shrink-0`} variant="secondary">
-                              {getStatusIcon(email.status)}
-                            </Badge>
+                            {email.status === 'processing' ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
+                            ) : (
+                              <Badge className={`${getStatusBadge(email.status)} text-xs shrink-0`} variant="secondary">
+                                {getStatusIcon(email.status)}
+                              </Badge>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="text-xs">
                               {email.agent_type === 'OWNERS_AGENT' ? 'Owners' : 'Cargo'}
                             </Badge>
@@ -724,6 +728,11 @@ export default function ManualEmails() {
                               <span className="text-xs text-muted-foreground">{email.port}</span>
                             )}
                           </div>
+                          {email.subject && email.subject !== 'AI is thinking…' && (
+                            <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1 italic">
+                              {email.subject}
+                            </p>
+                          )}
                           <p className="text-xs text-muted-foreground mt-1">
                             {email.created_at ? new Date(email.created_at).toLocaleString('nl-NL') : 'Unknown date'}
                           </p>

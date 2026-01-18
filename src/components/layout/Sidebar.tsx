@@ -24,9 +24,31 @@ const navItems = [
   { key: 'settings', icon: Settings, path: '/settings' },
 ];
 
+const OFFICE_FLAGS: Record<string, string> = {
+  nl: '🇳🇱',
+  cw: '🇨🇼',
+  br: '🇧🇷',
+  pa: '🇵🇦',
+  cl: '🇨🇱',
+  ar: '🇦🇷',
+  uy: '🇺🇾',
+  co: '🇨🇴',
+  ca: '🇨🇦',
+  be: '🇧🇪',
+  it: '🇮🇹',
+  eg: '🇪🇬',
+  cn: '🇨🇳',
+  za: '🇿🇦',
+  ke: '🇰🇪',
+  mz: '🇲🇿',
+  kr: '🇰🇷',
+};
+
 export function Sidebar() {
-  const { t } = useLanguage();
+  const { t, office } = useLanguage();
   const { user, signOut } = useAuth();
+
+  const officeFlag = office ? OFFICE_FLAGS[office] : null;
 
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-sidebar border-r border-sidebar-border flex flex-col z-50">
@@ -37,6 +59,7 @@ export function Sidebar() {
             <Ship className="w-5 h-5 text-primary-foreground" />
           </div>
           <span className="font-semibold text-foreground text-lg">LBH Portal</span>
+          {officeFlag && <span className="text-lg">{officeFlag}</span>}
         </div>
       </div>
 

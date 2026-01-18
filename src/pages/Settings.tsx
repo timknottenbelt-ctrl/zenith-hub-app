@@ -23,8 +23,28 @@ import {
   Shield,
 } from 'lucide-react';
 
+const LBH_OFFICES = [
+  { code: 'nl', name: 'Nederland', flag: '🇳🇱' },
+  { code: 'cw', name: 'Curaçao', flag: '🇨🇼' },
+  { code: 'br', name: 'Brazilië', flag: '🇧🇷' },
+  { code: 'pa', name: 'Panama', flag: '🇵🇦' },
+  { code: 'cl', name: 'Chili', flag: '🇨🇱' },
+  { code: 'ar', name: 'Argentinië', flag: '🇦🇷' },
+  { code: 'uy', name: 'Uruguay', flag: '🇺🇾' },
+  { code: 'co', name: 'Colombia', flag: '🇨🇴' },
+  { code: 'ca', name: 'Canada', flag: '🇨🇦' },
+  { code: 'be', name: 'België', flag: '🇧🇪' },
+  { code: 'it', name: 'Italië', flag: '🇮🇹' },
+  { code: 'eg', name: 'Egypte', flag: '🇪🇬' },
+  { code: 'cn', name: 'China', flag: '🇨🇳' },
+  { code: 'za', name: 'Zuid-Afrika', flag: '🇿🇦' },
+  { code: 'ke', name: 'Kenia', flag: '🇰🇪' },
+  { code: 'mz', name: 'Mozambique', flag: '🇲🇿' },
+  { code: 'kr', name: 'Zuid-Korea', flag: '🇰🇷' },
+];
+
 export default function Settings() {
-  const { t, language, setLanguage } = useLanguage();
+  const { t, language, setLanguage, office, setOffice } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -314,6 +334,34 @@ export default function Settings() {
                   placeholder="Company Name"
                 />
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* LBH Office Section */}
+        <Card className="card-premium">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              LBH Kantoor
+            </CardTitle>
+            <CardDescription>Selecteer je LBH kantoor locatie</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="max-w-xs space-y-2">
+              <Label>Kantoor</Label>
+              <Select value={office || ''} onValueChange={(v) => setOffice(v || null)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecteer kantoor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LBH_OFFICES.map((o) => (
+                    <SelectItem key={o.code} value={o.code}>
+                      {o.flag} {o.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
