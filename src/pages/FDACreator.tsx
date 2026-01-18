@@ -57,6 +57,7 @@ interface FDAInvoice {
   file_name: string;
   file_size: number | null;
   created_at: string;
+  invoice_number?: string;
 }
 
 interface FDAFormData {
@@ -80,6 +81,7 @@ export default function FDACreator() {
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<FDAProject | null>(null);
   const [projectInvoices, setProjectInvoices] = useState<FDAInvoice[]>([]);
+  const [invoiceNumbers, setInvoiceNumbers] = useState<Record<string, string>>({});
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
@@ -140,9 +142,17 @@ export default function FDACreator() {
       .from('fda_invoices')
       .select('*')
       .eq('fda_project_id', projectId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true });
 
-    setProjectInvoices(data || []);
+    const invoices = data || [];
+    setProjectInvoices(invoices);
+    
+    // Initialize invoice numbers (auto-numbering)
+    const numbers: Record<string, string> = {};
+    invoices.forEach((inv, index) => {
+      numbers[inv.id] = String(index + 1).padStart(3, '0');
+    });
+    setInvoiceNumbers(numbers);
   }
 
   const handleInputChange = (field: keyof FDAFormData, value: string) => {
@@ -275,6 +285,39 @@ export default function FDACreator() {
       await fetchProjectInvoices(selectedProject.id);
     }
     toast({ title: 'Success', description: 'File deleted' });
+  }
+
+  async function handleViewInvoice(invoice: FDAInvoice) {
+    const { data } = await supabase.storage
+      .from('fda-invoices')
+      .createSignedUrl(invoice.file_path, 3600);
+    
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank');
+    } else {
+      toast({ title: 'Error', description: 'Could not open file', variant: 'destructive' });
+    }
+  }
+
+  async function handleDownloadInvoice(invoice: FDAInvoice) {
+    const { data } = await supabase.storage
+      .from('fda-invoices')
+      .createSignedUrl(invoice.file_path, 3600);
+    
+    if (data?.signedUrl) {
+      const link = document.createElement('a');
+      link.href = data.signedUrl;
+      link.download = invoice.file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      toast({ title: 'Error', description: 'Could not download file', variant: 'destructive' });
+    }
+  }
+
+  function handleInvoiceNumberChange(invoiceId: string, value: string) {
+    setInvoiceNumbers(prev => ({ ...prev, [invoiceId]: value }));
   }
 
   async function handleSendToWebhook() {
@@ -534,23 +577,70 @@ export default function FDACreator() {
                   <p className="text-xs">Upload invoice PDFs using the button above</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                  {projectInvoices.map((invoice) => (
-                    <div key={invoice.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg group">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <CheckCircle className="w-4 h-4 text-success shrink-0" />
-                        <span className="text-sm truncate">{invoice.file_name}</span>
+                <div className="space-y-2">
+                  {projectInvoices.map((invoice, index) => (
+                    <div 
+                      key={invoice.id} 
+                      className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg border border-border/50 hover:border-border transition-colors"
+                    >
+                      {/* File Icon */}
+                      <div className="shrink-0">
+                        <FileText className="w-5 h-5 text-primary" />
                       </div>
-                      {selectedProject.status !== 'sent' && (
+                      
+                      {/* File Name - Takes most space */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{invoice.file_name}</p>
+                        {invoice.file_size && (
+                          <p className="text-xs text-muted-foreground">
+                            {(invoice.file_size / 1024).toFixed(1)} KB
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* Invoice Number - Editable */}
+                      <div className="shrink-0 flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Invoice #</Label>
+                        <Input
+                          value={invoiceNumbers[invoice.id] || ''}
+                          onChange={(e) => handleInvoiceNumberChange(invoice.id, e.target.value)}
+                          className="w-20 h-8 text-sm text-center"
+                          disabled={selectedProject.status === 'sent'}
+                        />
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="shrink-0 flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="shrink-0 opacity-0 group-hover:opacity-100 h-6 w-6"
-                          onClick={() => handleDeleteInvoice(invoice)}
+                          className="h-8 w-8"
+                          onClick={() => handleViewInvoice(invoice)}
+                          title="View"
                         >
-                          <X className="w-3 h-3 text-destructive" />
+                          <FileText className="w-4 h-4" />
                         </Button>
-                      )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleDownloadInvoice(invoice)}
+                          title="Download"
+                        >
+                          <Upload className="w-4 h-4 rotate-180" />
+                        </Button>
+                        {selectedProject.status !== 'sent' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteInvoice(invoice)}
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
