@@ -11,6 +11,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Mail,
   Clock,
   CheckCircle,
@@ -60,6 +70,8 @@ export default function ManualEmails() {
   const [selectedEmail, setSelectedEmail] = useState<ManualEmail | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterAgentType, setFilterAgentType] = useState<string>('all');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [emailToDelete, setEmailToDelete] = useState<{ id: number; pdfPath: string | null } | null>(null);
 
   // Manual email creation state
   const [manualEmailContent, setManualEmailContent] = useState('');
@@ -231,28 +243,31 @@ export default function ManualEmails() {
     window.open(data.signedUrl, '_blank');
   }
 
-  async function handleDeleteEmail(emailId: number, pdfPath: string | null) {
-    if (!confirm('Are you sure you want to delete this email?')) {
-      return;
-    }
+  function openDeleteDialog(emailId: number, pdfPath: string | null) {
+    setEmailToDelete({ id: emailId, pdfPath });
+    setDeleteDialogOpen(true);
+  }
+
+  async function confirmDeleteEmail() {
+    if (!emailToDelete) return;
 
     try {
       // Delete PDF from storage if exists
-      if (pdfPath) {
-        await supabase.storage.from('pdfs').remove([pdfPath]);
+      if (emailToDelete.pdfPath) {
+        await supabase.storage.from('pdfs').remove([emailToDelete.pdfPath]);
       }
 
       // Delete from database
       const { error } = await supabase
         .from('manual_emails')
         .delete()
-        .eq('id', emailId);
+        .eq('id', emailToDelete.id);
 
       if (error) {
         throw error;
       }
 
-      toast({ title: 'Deleted', description: 'Email has been deleted' });
+      toast({ title: 'Verwijderd', description: 'Email is succesvol verwijderd' });
       setSelectedEmail(null);
       await fetchManualEmails();
     } catch (error) {
@@ -261,6 +276,9 @@ export default function ManualEmails() {
         description: error instanceof Error ? error.message : 'Failed to delete email', 
         variant: 'destructive' 
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setEmailToDelete(null);
     }
   }
 
@@ -537,7 +555,7 @@ export default function ManualEmails() {
                     variant="ghost" 
                     size="sm" 
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDeleteEmail(selectedEmail.id, selectedEmail.pdf_path)}
+                    onClick={() => openDeleteDialog(selectedEmail.id, selectedEmail.pdf_path)}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -640,6 +658,27 @@ export default function ManualEmails() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Weet u het zeker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deze actie kan niet ongedaan worden gemaakt. De email en bijbehorende PDF worden permanent verwijderd.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuleren</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteEmail}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Verwijderen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
