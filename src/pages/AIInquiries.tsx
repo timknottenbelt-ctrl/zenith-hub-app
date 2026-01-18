@@ -28,15 +28,8 @@ import {
   FileText,
   X,
   PlusCircle,
-  Send,
 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Link } from 'react-router-dom';
 
 type Email = Tables<'email'>;
 
@@ -71,11 +64,6 @@ export default function AIInquiries() {
   const [editBody, setEditBody] = useState('');
   const [showPreview, setShowPreview] = useState(false);
 
-  // Manual email creation state
-  const [manualEmailContent, setManualEmailContent] = useState('');
-  const [manualAgentType, setManualAgentType] = useState<'OWNERS_AGENT' | 'CARGO_AGENT'>('CARGO_AGENT');
-  const [manualPdfFile, setManualPdfFile] = useState<File | null>(null);
-  const [manualSending, setManualSending] = useState(false);
 
   async function handlePreviewPdf(attachment: EmailAttachment) {
     const { data } = await supabase.storage
@@ -225,197 +213,27 @@ export default function AIInquiries() {
     }
   };
 
-  async function handleManualSubmit() {
-    if (!manualEmailContent.trim()) {
-      toast({ title: 'Error', description: 'Please paste an email message', variant: 'destructive' });
-      return;
-    }
-
-    setManualSending(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('email_content', manualEmailContent);
-      formData.append('agent_type', manualAgentType);
-      
-      if (manualPdfFile) {
-        formData.append('pdf', manualPdfFile);
-      }
-
-      const response = await fetch('https://lbhcuracao.app.n8n.cloud/webhook-test/MANUAL-EMAIL-CREATION', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Webhook request failed');
-      }
-
-      toast({ title: 'Success', description: 'Email sent to webhook successfully!' });
-      setManualEmailContent('');
-      setManualPdfFile(null);
-      // Reset file input
-      const fileInput = document.getElementById('manual-pdf-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to send email to webhook', variant: 'destructive' });
-    } finally {
-      setManualSending(false);
-    }
-  }
 
   return (
     <DashboardLayout title={t('inquiries.title')}>
+      <div className="flex items-center justify-end mb-4">
+        <Link to="/inquiries/manual">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+            <PlusCircle className="w-4 h-4" />
+            Manual
+          </Button>
+        </Link>
+      </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50">
           <TabsTrigger value="CARGO_AGENT">{t('inquiries.cargoAgent')}</TabsTrigger>
           <TabsTrigger value="OWNERS_AGENT">{t('inquiries.ownersAgent')}</TabsTrigger>
           <TabsTrigger value="OUT_OF_SCOPE">{t('inquiries.outOfScope')}</TabsTrigger>
-          <TabsTrigger value="MANUAL" className="flex items-center gap-1.5">
-            <PlusCircle className="w-3.5 h-3.5" />
-            Manual
-          </TabsTrigger>
         </TabsList>
 
-        {/* Manual Email Creation Tab */}
-        <TabsContent value="MANUAL" className="mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Manual Creation Form */}
-            <Card className="card-premium">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PlusCircle className="w-5 h-5 text-primary" />
-                  Manual Email Creation
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Agent Type Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="agent-type">Agent Type</Label>
-                  <Select 
-                    value={manualAgentType} 
-                    onValueChange={(value: 'OWNERS_AGENT' | 'CARGO_AGENT') => setManualAgentType(value)}
-                  >
-                    <SelectTrigger id="agent-type">
-                      <SelectValue placeholder="Select agent type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CARGO_AGENT">Cargo Agent</SelectItem>
-                      <SelectItem value="OWNERS_AGENT">Owners Agent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                {/* Email Content */}
-                <div className="space-y-2">
-                  <Label htmlFor="email-content">Email Content</Label>
-                  <Textarea
-                    id="email-content"
-                    placeholder="Paste email content here..."
-                    value={manualEmailContent}
-                    onChange={(e) => setManualEmailContent(e.target.value)}
-                    className="min-h-[300px] font-mono text-sm"
-                  />
-                </div>
-
-                {/* PDF Upload */}
-                <div className="space-y-2">
-                  <Label htmlFor="manual-pdf-input">PDF Attachment (Optional)</Label>
-                  <div className="flex items-center gap-2">
-                    <label className="cursor-pointer flex-1">
-                      <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-muted/50 transition-colors">
-                        <Upload className="w-5 h-5 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                          {manualPdfFile ? manualPdfFile.name : 'Click to upload PDF'}
-                        </span>
-                      </div>
-                      <input
-                        id="manual-pdf-input"
-                        type="file"
-                        accept=".pdf"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file && file.type === 'application/pdf') {
-                            setManualPdfFile(file);
-                          } else if (file) {
-                            toast({ title: 'Error', description: 'Only PDF files are allowed', variant: 'destructive' });
-                          }
-                        }}
-                      />
-                    </label>
-                    {manualPdfFile && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setManualPdfFile(null);
-                          const fileInput = document.getElementById('manual-pdf-input') as HTMLInputElement;
-                          if (fileInput) fileInput.value = '';
-                        }}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Submit Button */}
-                <Button 
-                  className="w-full" 
-                  onClick={handleManualSubmit}
-                  disabled={manualSending || !manualEmailContent.trim()}
-                >
-                  {manualSending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Send to Webhook
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Preview / Instructions */}
-            <Card className="card-premium">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-primary" />
-                  Instructions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-muted/30 rounded-lg space-y-3">
-                  <h4 className="font-medium">How to use Manual Email Creation:</h4>
-                  <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-                    <li>Select the agent type (Cargo Agent or Owners Agent)</li>
-                    <li>Copy and paste the email content into the text area</li>
-                    <li>Optionally attach a PDF document</li>
-                    <li>Click "Send to Webhook" to process the email</li>
-                  </ol>
-                </div>
-
-                {manualEmailContent && (
-                  <div className="space-y-2">
-                    <Label>Preview</Label>
-                    <div className="p-4 bg-muted/50 rounded-lg border max-h-[300px] overflow-auto">
-                      <pre className="whitespace-pre-wrap text-sm">{manualEmailContent}</pre>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Other Tabs Content */}
-        {activeTab !== 'MANUAL' && (
-          <TabsContent value={activeTab} className="mt-4">
+        {/* Tab Content */}
+        <TabsContent value={activeTab} className="mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Email List - Smaller */}
               <Card className="card-premium lg:col-span-1">
@@ -701,7 +519,6 @@ export default function AIInquiries() {
               </div>
             </div>
           </TabsContent>
-        )}
       </Tabs>
     </DashboardLayout>
   );

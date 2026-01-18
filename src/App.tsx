@@ -10,6 +10,7 @@ import { Suspense, lazy } from "react";
 
 const Overview = lazy(() => import("./pages/Overview"));
 const AIInquiries = lazy(() => import("./pages/AIInquiries"));
+const ManualEmails = lazy(() => import("./pages/ManualEmails"));
 const FDACreator = lazy(() => import("./pages/FDACreator"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const Vessels = lazy(() => import("./pages/Vessels"));
@@ -34,6 +35,7 @@ const App = () => {
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
                   <Route path="/inquiries" element={<ProtectedRoute><AIInquiries /></ProtectedRoute>} />
+                  <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
                   <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
                   <Route path="/knowledge" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
                   <Route path="/vessels" element={<ProtectedRoute><Vessels /></ProtectedRoute>} />

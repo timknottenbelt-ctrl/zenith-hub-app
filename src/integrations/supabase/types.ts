@@ -357,6 +357,102 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_emails: {
+        Row: {
+          agent_type: string
+          area: string | null
+          body: string | null
+          cargo_quantity: number | null
+          cargo_type: string | null
+          company_name: string | null
+          contact_name: string | null
+          country: string | null
+          created_at: string | null
+          dwt: number | null
+          email_content: string
+          error_message: string | null
+          facility: string | null
+          flag: string | null
+          grt: number | null
+          id: number
+          imo: string | null
+          loa: number | null
+          operation_type: string | null
+          pda_link_1: string | null
+          pda_link_2: string | null
+          pdf_count: number | null
+          port: string | null
+          port_stay: number | null
+          status: string | null
+          subject: string | null
+          terminal: string | null
+          tugs: number | null
+          vessel_name: string | null
+        }
+        Insert: {
+          agent_type: string
+          area?: string | null
+          body?: string | null
+          cargo_quantity?: number | null
+          cargo_type?: string | null
+          company_name?: string | null
+          contact_name?: string | null
+          country?: string | null
+          created_at?: string | null
+          dwt?: number | null
+          email_content: string
+          error_message?: string | null
+          facility?: string | null
+          flag?: string | null
+          grt?: number | null
+          id?: number
+          imo?: string | null
+          loa?: number | null
+          operation_type?: string | null
+          pda_link_1?: string | null
+          pda_link_2?: string | null
+          pdf_count?: number | null
+          port?: string | null
+          port_stay?: number | null
+          status?: string | null
+          subject?: string | null
+          terminal?: string | null
+          tugs?: number | null
+          vessel_name?: string | null
+        }
+        Update: {
+          agent_type?: string
+          area?: string | null
+          body?: string | null
+          cargo_quantity?: number | null
+          cargo_type?: string | null
+          company_name?: string | null
+          contact_name?: string | null
+          country?: string | null
+          created_at?: string | null
+          dwt?: number | null
+          email_content?: string
+          error_message?: string | null
+          facility?: string | null
+          flag?: string | null
+          grt?: number | null
+          id?: number
+          imo?: string | null
+          loa?: number | null
+          operation_type?: string | null
+          pda_link_1?: string | null
+          pda_link_2?: string | null
+          pdf_count?: number | null
+          port?: string | null
+          port_stay?: number | null
+          status?: string | null
+          subject?: string | null
+          terminal?: string | null
+          tugs?: number | null
+          vessel_name?: string | null
+        }
+        Relationships: []
+      }
       pdf_documents: {
         Row: {
           category: string | null
