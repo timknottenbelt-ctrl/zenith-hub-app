@@ -490,6 +490,16 @@ export default function ManualEmails() {
   async function confirmDeleteEmail() {
     if (!emailToDelete) return;
 
+    // Optimistic placeholder (not yet inserted in DB) → just remove locally
+    if (emailToDelete.id < 0) {
+      setEmails((prev) => prev.filter((e) => e.id !== emailToDelete.id));
+      setSelectedEmail(null);
+      toast({ title: 'Verwijderd', description: 'Concept email is verwijderd' });
+      setDeleteDialogOpen(false);
+      setEmailToDelete(null);
+      return;
+    }
+
     try {
       // Delete PDF from storage if exists
       if (emailToDelete.pdfPath) {
@@ -502,18 +512,19 @@ export default function ManualEmails() {
         .delete()
         .eq('id', emailToDelete.id);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
+
+      // Immediately remove from UI (then refresh)
+      setEmails((prev) => prev.filter((e) => e.id !== emailToDelete.id));
+      setSelectedEmail(null);
 
       toast({ title: 'Verwijderd', description: 'Email is succesvol verwijderd' });
-      setSelectedEmail(null);
-      await fetchManualEmails();
+      await fetchManualEmails({ showLoading: false });
     } catch (error) {
-      toast({ 
-        title: 'Error', 
-        description: error instanceof Error ? error.message : 'Failed to delete email', 
-        variant: 'destructive' 
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to delete email',
+        variant: 'destructive',
       });
     } finally {
       setDeleteDialogOpen(false);
