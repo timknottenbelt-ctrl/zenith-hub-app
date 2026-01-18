@@ -24,6 +24,7 @@ import {
   Send,
   ArrowLeft,
   RefreshCw,
+  FileText,
 } from 'lucide-react';
 import {
   Select,
@@ -48,6 +49,7 @@ interface ManualEmail {
   pda_link_2: string | null;
   company_name: string | null;
   contact_name: string | null;
+  pdf_path: string | null;
 }
 
 export default function ManualEmails() {
@@ -60,6 +62,7 @@ export default function ManualEmails() {
 
   // Manual email creation state
   const [manualEmailContent, setManualEmailContent] = useState('');
+  const [manualSubject, setManualSubject] = useState('');
   const [manualAgentType, setManualAgentType] = useState<'OWNERS_AGENT' | 'CARGO_AGENT'>('CARGO_AGENT');
   const [manualPdfFile, setManualPdfFile] = useState<File | null>(null);
   const [manualSending, setManualSending] = useState(false);
@@ -127,14 +130,31 @@ export default function ManualEmails() {
     setManualSending(true);
 
     try {
-      // Step 1: First save to Supabase with status "processing"
+      let pdfPath: string | null = null;
+
+      // Step 1: Upload PDF to storage if provided
+      if (manualPdfFile) {
+        const fileName = `manual-emails/${Date.now()}_${manualPdfFile.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('pdfs')
+          .upload(fileName, manualPdfFile);
+
+        if (uploadError) {
+          throw new Error(`Failed to upload PDF: ${uploadError.message}`);
+        }
+        pdfPath = fileName;
+      }
+
+      // Step 2: Save to Supabase with status "processing"
       const { data: insertedEmail, error: insertError } = await supabase
         .from('manual_emails')
         .insert({
           email_content: manualEmailContent,
           agent_type: manualAgentType,
+          subject: manualSubject || null,
           status: 'processing',
           pdf_count: manualPdfFile ? 1 : 0,
+          pdf_path: pdfPath,
         })
         .select()
         .single();
@@ -149,7 +169,7 @@ export default function ManualEmails() {
       setActiveTab('history');
       await fetchManualEmails();
 
-      // Step 2: Send to webhook with the Supabase ID
+      // Step 3: Send to webhook with the Supabase ID
       const formData = new FormData();
       formData.append('email_content', manualEmailContent);
       formData.append('agent_type', manualAgentType);
@@ -181,6 +201,7 @@ export default function ManualEmails() {
       });
       
       setManualEmailContent('');
+      setManualSubject('');
       setManualPdfFile(null);
       const fileInput = document.getElementById('manual-pdf-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
@@ -194,6 +215,19 @@ export default function ManualEmails() {
     } finally {
       setManualSending(false);
     }
+  }
+
+  async function handleViewPdf(pdfPath: string) {
+    const { data, error } = await supabase.storage
+      .from('pdfs')
+      .createSignedUrl(pdfPath, 3600); // 1 hour expiry
+
+    if (error) {
+      toast({ title: 'Error', description: 'Could not load PDF', variant: 'destructive' });
+      return;
+    }
+
+    window.open(data.signedUrl, '_blank');
   }
 
   const getStatusBadge = (status: string | null) => {
@@ -264,6 +298,19 @@ export default function ManualEmails() {
                       <SelectItem value="OWNERS_AGENT">Owners Agent</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Subject */}
+                <div className="space-y-2">
+                  <Label htmlFor="email-subject">Subject (Optional)</Label>
+                  <input
+                    id="email-subject"
+                    type="text"
+                    placeholder="Enter email subject..."
+                    value={manualSubject}
+                    onChange={(e) => setManualSubject(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
                 </div>
 
                 {/* Email Content */}
@@ -499,27 +546,36 @@ export default function ManualEmails() {
                       )}
                     </div>
 
-                    {/* PDA Links */}
-                    {(selectedEmail.pda_link_1 || selectedEmail.pda_link_2) && (
-                      <div className="flex gap-2">
-                        {selectedEmail.pda_link_1 && (
-                          <a href={selectedEmail.pda_link_1} target="_blank" rel="noopener noreferrer">
-                            <Button variant="outline" size="sm" className="gap-1">
-                              <ExternalLink className="w-3 h-3" />
-                              PDA Link 1
-                            </Button>
-                          </a>
-                        )}
-                        {selectedEmail.pda_link_2 && (
-                          <a href={selectedEmail.pda_link_2} target="_blank" rel="noopener noreferrer">
-                            <Button variant="outline" size="sm" className="gap-1">
-                              <ExternalLink className="w-3 h-3" />
-                              PDA Link 2
-                            </Button>
-                          </a>
-                        )}
-                      </div>
-                    )}
+                    {/* PDA Links and PDF */}
+                    <div className="flex flex-wrap gap-2">
+                      {selectedEmail.pda_link_1 && (
+                        <a href={selectedEmail.pda_link_1} target="_blank" rel="noopener noreferrer">
+                          <Button variant="outline" size="sm" className="gap-1">
+                            <ExternalLink className="w-3 h-3" />
+                            PDA Link 1
+                          </Button>
+                        </a>
+                      )}
+                      {selectedEmail.pda_link_2 && (
+                        <a href={selectedEmail.pda_link_2} target="_blank" rel="noopener noreferrer">
+                          <Button variant="outline" size="sm" className="gap-1">
+                            <ExternalLink className="w-3 h-3" />
+                            PDA Link 2
+                          </Button>
+                        </a>
+                      )}
+                      {selectedEmail.pdf_path && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-1"
+                          onClick={() => handleViewPdf(selectedEmail.pdf_path!)}
+                        >
+                          <FileText className="w-3 h-3" />
+                          View Uploaded PDF
+                        </Button>
+                      )}
+                    </div>
 
                     {/* Email Content */}
                     <div className="space-y-2">
