@@ -98,7 +98,7 @@ export default function ManualEmails() {
         formData.append("pdf", manualPdfFile);
       }
 
-      const response = await fetch("https://lbhcuracao.app.n8n.cloud/webhook/MANUAL-EMAIL-CREATION", {
+      const response = await fetch("https://lbhcuracao.app.n8n.cloud/webhook-test/MANUAL-EMAIL-CREATION", {
         method: "POST",
         body: formData,
       });
