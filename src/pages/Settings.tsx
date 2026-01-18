@@ -317,23 +317,13 @@ export default function Settings() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t('settings.phone')}</Label>
-                <Input
-                  value={profile.phone}
-                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                  placeholder="+1 234 567 890"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t('settings.company')}</Label>
-                <Input
-                  value={profile.company}
-                  onChange={(e) => setProfile({ ...profile, company: e.target.value })}
-                  placeholder="Company Name"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>{t('settings.phone')}</Label>
+              <Input
+                value={profile.phone}
+                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                placeholder="+1 234 567 890"
+              />
             </div>
           </CardContent>
         </Card>

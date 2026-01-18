@@ -59,7 +59,7 @@ export function Sidebar() {
             <Ship className="w-5 h-5 text-primary-foreground" />
           </div>
           <span className="font-semibold text-foreground text-lg">LBH Portal</span>
-          {officeFlag && <span className="text-lg">{officeFlag}</span>}
+          {officeFlag && <span className="text-xl ml-1">{officeFlag}</span>}
         </div>
       </div>
 
