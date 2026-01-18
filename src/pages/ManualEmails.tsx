@@ -85,6 +85,29 @@ export default function ManualEmails() {
     fetchManualEmails();
   }, [filterAgentType]);
 
+  // Auto-refresh polling for processing emails
+  useEffect(() => {
+    // Check if selected email is processing, then poll every 3 seconds
+    if (selectedEmail?.status === 'processing') {
+      const interval = setInterval(async () => {
+        // Fetch the specific email to check for updates
+        const { data, error } = await supabase
+          .from('manual_emails')
+          .select('*')
+          .eq('id', selectedEmail.id)
+          .single();
+        
+        if (!error && data) {
+          setSelectedEmail(data as ManualEmail);
+          // Also refresh the list
+          fetchManualEmails();
+        }
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }
+  }, [selectedEmail?.id, selectedEmail?.status]);
+
   // Realtime subscription for updates
   useEffect(() => {
     const channel = supabase
@@ -640,37 +663,46 @@ export default function ManualEmails() {
                     </div>
 
                     {/* AI Generated Response */}
-                    {selectedEmail.status === 'processing' ? (
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">AI Response</Label>
-                        <div className="flex items-center justify-center h-[150px] border rounded-lg bg-muted/30">
-                          <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                            <p className="text-sm">AI is processing your email...</p>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                        AI Generated Email
+                        {selectedEmail.status === 'processing' && (
+                          <Loader2 className="w-4 h-4 animate-spin text-sky-500" />
+                        )}
+                      </Label>
+                      
+                      {selectedEmail.status === 'processing' ? (
+                        <div className="border rounded-lg bg-sky-50 dark:bg-sky-950/20 p-4">
+                          <div className="flex items-center gap-3 text-sky-600 dark:text-sky-400">
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <p className="text-sm">AI is generating your email response...</p>
                           </div>
                         </div>
-                      </div>
-                    ) : selectedEmail.body ? (
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">AI Generated Email</Label>
-                        {selectedEmail.subject && (
-                          <div className="p-3 bg-primary/5 rounded-lg border mb-2">
-                            <p className="text-xs text-muted-foreground mb-1">Subject:</p>
-                            <p className="text-sm font-medium">{selectedEmail.subject}</p>
-                          </div>
-                        )}
-                        <ScrollArea className="h-[200px] border rounded-lg bg-muted/30">
-                          <pre className="p-4 text-sm whitespace-pre-wrap font-mono">
-                            {selectedEmail.body}
-                          </pre>
-                        </ScrollArea>
-                      </div>
-                    ) : null}
+                      ) : selectedEmail.body ? (
+                        <div className="border rounded-lg overflow-hidden">
+                          {selectedEmail.subject && (
+                            <div className="px-4 py-3 bg-primary/5 border-b">
+                              <p className="text-xs text-muted-foreground mb-1">Subject:</p>
+                              <p className="text-sm font-medium">{selectedEmail.subject}</p>
+                            </div>
+                          )}
+                          <ScrollArea className="h-[180px]">
+                            <pre className="p-4 text-sm whitespace-pre-wrap font-mono bg-muted/30">
+                              {selectedEmail.body}
+                            </pre>
+                          </ScrollArea>
+                        </div>
+                      ) : (
+                        <div className="border rounded-lg bg-muted/20 p-4 text-center text-muted-foreground text-sm">
+                          No AI response yet
+                        </div>
+                      )}
+                    </div>
 
                     {/* Original Email Content */}
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Original Email</Label>
-                      <ScrollArea className="h-[200px] border rounded-lg">
+                      <ScrollArea className="h-[150px] border rounded-lg">
                         <pre className="p-4 text-sm whitespace-pre-wrap font-mono">
                           {selectedEmail.email_content}
                         </pre>
