@@ -5,6 +5,8 @@ interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
+  office: string | null;
+  setOffice: (office: string | null) => void;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -15,14 +17,26 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return stored || 'en';
   });
 
+  const [office, setOffice] = useState<string | null>(() => {
+    return localStorage.getItem('lbh_office');
+  });
+
   useEffect(() => {
     localStorage.setItem('language', language);
   }, [language]);
 
+  useEffect(() => {
+    if (office) {
+      localStorage.setItem('lbh_office', office);
+    } else {
+      localStorage.removeItem('lbh_office');
+    }
+  }, [office]);
+
   const t = (key: string) => translate(key, language);
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, office, setOffice }}>
       {children}
     </LanguageContext.Provider>
   );
