@@ -25,6 +25,7 @@ import {
   ArrowLeft,
   RefreshCw,
   FileText,
+  Trash2,
 } from 'lucide-react';
 import {
   Select,
@@ -228,6 +229,39 @@ export default function ManualEmails() {
     }
 
     window.open(data.signedUrl, '_blank');
+  }
+
+  async function handleDeleteEmail(emailId: number, pdfPath: string | null) {
+    if (!confirm('Are you sure you want to delete this email?')) {
+      return;
+    }
+
+    try {
+      // Delete PDF from storage if exists
+      if (pdfPath) {
+        await supabase.storage.from('pdfs').remove([pdfPath]);
+      }
+
+      // Delete from database
+      const { error } = await supabase
+        .from('manual_emails')
+        .delete()
+        .eq('id', emailId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({ title: 'Deleted', description: 'Email has been deleted' });
+      setSelectedEmail(null);
+      await fetchManualEmails();
+    } catch (error) {
+      toast({ 
+        title: 'Error', 
+        description: error instanceof Error ? error.message : 'Failed to delete email', 
+        variant: 'destructive' 
+      });
+    }
   }
 
   const getStatusBadge = (status: string | null) => {
@@ -495,10 +529,19 @@ export default function ManualEmails() {
               </CardContent>
             </Card>
 
-            {/* Email Detail */}
             <Card className="card-premium lg:col-span-2">
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-medium">Email Details</CardTitle>
+                {selectedEmail && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDeleteEmail(selectedEmail.id, selectedEmail.pdf_path)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
                 {selectedEmail ? (
