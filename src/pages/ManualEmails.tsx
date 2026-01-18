@@ -56,6 +56,7 @@ interface ManualEmail {
   port: string | null;
   status: string | null;
   subject: string | null;
+  body: string | null;
   pda_link_1: string | null;
   pda_link_2: string | null;
   company_name: string | null;
@@ -421,19 +422,19 @@ export default function ManualEmails() {
 
                 {/* Submit Button */}
                 <Button 
-                  className="w-full" 
+                  className="w-full bg-sky-400 hover:bg-sky-500 text-white" 
                   onClick={handleManualSubmit}
                   disabled={manualSending || !manualEmailContent.trim()}
                 >
                   {manualSending ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Sending...
+                      Processing...
                     </>
                   ) : (
                     <>
                       <Send className="w-4 h-4 mr-2" />
-                      Send to Webhook
+                      Send to AI
                     </>
                   )}
                 </Button>
@@ -455,7 +456,7 @@ export default function ManualEmails() {
                     <li>Select the agent type (Cargo Agent or Owners Agent)</li>
                     <li>Copy and paste the email content into the text area</li>
                     <li>Optionally attach a PDF document</li>
-                    <li>Click "Send to Webhook" to process the email</li>
+                    <li>Click "Send to AI" to process the email</li>
                   </ol>
                 </div>
 
@@ -638,10 +639,38 @@ export default function ManualEmails() {
                       )}
                     </div>
 
-                    {/* Email Content */}
+                    {/* AI Generated Response */}
+                    {selectedEmail.status === 'processing' ? (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">AI Response</Label>
+                        <div className="flex items-center justify-center h-[150px] border rounded-lg bg-muted/30">
+                          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                            <p className="text-sm">AI is processing your email...</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : selectedEmail.body ? (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">AI Generated Email</Label>
+                        {selectedEmail.subject && (
+                          <div className="p-3 bg-primary/5 rounded-lg border mb-2">
+                            <p className="text-xs text-muted-foreground mb-1">Subject:</p>
+                            <p className="text-sm font-medium">{selectedEmail.subject}</p>
+                          </div>
+                        )}
+                        <ScrollArea className="h-[200px] border rounded-lg bg-muted/30">
+                          <pre className="p-4 text-sm whitespace-pre-wrap font-mono">
+                            {selectedEmail.body}
+                          </pre>
+                        </ScrollArea>
+                      </div>
+                    ) : null}
+
+                    {/* Original Email Content */}
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Email Content</Label>
-                      <ScrollArea className="h-[300px] border rounded-lg">
+                      <Label className="text-xs text-muted-foreground">Original Email</Label>
+                      <ScrollArea className="h-[200px] border rounded-lg">
                         <pre className="p-4 text-sm whitespace-pre-wrap font-mono">
                           {selectedEmail.email_content}
                         </pre>
