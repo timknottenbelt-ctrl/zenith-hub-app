@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -85,6 +85,7 @@ export default function ManualEmails() {
   const [manualAgentType, setManualAgentType] = useState<'OWNERS_AGENT' | 'CARGO_AGENT'>('CARGO_AGENT');
   const [manualPdfFile, setManualPdfFile] = useState<File | null>(null);
   const [manualSending, setManualSending] = useState(false);
+  const submitLockRef = useRef(false);
 
   const handleCopyEmail = async () => {
     if (!selectedEmail?.body) return;
@@ -114,6 +115,32 @@ export default function ManualEmails() {
     a.contact_name === b.contact_name &&
     a.email_content === b.email_content &&
     a.agent_type === b.agent_type;
+
+  const normalizeForKey = (value: string) => value.trim().replace(/\s+/g, ' ');
+
+  const isCloseDuplicate = (a: ManualEmail, b: ManualEmail) => {
+    if (a.id < 0 || b.id < 0) return false; // never dedupe optimistic placeholders
+    if (a.agent_type !== b.agent_type) return false;
+    if ((a.subject || '').trim() !== (b.subject || '').trim()) return false;
+    if (normalizeForKey(a.email_content) !== normalizeForKey(b.email_content)) return false;
+
+    const ta = a.created_at ? Date.parse(a.created_at) : NaN;
+    const tb = b.created_at ? Date.parse(b.created_at) : NaN;
+    if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false;
+
+    // If two identical rows were inserted within 2 minutes, treat it as an accidental duplicate
+    return Math.abs(ta - tb) <= 2 * 60 * 1000;
+  };
+
+  const dedupeCloseDuplicates = (rows: ManualEmail[]) => {
+    const out: ManualEmail[] = [];
+    for (const row of rows) {
+      const hasCloseDup = out.some((existing) => isCloseDuplicate(existing, row));
+      if (hasCloseDup) continue;
+      out.push(row);
+    }
+    return out;
+  };
 
   useEffect(() => {
     fetchManualEmails();
@@ -186,6 +213,10 @@ export default function ManualEmails() {
             if (eventType === 'INSERT' && newRow) {
               const row = newRow;
               if (!matchesFilter(row.agent_type)) return prev;
+
+              // Prevent close duplicates showing up (double webhook / double click)
+              const existingCloseDup = next.find((e) => isCloseDuplicate(e, row));
+              if (existingCloseDup) return prev;
 
               const optimisticIdx = findOptimisticMatchIndex(row);
               if (optimisticIdx !== -1) {
@@ -291,7 +322,8 @@ export default function ManualEmails() {
         const resolvedIds = new Set(resolvedOptimistic.filter((e) => e.id > 0).map((e) => e.id));
         const remainingServer = serverRows.filter((row) => !resolvedIds.has(row.id));
 
-        return [...resolvedOptimistic, ...remainingServer];
+        const combined = [...resolvedOptimistic, ...remainingServer];
+        return dedupeCloseDuplicates(combined);
       });
     }
 
@@ -299,10 +331,15 @@ export default function ManualEmails() {
   }
 
   async function handleManualSubmit() {
+    if (manualSending || submitLockRef.current) return;
+
     if (!manualEmailContent.trim()) {
       toast({ title: 'Error', description: 'Please paste an email message', variant: 'destructive' });
       return;
     }
+
+    // hard lock (prevents double click / double submit before React disables the button)
+    submitLockRef.current = true;
 
     // Snapshot current inputs so we can clear the form without losing what we sent
     const originalEmailContent = manualEmailContent;
@@ -427,6 +464,7 @@ export default function ManualEmails() {
         variant: 'destructive',
       });
     } finally {
+      submitLockRef.current = false;
       setManualSending(false);
     }
   }
@@ -487,6 +525,7 @@ export default function ManualEmails() {
     const styles: Record<string, string> = {
       processing: 'bg-primary/10 text-primary',
       completed: 'bg-success/10 text-success',
+      draft: 'bg-muted text-muted-foreground',
       error: 'bg-destructive/10 text-destructive',
     };
     return styles[status || 'processing'] || 'bg-muted text-muted-foreground';
@@ -500,8 +539,9 @@ export default function ManualEmails() {
         return <CheckCircle className="w-3 h-3" />;
       case 'error':
         return <XCircle className="w-3 h-3" />;
+      case 'draft':
       default:
-        return <Loader2 className="w-3 h-3 animate-spin" />;
+        return <Mail className="w-3 h-3" />;
     }
   };
 

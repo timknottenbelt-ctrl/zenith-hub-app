@@ -24,31 +24,16 @@ const navItems = [
   { key: 'settings', icon: Settings, path: '/settings' },
 ];
 
-const OFFICE_FLAGS: Record<string, string> = {
-  nl: '🇳🇱',
-  cw: '🇨🇼',
-  br: '🇧🇷',
-  pa: '🇵🇦',
-  cl: '🇨🇱',
-  ar: '🇦🇷',
-  uy: '🇺🇾',
-  co: '🇨🇴',
-  ca: '🇨🇦',
-  be: '🇧🇪',
-  it: '🇮🇹',
-  eg: '🇪🇬',
-  cn: '🇨🇳',
-  za: '🇿🇦',
-  ke: '🇰🇪',
-  mz: '🇲🇿',
-  kr: '🇰🇷',
-};
+const FLAGCDN_BASE = 'https://flagcdn.com';
+
+const getOfficeFlagUrl = (officeCode: string) =>
+  `${FLAGCDN_BASE}/w20/${officeCode.toLowerCase()}.png`;
 
 export function Sidebar() {
   const { t, office } = useLanguage();
   const { user, signOut } = useAuth();
 
-  const officeFlag = office ? OFFICE_FLAGS[office] : null;
+  const officeFlagUrl = office ? getOfficeFlagUrl(office) : null;
 
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-sidebar border-r border-sidebar-border flex flex-col z-50">
@@ -59,7 +44,18 @@ export function Sidebar() {
             <Ship className="w-5 h-5 text-primary-foreground" />
           </div>
           <span className="font-semibold text-foreground text-lg">LBH Portal</span>
-          {officeFlag && <span className="text-xl ml-1">{officeFlag}</span>}
+          {officeFlagUrl && (
+            <img
+              src={officeFlagUrl}
+              alt={`${office?.toUpperCase() || ''} vlag`}
+              className="ml-2 h-4 w-6 rounded-sm ring-1 ring-border object-cover"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          )}
         </div>
       </div>
 
