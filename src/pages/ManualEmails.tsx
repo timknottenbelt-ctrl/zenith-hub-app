@@ -65,6 +65,18 @@ export default function ManualEmails() {
     fetchManualEmails();
   }, [filterAgentType]);
 
+  // If user selects a processing email, start polling automatically
+  useEffect(() => {
+    if (!selectedEmail) return;
+
+    const isProcessing = !selectedEmail.status || selectedEmail.status === "processing";
+    if (isProcessing) {
+      setProcessingEmailId(selectedEmail.id);
+    } else if (processingEmailId === selectedEmail.id) {
+      setProcessingEmailId(null);
+    }
+  }, [selectedEmail, processingEmailId]);
+
   // Poll for status updates when an email is processing
   useEffect(() => {
     if (!processingEmailId) return;
@@ -110,9 +122,39 @@ export default function ManualEmails() {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      setEmails((data as ManualEmail[]) || []);
+      const next = (data as ManualEmail[]) || [];
+      setEmails(next);
+
+      // Keep detail panel in sync when list refreshes
+      if (selectedEmail) {
+        const updated = next.find((e) => e.id === selectedEmail.id);
+        if (updated) setSelectedEmail(updated);
+      }
     }
     setLoading(false);
+  }
+
+  function extractManualEmailId(payload: unknown): number | null {
+    if (!payload || typeof payload !== "object") return null;
+    const p = payload as any;
+
+    const candidates = [
+      p.id,
+      p.email_id,
+      p.emailId,
+      p.manual_email_id,
+      p.manualEmailId,
+      p.data?.id,
+      p.result?.id,
+      p.record?.id,
+    ];
+
+    for (const c of candidates) {
+      const n = typeof c === "string" ? Number(c) : c;
+      if (typeof n === "number" && Number.isFinite(n)) return n;
+    }
+
+    return null;
   }
 
   async function handleManualSubmit() {
@@ -141,33 +183,50 @@ export default function ManualEmails() {
         throw new Error("Webhook request failed");
       }
 
-      // Get the response to find the new email ID
       const responseData = await response.json().catch(() => null);
-      
+      const createdId = extractManualEmailId(responseData);
+
       toast({ title: "Sent to AI", description: "AI is generating your email..." });
       setManualEmailContent("");
       setManualPdfFile(null);
-      // Reset file input
+
       const fileInput = document.getElementById("manual-pdf-input") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
 
-      // Switch to history tab and refresh
       setActiveTab("history");
       await fetchManualEmails();
 
-      // Find the most recent email and start polling
+      // Prefer the ID returned by the webhook (most reliable)
+      if (createdId) {
+        const { data: createdEmail } = await supabase
+          .from("manual_emails")
+          .select("*")
+          .eq("id", createdId)
+          .single();
+
+        if (createdEmail) {
+          setSelectedEmail(createdEmail as ManualEmail);
+          const isProcessing = !createdEmail.status || createdEmail.status === "processing";
+          if (isProcessing) setProcessingEmailId(createdId);
+          return;
+        }
+      }
+
+      // Fallback: pick the newest email from the last 2 minutes for this agent type
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
       const { data: latestEmails } = await supabase
         .from("manual_emails")
         .select("*")
+        .eq("agent_type", manualAgentType)
+        .gte("created_at", twoMinutesAgo)
         .order("created_at", { ascending: false })
         .limit(1);
 
       if (latestEmails && latestEmails.length > 0) {
         const latestEmail = latestEmails[0] as ManualEmail;
         setSelectedEmail(latestEmail);
-        if (latestEmail.status === "processing" || !latestEmail.status) {
-          setProcessingEmailId(latestEmail.id);
-        }
+        const isProcessing = !latestEmail.status || latestEmail.status === "processing";
+        if (isProcessing) setProcessingEmailId(latestEmail.id);
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to send email to AI", variant: "destructive" });
@@ -327,7 +386,7 @@ export default function ManualEmails() {
 
                 {/* Submit Button */}
                 <Button
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                   onClick={handleManualSubmit}
                   disabled={manualSending || !manualEmailContent.trim()}
                 >
@@ -361,7 +420,7 @@ export default function ManualEmails() {
                     <li>Select the agent type (Cargo Agent or Owners Agent)</li>
                     <li>Copy and paste the email content into the text area</li>
                     <li>Optionally attach a PDF document</li>
-                    <li>Click "Send to Webhook" to process the email</li>
+                    <li>Click "Send to AI" to process the email</li>
                   </ol>
                 </div>
 
@@ -428,8 +487,11 @@ export default function ManualEmails() {
                             <p className="text-sm font-medium line-clamp-2">
                               {email.vessel_name || email.subject || "No subject"}
                             </p>
-                            <Badge className={`${getStatusBadge(email.status)} text-xs shrink-0 flex items-center gap-1`} variant="secondary">
-                              {processingEmailId === email.id ? (
+                            <Badge
+                              className={`${getStatusBadge(email.status)} text-xs shrink-0 flex items-center gap-1`}
+                              variant="secondary"
+                            >
+                              {!email.status || email.status === "processing" ? (
                                 <Loader2 className="w-3 h-3 animate-spin" />
                               ) : (
                                 getStatusIcon(email.status)
@@ -485,13 +547,13 @@ export default function ManualEmails() {
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Status</Label>
                         <Badge className={`${getStatusBadge(selectedEmail.status)} flex items-center gap-1.5 w-fit`}>
-                          {processingEmailId === selectedEmail.id ? (
+                          {!selectedEmail.status || selectedEmail.status === "processing" ? (
                             <>
                               <Loader2 className="w-3 h-3 animate-spin" />
                               AI Generating...
                             </>
                           ) : (
-                            selectedEmail.status || "processing"
+                            selectedEmail.status
                           )}
                         </Badge>
                       </div>
@@ -547,12 +609,12 @@ export default function ManualEmails() {
                     )}
 
                     {/* AI Generated Content */}
-                    {processingEmailId === selectedEmail.id ? (
-                      <div className="space-y-4 p-6 border-2 border-dashed border-blue-300 rounded-lg bg-blue-50/50 dark:bg-blue-950/20">
+                    {!selectedEmail.status || selectedEmail.status === "processing" ? (
+                      <div className="space-y-4 p-6 border-2 border-dashed border-primary/30 rounded-lg bg-primary/5">
                         <div className="flex items-center justify-center gap-3">
-                          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
                           <div className="text-center">
-                            <p className="font-medium text-blue-700 dark:text-blue-400">AI is generating your email...</p>
+                            <p className="font-medium text-primary">AI is generating your email...</p>
                             <p className="text-sm text-muted-foreground">This may take a few moments</p>
                           </div>
                         </div>
@@ -562,10 +624,10 @@ export default function ManualEmails() {
                         {selectedEmail.subject && (
                           <div className="space-y-2">
                             <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3 text-green-600" />
+                              <CheckCircle className="w-3 h-3 text-success" />
                               AI Generated Subject
                             </Label>
-                            <div className="p-3 bg-green-50/50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+                            <div className="p-3 bg-success/5 border border-success/20 rounded-lg">
                               <p className="text-sm font-medium">{selectedEmail.subject}</p>
                             </div>
                           </div>
@@ -573,10 +635,10 @@ export default function ManualEmails() {
                         {selectedEmail.body && (
                           <div className="space-y-2">
                             <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3 text-green-600" />
+                              <CheckCircle className="w-3 h-3 text-success" />
                               AI Generated Email Body
                             </Label>
-                            <ScrollArea className="h-[250px] border border-green-200 dark:border-green-800 rounded-lg bg-green-50/50 dark:bg-green-950/20">
+                            <ScrollArea className="h-[250px] border border-success/20 rounded-lg bg-success/5">
                               <pre className="p-4 text-sm whitespace-pre-wrap">{selectedEmail.body}</pre>
                             </ScrollArea>
                           </div>
