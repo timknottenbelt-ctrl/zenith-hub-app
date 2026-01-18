@@ -87,6 +87,9 @@ export default function ManualEmails() {
   const [manualSending, setManualSending] = useState(false);
   const submitLockRef = useRef(false);
 
+  // Track per-optimistic placeholder timeouts so we can stop “processing…” when nothing comes back
+  const optimisticTimeoutsRef = useRef<Record<number, number>>({});
+
   const handleCopyEmail = async () => {
     if (!selectedEmail?.body) return;
     const textToCopy = selectedEmail.subject 
@@ -145,6 +148,64 @@ export default function ManualEmails() {
   useEffect(() => {
     fetchManualEmails();
   }, [filterAgentType]);
+
+  // If an optimistic placeholder never gets reconciled (n8n didn’t insert/update Supabase), stop “loading forever”.
+  useEffect(() => {
+    const timeouts = optimisticTimeoutsRef.current;
+
+    // Clear timeouts for items that no longer exist
+    for (const idStr of Object.keys(timeouts)) {
+      const id = Number(idStr);
+      if (!emails.some((e) => e.id === id)) {
+        window.clearTimeout(timeouts[id]);
+        delete timeouts[id];
+      }
+    }
+
+    for (const e of emails) {
+      if (e.id >= 0) continue;
+
+      const shouldTimeout = e.status === 'processing';
+      const hasTimeout = !!timeouts[e.id];
+
+      if (shouldTimeout && !hasTimeout) {
+        timeouts[e.id] = window.setTimeout(() => {
+          const timeoutBody =
+            'Geen response van de workflow ontvangen. Controleer of n8n daadwerkelijk een rij in Supabase (manual_emails) aanmaakt en de status bijwerkt.';
+
+          setEmails((prev) =>
+            prev.map((row) =>
+              row.id === e.id
+                ? {
+                    ...row,
+                    status: 'error',
+                    subject: row.subject && row.subject !== 'AI is thinking…' ? row.subject : 'Timeout (geen workflow response)',
+                    body: row.body ?? timeoutBody,
+                  }
+                : row
+            )
+          );
+
+          setSelectedEmail((prev) =>
+            prev?.id === e.id
+              ? {
+                  ...prev,
+                  status: 'error',
+                  subject:
+                    prev.subject && prev.subject !== 'AI is thinking…' ? prev.subject : 'Timeout (geen workflow response)',
+                  body: prev.body ?? timeoutBody,
+                }
+              : prev
+          );
+        }, 45_000);
+      }
+
+      if (!shouldTimeout && hasTimeout) {
+        window.clearTimeout(timeouts[e.id]);
+        delete timeouts[e.id];
+      }
+    }
+  }, [emails]);
 
   // Auto-refresh polling for processing emails (silent, no UI flicker)
   useEffect(() => {
