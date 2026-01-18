@@ -223,6 +223,98 @@ export type Database = {
           },
         ]
       }
+      fda_creator_invoices: {
+        Row: {
+          created_at: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          invoice_number: string | null
+          project_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          invoice_number?: string | null
+          project_id: string
+        }
+        Update: {
+          created_at?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          invoice_number?: string | null
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fda_creator_invoices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "fda_creator_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fda_creator_projects: {
+        Row: {
+          billing_address: string | null
+          billing_company: string | null
+          billing_email: string | null
+          billing_phone: string | null
+          client_email: string | null
+          client_name: string | null
+          client_phone: string | null
+          created_at: string | null
+          fda_responsible: string | null
+          id: string
+          lbh_number: string
+          sent_at: string | null
+          ship_name: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          billing_address?: string | null
+          billing_company?: string | null
+          billing_email?: string | null
+          billing_phone?: string | null
+          client_email?: string | null
+          client_name?: string | null
+          client_phone?: string | null
+          created_at?: string | null
+          fda_responsible?: string | null
+          id?: string
+          lbh_number: string
+          sent_at?: string | null
+          ship_name: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          billing_address?: string | null
+          billing_company?: string | null
+          billing_email?: string | null
+          billing_phone?: string | null
+          client_email?: string | null
+          client_name?: string | null
+          client_phone?: string | null
+          created_at?: string | null
+          fda_responsible?: string | null
+          id?: string
+          lbh_number?: string
+          sent_at?: string | null
+          ship_name?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       fda_invoices: {
         Row: {
           created_at: string

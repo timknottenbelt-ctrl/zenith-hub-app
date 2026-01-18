@@ -44,20 +44,20 @@ interface FDAProject {
   billing_address: string | null;
   billing_email: string | null;
   billing_phone: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  email_sent_at: string | null;
+  status: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  sent_at: string | null;
 }
 
 interface FDAInvoice {
   id: string;
-  fda_project_id: string;
+  project_id: string;
   file_path: string;
   file_name: string;
   file_size: number | null;
   created_at: string;
-  invoice_number?: string;
+  invoice_number?: string | null;
 }
 
 interface FDAFormData {
@@ -125,7 +125,7 @@ export default function FDACreator() {
   async function fetchProjects() {
     setLoading(true);
     const { data, error } = await supabase
-      .from('fda_projects')
+      .from('fda_creator_projects')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -139,9 +139,9 @@ export default function FDACreator() {
 
   async function fetchProjectInvoices(projectId: string) {
     const { data } = await supabase
-      .from('fda_invoices')
+      .from('fda_creator_invoices')
       .select('*')
-      .eq('fda_project_id', projectId)
+      .eq('project_id', projectId)
       .order('created_at', { ascending: true });
 
     const invoices = (data || []) as FDAInvoice[];
@@ -168,7 +168,7 @@ export default function FDACreator() {
 
     setSaving(true);
     const { data, error } = await supabase
-      .from('fda_projects')
+      .from('fda_creator_projects')
       .insert({
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
@@ -180,7 +180,6 @@ export default function FDACreator() {
         billing_address: formData.billing_address || null,
         billing_email: formData.billing_email || null,
         billing_phone: formData.billing_phone || null,
-        project_id: crypto.randomUUID(),
       })
       .select()
       .single();
@@ -204,7 +203,7 @@ export default function FDACreator() {
 
     setSaving(true);
     const { error } = await supabase
-      .from('fda_projects')
+      .from('fda_creator_projects')
       .update({
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
@@ -229,7 +228,7 @@ export default function FDACreator() {
   }
 
   async function handleDeleteProject(id: string) {
-    const { error } = await supabase.from('fda_projects').delete().eq('id', id);
+    const { error } = await supabase.from('fda_creator_projects').delete().eq('id', id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
@@ -262,8 +261,8 @@ export default function FDACreator() {
         continue;
       }
 
-      const { error: insertError } = await supabase.from('fda_invoices').insert({
-        fda_project_id: selectedProject.id,
+      const { error: insertError } = await supabase.from('fda_creator_invoices').insert({
+        project_id: selectedProject.id,
         file_path: filePath,
         file_name: file.name,
         file_size: file.size,
@@ -282,7 +281,7 @@ export default function FDACreator() {
 
   async function handleDeleteInvoice(invoice: FDAInvoice) {
     await supabase.storage.from('fda-invoices').remove([invoice.file_path]);
-    await supabase.from('fda_invoices').delete().eq('id', invoice.id);
+    await supabase.from('fda_creator_invoices').delete().eq('id', invoice.id);
     if (selectedProject) {
       await fetchProjectInvoices(selectedProject.id);
     }
@@ -339,7 +338,7 @@ export default function FDACreator() {
         
         // Save invoice number to database
         await supabase
-          .from('fda_invoices')
+          .from('fda_creator_invoices')
           .update({ invoice_number: invoiceNumber })
           .eq('id', invoice.id);
         
@@ -388,8 +387,8 @@ export default function FDACreator() {
 
       // Update project status
       await supabase
-        .from('fda_projects')
-        .update({ status: 'sent', email_sent_at: new Date().toISOString() })
+        .from('fda_creator_projects')
+        .update({ status: 'sent', sent_at: new Date().toISOString() })
         .eq('id', selectedProject.id);
 
       toast({ title: 'Success!', description: 'FDA sent to n8n workflow' });
