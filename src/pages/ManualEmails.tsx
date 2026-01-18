@@ -455,17 +455,58 @@ export default function ManualEmails() {
         throw new Error('Webhook request failed');
       }
 
-      // If n8n returns the Supabase id, we can immediately reconcile the optimistic placeholder
-      let returnedId: number | null = null;
+      // n8n returns subject/body (and optionally id) directly in the webhook response
+      let webhookData: {
+        subject?: string;
+        body?: string;
+        email_id?: number;
+        data?: { email_id?: number; subject?: string; body?: string; vessel_name?: string };
+      } | null = null;
+
       try {
-        const json = await response.clone().json();
-        const idValue = (json?.supabase_id ?? json?.id) as unknown;
-        const parsed = typeof idValue === 'string' ? Number(idValue) : typeof idValue === 'number' ? idValue : NaN;
-        returnedId = Number.isFinite(parsed) ? parsed : null;
+        webhookData = await response.json();
       } catch {
-        // ignore
+        // ignore parse errors
       }
 
+      // Extract subject/body from response (could be at root or inside data object)
+      const respSubject = webhookData?.data?.subject ?? webhookData?.subject;
+      const respBody = webhookData?.data?.body ?? webhookData?.body;
+      const respEmailId = webhookData?.data?.email_id ?? webhookData?.email_id;
+      const respVesselName = webhookData?.data?.vessel_name;
+
+      // Update the optimistic placeholder with the real subject/body immediately
+      if (respSubject || respBody) {
+        const updateOptimistic = (subj: string | undefined, bd: string | undefined) => {
+          setEmails((prev) =>
+            prev.map((e) =>
+              e.id === optimisticId
+                ? {
+                    ...e,
+                    subject: subj ?? e.subject,
+                    body: bd ?? e.body,
+                    vessel_name: respVesselName ?? e.vessel_name,
+                    status: 'draft', // Mark as ready
+                  }
+                : e
+            )
+          );
+          setSelectedEmail((prev) =>
+            prev?.id === optimisticId
+              ? {
+                  ...prev,
+                  subject: subj ?? prev.subject,
+                  body: bd ?? prev.body,
+                  vessel_name: respVesselName ?? prev.vessel_name,
+                  status: 'draft',
+                }
+              : prev
+          );
+        };
+        updateOptimistic(respSubject, respBody);
+      }
+
+      // If n8n also returns the database id, reconcile the optimistic with the real DB row
       const reconcileWithRealRow = (real: ManualEmail) => {
         setEmails((prev) => {
           const withoutOptimistic = prev.filter((e) => e.id !== optimisticId);
@@ -475,12 +516,12 @@ export default function ManualEmails() {
         setSelectedEmail(real);
       };
 
-      if (returnedId) {
+      if (respEmailId && Number.isFinite(respEmailId)) {
         const tryFetchById = async () => {
           const { data } = await supabase
             .from('manual_emails')
             .select('*')
-            .eq('id', returnedId)
+            .eq('id', respEmailId)
             .single();
           return (data as ManualEmail | null) ?? null;
         };
@@ -489,6 +530,7 @@ export default function ManualEmails() {
         if (immediate) {
           reconcileWithRealRow(immediate);
         } else {
+          // Poll a few times in case DB write is slightly delayed
           const startedAt = Date.now();
           const interval = window.setInterval(async () => {
             const row = await tryFetchById();
