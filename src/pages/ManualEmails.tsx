@@ -68,6 +68,34 @@ export default function ManualEmails() {
     fetchManualEmails();
   }, [filterAgentType]);
 
+  // Realtime subscription for updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('manual_emails_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'manual_emails',
+        },
+        (payload) => {
+          // Refresh the list when any change happens
+          fetchManualEmails();
+          
+          // If it's an update and we have the email selected, update it
+          if (payload.eventType === 'UPDATE' && selectedEmail?.id === payload.new.id) {
+            setSelectedEmail(payload.new as ManualEmail);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedEmail?.id, filterAgentType]);
+
   async function fetchManualEmails() {
     setLoading(true);
     
@@ -99,9 +127,33 @@ export default function ManualEmails() {
     setManualSending(true);
 
     try {
+      // Step 1: First save to Supabase with status "processing"
+      const { data: insertedEmail, error: insertError } = await supabase
+        .from('manual_emails')
+        .insert({
+          email_content: manualEmailContent,
+          agent_type: manualAgentType,
+          status: 'processing',
+          pdf_count: manualPdfFile ? 1 : 0,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        throw new Error(`Failed to save email: ${insertError.message}`);
+      }
+
+      const emailId = insertedEmail.id;
+
+      // Switch to history tab to show the processing email
+      setActiveTab('history');
+      await fetchManualEmails();
+
+      // Step 2: Send to webhook with the Supabase ID
       const formData = new FormData();
       formData.append('email_content', manualEmailContent);
       formData.append('agent_type', manualAgentType);
+      formData.append('supabase_id', String(emailId));
       
       if (manualPdfFile) {
         formData.append('pdf', manualPdfFile);
@@ -113,20 +165,32 @@ export default function ManualEmails() {
       });
 
       if (!response.ok) {
+        // Update status to error if webhook fails
+        await supabase
+          .from('manual_emails')
+          .update({ status: 'error', error_message: 'Webhook request failed' })
+          .eq('id', emailId);
+        
+        await fetchManualEmails();
         throw new Error('Webhook request failed');
       }
 
-      toast({ title: 'Success', description: 'Email sent to webhook successfully!' });
+      toast({ 
+        title: 'Email Submitted', 
+        description: 'Email is being processed. Check the history for updates.' 
+      });
+      
       setManualEmailContent('');
       setManualPdfFile(null);
-      // Reset file input
       const fileInput = document.getElementById('manual-pdf-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
       
-      // Refresh the email list
-      setTimeout(() => fetchManualEmails(), 2000);
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to send email to webhook', variant: 'destructive' });
+      toast({ 
+        title: 'Error', 
+        description: error instanceof Error ? error.message : 'Failed to process email', 
+        variant: 'destructive' 
+      });
     } finally {
       setManualSending(false);
     }
