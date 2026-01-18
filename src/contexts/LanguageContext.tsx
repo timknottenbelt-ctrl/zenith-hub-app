@@ -18,7 +18,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   });
 
   const [office, setOffice] = useState<string | null>(() => {
-    return localStorage.getItem('lbh_office');
+    const stored = localStorage.getItem('lbh_office');
+    return stored ? stored.toLowerCase() : null;
   });
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (office) {
-      localStorage.setItem('lbh_office', office);
+      localStorage.setItem('lbh_office', office.toLowerCase());
     } else {
       localStorage.removeItem('lbh_office');
     }
