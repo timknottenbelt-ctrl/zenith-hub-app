@@ -85,30 +85,28 @@ export default function ManualEmails() {
     fetchManualEmails();
   }, [filterAgentType]);
 
-  // Auto-refresh polling for processing emails
+  // Auto-refresh polling for processing emails (silent, no UI flicker)
   useEffect(() => {
-    // Check if selected email is processing, then poll every 3 seconds
-    if (selectedEmail?.status === 'processing') {
-      const interval = setInterval(async () => {
-        // Fetch the specific email to check for updates
-        const { data, error } = await supabase
-          .from('manual_emails')
-          .select('*')
-          .eq('id', selectedEmail.id)
-          .single();
-        
-        if (!error && data) {
-          setSelectedEmail(data as ManualEmail);
-          // Also refresh the list
-          fetchManualEmails();
-        }
-      }, 3000);
+    if (selectedEmail?.status !== 'processing') return;
 
-      return () => clearInterval(interval);
-    }
+    const interval = setInterval(async () => {
+      const { data, error } = await supabase
+        .from('manual_emails')
+        .select('*')
+        .eq('id', selectedEmail.id)
+        .single();
+
+      if (!error && data) {
+        const updated = data as ManualEmail;
+        setSelectedEmail(updated);
+        setEmails((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, [selectedEmail?.id, selectedEmail?.status]);
 
-  // Realtime subscription for updates
+  // Realtime subscription for updates (update local state; avoid refetch flicker)
   useEffect(() => {
     const channel = supabase
       .channel('manual_emails_changes')
@@ -120,12 +118,55 @@ export default function ManualEmails() {
           table: 'manual_emails',
         },
         (payload) => {
-          // Refresh the list when any change happens
-          fetchManualEmails();
-          
-          // If it's an update and we have the email selected, update it
-          if (payload.eventType === 'UPDATE' && selectedEmail?.id === payload.new.id) {
+          const eventType = payload.eventType;
+
+          setEmails((prev) => {
+            const next = [...prev];
+
+            const matchesFilter = (agentType?: string | null) =>
+              filterAgentType === 'all' || agentType === filterAgentType;
+
+            if (eventType === 'INSERT') {
+              const row = payload.new as ManualEmail;
+              if (!matchesFilter(row.agent_type)) return prev;
+              if (next.some((e) => e.id === row.id)) return prev;
+              next.unshift(row);
+              return next;
+            }
+
+            if (eventType === 'UPDATE') {
+              const row = payload.new as ManualEmail;
+              const idx = next.findIndex((e) => e.id === row.id);
+
+              if (!matchesFilter(row.agent_type)) {
+                // If it no longer matches, remove it
+                if (idx !== -1) next.splice(idx, 1);
+                return next;
+              }
+
+              if (idx === -1) {
+                next.unshift(row);
+                return next;
+              }
+
+              next[idx] = row;
+              return next;
+            }
+
+            if (eventType === 'DELETE') {
+              const oldRow = payload.old as { id?: number };
+              return next.filter((e) => e.id !== oldRow.id);
+            }
+
+            return prev;
+          });
+
+          // Keep details pane in sync
+          if (eventType === 'UPDATE' && selectedEmail?.id === (payload.new as { id: number }).id) {
             setSelectedEmail(payload.new as ManualEmail);
+          }
+          if (eventType === 'DELETE' && selectedEmail?.id === (payload.old as { id: number }).id) {
+            setSelectedEmail(null);
           }
         }
       )
@@ -136,9 +177,10 @@ export default function ManualEmails() {
     };
   }, [selectedEmail?.id, filterAgentType]);
 
-  async function fetchManualEmails() {
-    setLoading(true);
-    
+  async function fetchManualEmails(options: { showLoading?: boolean } = {}) {
+    const shouldShowLoading = options.showLoading ?? emails.length === 0;
+    if (shouldShowLoading) setLoading(true);
+
     let query = supabase
       .from('manual_emails')
       .select('*')
@@ -155,7 +197,8 @@ export default function ManualEmails() {
     } else {
       setEmails((data as ManualEmail[]) || []);
     }
-    setLoading(false);
+
+    if (shouldShowLoading) setLoading(false);
   }
 
   async function handleManualSubmit() {
@@ -167,54 +210,16 @@ export default function ManualEmails() {
     setManualSending(true);
 
     try {
-      let pdfPath: string | null = null;
-
-      // Step 1: Upload PDF to storage if provided
-      if (manualPdfFile) {
-        const fileName = `manual-emails/${Date.now()}_${manualPdfFile.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('pdfs')
-          .upload(fileName, manualPdfFile);
-
-        if (uploadError) {
-          throw new Error(`Failed to upload PDF: ${uploadError.message}`);
-        }
-        pdfPath = fileName;
-      }
-
-      // Step 2: Save to Supabase with status "processing"
-      const { data: insertedEmail, error: insertError } = await supabase
-        .from('manual_emails')
-        .insert({
-          email_content: manualEmailContent,
-          agent_type: manualAgentType,
-          subject: manualSubject || null,
-          status: 'processing',
-          pdf_count: manualPdfFile ? 1 : 0,
-          pdf_path: pdfPath,
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        throw new Error(`Failed to save email: ${insertError.message}`);
-      }
-
-      const emailId = insertedEmail.id;
-
-      // Switch to history tab to show the processing email
-      setActiveTab('history');
-      await fetchManualEmails();
-
-      // Step 3: Send to webhook with the Supabase ID
+      // n8n is responsible for inserting/updating Supabase.
+      // We only send the original email (email_content) + optional PDF.
       const formData = new FormData();
       formData.append('email_content', manualEmailContent);
       formData.append('agent_type', manualAgentType);
-      formData.append('supabase_id', String(emailId));
-      
-      if (manualPdfFile) {
-        formData.append('pdf', manualPdfFile);
-      }
+      if (manualSubject.trim()) formData.append('subject', manualSubject.trim());
+      if (manualPdfFile) formData.append('pdf', manualPdfFile);
+
+      // Switch to history so user can immediately see incoming record(s)
+      setActiveTab('history');
 
       const response = await fetch('https://lbhcuracao.app.n8n.cloud/webhook-test/MANUAL-EMAIL-CREATION', {
         method: 'POST',
@@ -222,32 +227,50 @@ export default function ManualEmails() {
       });
 
       if (!response.ok) {
-        // Update status to error if webhook fails
-        await supabase
-          .from('manual_emails')
-          .update({ status: 'error', error_message: 'Webhook request failed' })
-          .eq('id', emailId);
-        
-        await fetchManualEmails();
         throw new Error('Webhook request failed');
       }
 
-      toast({ 
-        title: 'Email Submitted', 
-        description: 'Email is being processed. Check the history for updates.' 
+      // Best-effort: if n8n returns an id, try to auto-select it after refresh
+      let returnedId: number | null = null;
+      try {
+        const json = await response.clone().json();
+        const idValue = (json?.supabase_id ?? json?.id) as unknown;
+        const parsed = typeof idValue === 'string' ? Number(idValue) : typeof idValue === 'number' ? idValue : NaN;
+        returnedId = Number.isFinite(parsed) ? parsed : null;
+      } catch {
+        // ignore
+      }
+
+      // Silent refresh so the list updates without blinking
+      setTimeout(() => {
+        fetchManualEmails({ showLoading: false });
+        if (returnedId) {
+          supabase
+            .from('manual_emails')
+            .select('*')
+            .eq('id', returnedId)
+            .single()
+            .then(({ data }) => {
+              if (data) setSelectedEmail(data as ManualEmail);
+            });
+        }
+      }, 1000);
+
+      toast({
+        title: 'Email Submitted',
+        description: 'Email is being processed. Check the history for updates.',
       });
-      
+
       setManualEmailContent('');
       setManualSubject('');
       setManualPdfFile(null);
       const fileInput = document.getElementById('manual-pdf-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
-      
     } catch (error) {
-      toast({ 
-        title: 'Error', 
-        description: error instanceof Error ? error.message : 'Failed to process email', 
-        variant: 'destructive' 
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to process email',
+        variant: 'destructive',
       });
     } finally {
       setManualSending(false);
@@ -308,7 +331,7 @@ export default function ManualEmails() {
 
   const getStatusBadge = (status: string | null) => {
     const styles: Record<string, string> = {
-      processing: 'bg-amber-500/10 text-amber-600',
+      processing: 'bg-primary/10 text-primary',
       completed: 'bg-success/10 text-success',
       error: 'bg-destructive/10 text-destructive',
     };
@@ -444,8 +467,8 @@ export default function ManualEmails() {
                 </div>
 
                 {/* Submit Button */}
-                <Button 
-                  className="w-full bg-sky-400 hover:bg-sky-500 text-white" 
+                <Button
+                  className="w-full"
                   onClick={handleManualSubmit}
                   disabled={manualSending || !manualEmailContent.trim()}
                 >
@@ -507,7 +530,7 @@ export default function ManualEmails() {
                     <Mail className="w-4 h-4" />
                     Emails ({emails.length})
                   </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={fetchManualEmails}>
+                  <Button variant="ghost" size="sm" onClick={() => fetchManualEmails({ showLoading: false })}>
                     <RefreshCw className="w-4 h-4" />
                   </Button>
                 </div>
@@ -667,13 +690,13 @@ export default function ManualEmails() {
                       <Label className="text-xs text-muted-foreground flex items-center gap-2">
                         AI Generated Email
                         {selectedEmail.status === 'processing' && (
-                          <Loader2 className="w-4 h-4 animate-spin text-sky-500" />
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
                         )}
                       </Label>
-                      
+
                       {selectedEmail.status === 'processing' ? (
-                        <div className="border rounded-lg bg-sky-50 dark:bg-sky-950/20 p-4">
-                          <div className="flex items-center gap-3 text-sky-600 dark:text-sky-400">
+                        <div className="border rounded-lg bg-muted/20 p-4">
+                          <div className="flex items-center gap-3 text-muted-foreground">
                             <Loader2 className="w-5 h-5 animate-spin" />
                             <p className="text-sm">AI is generating your email response...</p>
                           </div>
