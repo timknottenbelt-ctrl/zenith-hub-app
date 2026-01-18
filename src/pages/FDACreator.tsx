@@ -37,7 +37,7 @@ interface FDAProject {
   lbh_number: string;
   ship_name: string;
   fda_responsible: string | null;
-  client: string | null;
+  client_name: string | null;
   client_email: string | null;
   client_phone: string | null;
   billing_company: string | null;
@@ -47,7 +47,7 @@ interface FDAProject {
   status: string;
   created_at: string;
   updated_at: string;
-  sent_at: string | null;
+  email_sent_at: string | null;
 }
 
 interface FDAInvoice {
@@ -64,7 +64,7 @@ interface FDAFormData {
   lbh_number: string;
   ship_name: string;
   fda_responsible: string;
-  client: string;
+  client_name: string;
   client_email: string;
   client_phone: string;
   billing_company: string;
@@ -91,7 +91,7 @@ export default function FDACreator() {
     lbh_number: '',
     ship_name: '',
     fda_responsible: '',
-    client: '',
+    client_name: '',
     client_email: '',
     client_phone: '',
     billing_company: '',
@@ -110,7 +110,7 @@ export default function FDACreator() {
         lbh_number: selectedProject.lbh_number,
         ship_name: selectedProject.ship_name,
         fda_responsible: selectedProject.fda_responsible || '',
-        client: selectedProject.client || '',
+        client_name: selectedProject.client_name || '',
         client_email: selectedProject.client_email || '',
         client_phone: selectedProject.client_phone || '',
         billing_company: selectedProject.billing_company || '',
@@ -173,13 +173,14 @@ export default function FDACreator() {
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
         fda_responsible: formData.fda_responsible || null,
-        client: formData.client || null,
+        client_name: formData.client_name || null,
         client_email: formData.client_email || null,
         client_phone: formData.client_phone || null,
         billing_company: formData.billing_company || null,
         billing_address: formData.billing_address || null,
         billing_email: formData.billing_email || null,
         billing_phone: formData.billing_phone || null,
+        project_id: crypto.randomUUID(),
       })
       .select()
       .single();
@@ -208,7 +209,7 @@ export default function FDACreator() {
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
         fda_responsible: formData.fda_responsible || null,
-        client: formData.client || null,
+        client_name: formData.client_name || null,
         client_email: formData.client_email || null,
         client_phone: formData.client_phone || null,
         billing_company: formData.billing_company || null,
@@ -362,7 +363,7 @@ export default function FDACreator() {
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
         fda_responsible: formData.fda_responsible,
-        client: formData.client,
+        client_name: formData.client_name,
         client_email: formData.client_email,
         client_phone: formData.client_phone,
         billing_company: formData.billing_company,
@@ -388,7 +389,7 @@ export default function FDACreator() {
       // Update project status
       await supabase
         .from('fda_projects')
-        .update({ status: 'sent', sent_at: new Date().toISOString() })
+        .update({ status: 'sent', email_sent_at: new Date().toISOString() })
         .eq('id', selectedProject.id);
 
       toast({ title: 'Success!', description: 'FDA sent to n8n workflow' });
@@ -407,7 +408,7 @@ export default function FDACreator() {
       lbh_number: '',
       ship_name: '',
       fda_responsible: '',
-      client: '',
+      client_name: '',
       client_email: '',
       client_phone: '',
       billing_company: '',
@@ -504,7 +505,7 @@ export default function FDACreator() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Client Name</Label>
-                  <Input value={formData.client} onChange={(e) => handleInputChange('client', e.target.value)} />
+                  <Input value={formData.client_name} onChange={(e) => handleInputChange('client_name', e.target.value)} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -746,8 +747,8 @@ export default function FDACreator() {
                   <div className="space-y-2">
                     <Label>Client Name</Label>
                     <Input
-                      value={formData.client}
-                      onChange={(e) => handleInputChange('client', e.target.value)}
+                      value={formData.client_name}
+                      onChange={(e) => handleInputChange('client_name', e.target.value)}
                       placeholder="Client Name"
                     />
                   </div>
