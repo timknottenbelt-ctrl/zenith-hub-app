@@ -24,6 +24,7 @@ import {
   Send,
   ArrowLeft,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "react-router-dom";
@@ -172,6 +173,23 @@ export default function ManualEmails() {
       toast({ title: "Error", description: "Failed to send email to AI", variant: "destructive" });
     } finally {
       setManualSending(false);
+    }
+  }
+
+  async function handleDeleteEmail(emailId: number) {
+    if (!confirm("Weet je zeker dat je deze email wilt verwijderen?")) return;
+
+    const { error } = await supabase
+      .from("manual_emails")
+      .delete()
+      .eq("id", emailId);
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete email", variant: "destructive" });
+    } else {
+      toast({ title: "Deleted", description: "Email has been deleted" });
+      setSelectedEmail(null);
+      fetchManualEmails();
     }
   }
 
@@ -438,7 +456,20 @@ export default function ManualEmails() {
             {/* Email Detail */}
             <Card className="card-premium lg:col-span-2">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Email Details</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium">Email Details</CardTitle>
+                  {selectedEmail && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleDeleteEmail(selectedEmail.id)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {selectedEmail ? (
