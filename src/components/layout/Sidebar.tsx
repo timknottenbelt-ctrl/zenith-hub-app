@@ -26,9 +26,8 @@ const navItems = [
 
 const FLAGCDN_BASE = 'https://flagcdn.com';
 
-// Use w80 for crisp rendering at 2x+ displays
 const getOfficeFlagUrl = (officeCode: string) =>
-  `${FLAGCDN_BASE}/w80/${officeCode.toLowerCase()}.png`;
+  `${FLAGCDN_BASE}/w20/${officeCode.toLowerCase()}.png`;
 
 export function Sidebar() {
   const { t, office } = useLanguage();
@@ -48,9 +47,8 @@ export function Sidebar() {
           {officeFlagUrl && (
             <img
               src={officeFlagUrl}
-              alt={`${office?.toUpperCase() || ''} flag`}
-              className="ml-2 h-4 w-6 rounded-[2px] object-cover"
-              style={{ imageRendering: 'auto' }}
+              alt={`${office?.toUpperCase() || ''} vlag`}
+              className="ml-2 h-4 w-6 rounded-sm ring-1 ring-border object-cover"
               loading="lazy"
               referrerPolicy="no-referrer"
               onError={(e) => {

@@ -37,34 +37,33 @@ interface FDAProject {
   lbh_number: string;
   ship_name: string;
   fda_responsible: string | null;
-  client_name: string | null;
+  client: string | null;
   client_email: string | null;
   client_phone: string | null;
   billing_company: string | null;
   billing_address: string | null;
   billing_email: string | null;
   billing_phone: string | null;
-  status: string | null;
-  created_at: string | null;
-  updated_at: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
   sent_at: string | null;
 }
 
 interface FDAInvoice {
   id: string;
-  project_id: string;
+  fda_project_id: string;
   file_path: string;
   file_name: string;
   file_size: number | null;
   created_at: string;
-  invoice_number?: string | null;
 }
 
 interface FDAFormData {
   lbh_number: string;
   ship_name: string;
   fda_responsible: string;
-  client_name: string;
+  client: string;
   client_email: string;
   client_phone: string;
   billing_company: string;
@@ -81,7 +80,6 @@ export default function FDACreator() {
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<FDAProject | null>(null);
   const [projectInvoices, setProjectInvoices] = useState<FDAInvoice[]>([]);
-  const [invoiceNumbers, setInvoiceNumbers] = useState<Record<string, string>>({});
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
@@ -91,7 +89,7 @@ export default function FDACreator() {
     lbh_number: '',
     ship_name: '',
     fda_responsible: '',
-    client_name: '',
+    client: '',
     client_email: '',
     client_phone: '',
     billing_company: '',
@@ -110,7 +108,7 @@ export default function FDACreator() {
         lbh_number: selectedProject.lbh_number,
         ship_name: selectedProject.ship_name,
         fda_responsible: selectedProject.fda_responsible || '',
-        client_name: selectedProject.client_name || '',
+        client: selectedProject.client || '',
         client_email: selectedProject.client_email || '',
         client_phone: selectedProject.client_phone || '',
         billing_company: selectedProject.billing_company || '',
@@ -125,7 +123,7 @@ export default function FDACreator() {
   async function fetchProjects() {
     setLoading(true);
     const { data, error } = await supabase
-      .from('fda_creator_projects')
+      .from('fda_projects')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -139,21 +137,12 @@ export default function FDACreator() {
 
   async function fetchProjectInvoices(projectId: string) {
     const { data } = await supabase
-      .from('fda_creator_invoices')
+      .from('fda_invoices')
       .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: true });
+      .eq('fda_project_id', projectId)
+      .order('created_at', { ascending: false });
 
-    const invoices = (data || []) as FDAInvoice[];
-    setProjectInvoices(invoices);
-    
-    // Initialize invoice numbers from database or auto-generate
-    const numbers: Record<string, string> = {};
-    invoices.forEach((inv, index) => {
-      // Use saved invoice_number if available, otherwise auto-generate
-      numbers[inv.id] = inv.invoice_number || String(index + 1).padStart(3, '0');
-    });
-    setInvoiceNumbers(numbers);
+    setProjectInvoices(data || []);
   }
 
   const handleInputChange = (field: keyof FDAFormData, value: string) => {
@@ -168,12 +157,12 @@ export default function FDACreator() {
 
     setSaving(true);
     const { data, error } = await supabase
-      .from('fda_creator_projects')
+      .from('fda_projects')
       .insert({
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
         fda_responsible: formData.fda_responsible || null,
-        client_name: formData.client_name || null,
+        client: formData.client || null,
         client_email: formData.client_email || null,
         client_phone: formData.client_phone || null,
         billing_company: formData.billing_company || null,
@@ -203,12 +192,12 @@ export default function FDACreator() {
 
     setSaving(true);
     const { error } = await supabase
-      .from('fda_creator_projects')
+      .from('fda_projects')
       .update({
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
         fda_responsible: formData.fda_responsible || null,
-        client_name: formData.client_name || null,
+        client: formData.client || null,
         client_email: formData.client_email || null,
         client_phone: formData.client_phone || null,
         billing_company: formData.billing_company || null,
@@ -228,7 +217,7 @@ export default function FDACreator() {
   }
 
   async function handleDeleteProject(id: string) {
-    const { error } = await supabase.from('fda_creator_projects').delete().eq('id', id);
+    const { error } = await supabase.from('fda_projects').delete().eq('id', id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
@@ -261,8 +250,8 @@ export default function FDACreator() {
         continue;
       }
 
-      const { error: insertError } = await supabase.from('fda_creator_invoices').insert({
-        project_id: selectedProject.id,
+      const { error: insertError } = await supabase.from('fda_invoices').insert({
+        fda_project_id: selectedProject.id,
         file_path: filePath,
         file_name: file.name,
         file_size: file.size,
@@ -281,44 +270,11 @@ export default function FDACreator() {
 
   async function handleDeleteInvoice(invoice: FDAInvoice) {
     await supabase.storage.from('fda-invoices').remove([invoice.file_path]);
-    await supabase.from('fda_creator_invoices').delete().eq('id', invoice.id);
+    await supabase.from('fda_invoices').delete().eq('id', invoice.id);
     if (selectedProject) {
       await fetchProjectInvoices(selectedProject.id);
     }
     toast({ title: 'Success', description: 'File deleted' });
-  }
-
-  async function handleViewInvoice(invoice: FDAInvoice) {
-    const { data } = await supabase.storage
-      .from('fda-invoices')
-      .createSignedUrl(invoice.file_path, 3600);
-    
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, '_blank');
-    } else {
-      toast({ title: 'Error', description: 'Could not open file', variant: 'destructive' });
-    }
-  }
-
-  async function handleDownloadInvoice(invoice: FDAInvoice) {
-    const { data } = await supabase.storage
-      .from('fda-invoices')
-      .createSignedUrl(invoice.file_path, 3600);
-    
-    if (data?.signedUrl) {
-      const link = document.createElement('a');
-      link.href = data.signedUrl;
-      link.download = invoice.file_name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else {
-      toast({ title: 'Error', description: 'Could not download file', variant: 'destructive' });
-    }
-  }
-
-  function handleInvoiceNumberChange(invoiceId: string, value: string) {
-    setInvoiceNumbers(prev => ({ ...prev, [invoiceId]: value }));
   }
 
   async function handleSendToWebhook() {
@@ -330,46 +286,31 @@ export default function FDACreator() {
     setSending(true);
 
     try {
-      // Save invoice numbers to database and get signed URLs
-      const invoicesWithUrls: { invoice_number: string; file_name: string; file_url: string }[] = [];
-      
+      // Get signed URLs for all files
+      const fileUrls: string[] = [];
       for (const invoice of projectInvoices) {
-        const invoiceNumber = invoiceNumbers[invoice.id] || '';
-        
-        // Save invoice number to database
-        await supabase
-          .from('fda_creator_invoices')
-          .update({ invoice_number: invoiceNumber })
-          .eq('id', invoice.id);
-        
-        // Get signed URL
         const { data } = await supabase.storage
           .from('fda-invoices')
           .createSignedUrl(invoice.file_path, 86400); // 24 hours
-        
         if (data?.signedUrl) {
-          invoicesWithUrls.push({
-            invoice_number: invoiceNumber,
-            file_name: invoice.file_name,
-            file_url: data.signedUrl,
-          });
+          fileUrls.push(data.signedUrl);
         }
       }
 
-      // Prepare payload with invoice numbers
+      // Prepare payload
       const payload = {
         project_id: selectedProject.id,
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
         fda_responsible: formData.fda_responsible,
-        client_name: formData.client_name,
+        client: formData.client,
         client_email: formData.client_email,
         client_phone: formData.client_phone,
         billing_company: formData.billing_company,
         billing_address: formData.billing_address,
         billing_email: formData.billing_email,
         billing_phone: formData.billing_phone,
-        invoices: invoicesWithUrls,
+        invoice_files: fileUrls,
         invoice_count: projectInvoices.length,
         sent_at: new Date().toISOString(),
       };
@@ -387,7 +328,7 @@ export default function FDACreator() {
 
       // Update project status
       await supabase
-        .from('fda_creator_projects')
+        .from('fda_projects')
         .update({ status: 'sent', sent_at: new Date().toISOString() })
         .eq('id', selectedProject.id);
 
@@ -407,7 +348,7 @@ export default function FDACreator() {
       lbh_number: '',
       ship_name: '',
       fda_responsible: '',
-      client_name: '',
+      client: '',
       client_email: '',
       client_phone: '',
       billing_company: '',
@@ -465,90 +406,76 @@ export default function FDACreator() {
             </div>
           </div>
 
-          {/* Form Sections */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Ship Information */}
-            <Card className="card-premium">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Ship className="w-4 h-4 text-primary" />
-                  Ship Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">LBH Number *</Label>
-                    <Input value={formData.lbh_number} onChange={(e) => handleInputChange('lbh_number', e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Ship Name *</Label>
-                    <Input value={formData.ship_name} onChange={(e) => handleInputChange('ship_name', e.target.value)} />
-                  </div>
+          {/* All form fields in horizontal layout */}
+          <Card className="card-premium">
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {/* Vessel Info */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Ship className="w-3 h-3" /> LBH Number *
+                  </Label>
+                  <Input value={formData.lbh_number} onChange={(e) => handleInputChange('lbh_number', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Ship className="w-3 h-3" /> Ship Name *
+                  </Label>
+                  <Input value={formData.ship_name} onChange={(e) => handleInputChange('ship_name', e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">FDA Responsible</Label>
                   <Input value={formData.fda_responsible} onChange={(e) => handleInputChange('fda_responsible', e.target.value)} />
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Client Information */}
-            <Card className="card-premium">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <User className="w-4 h-4 text-primary" />
-                  Client Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                {/* Client Info */}
                 <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Client Name</Label>
-                  <Input value={formData.client_name} onChange={(e) => handleInputChange('client_name', e.target.value)} />
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <User className="w-3 h-3" /> Client Name
+                  </Label>
+                  <Input value={formData.client} onChange={(e) => handleInputChange('client', e.target.value)} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Email</Label>
-                    <Input type="email" value={formData.client_email} onChange={(e) => handleInputChange('client_email', e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Phone</Label>
-                    <Input value={formData.client_phone} onChange={(e) => handleInputChange('client_phone', e.target.value)} />
-                  </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Mail className="w-3 h-3" /> Client Email
+                  </Label>
+                  <Input type="email" value={formData.client_email} onChange={(e) => handleInputChange('client_email', e.target.value)} />
                 </div>
-              </CardContent>
-            </Card>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Phone className="w-3 h-3" /> Client Phone
+                  </Label>
+                  <Input value={formData.client_phone} onChange={(e) => handleInputChange('client_phone', e.target.value)} />
+                </div>
 
-            {/* Billing Information - Spans full width */}
-            <Card className="card-premium lg:col-span-2">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Receipt className="w-4 h-4 text-primary" />
-                  Billing Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Company</Label>
-                    <Input value={formData.billing_company} onChange={(e) => handleInputChange('billing_company', e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Email</Label>
-                    <Input type="email" value={formData.billing_email} onChange={(e) => handleInputChange('billing_email', e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Address</Label>
-                    <Input value={formData.billing_address} onChange={(e) => handleInputChange('billing_address', e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Phone</Label>
-                    <Input value={formData.billing_phone} onChange={(e) => handleInputChange('billing_phone', e.target.value)} />
-                  </div>
+                {/* Billing Info */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Building2 className="w-3 h-3" /> Billing Company
+                  </Label>
+                  <Input value={formData.billing_company} onChange={(e) => handleInputChange('billing_company', e.target.value)} />
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Mail className="w-3 h-3" /> Billing Email
+                  </Label>
+                  <Input type="email" value={formData.billing_email} onChange={(e) => handleInputChange('billing_email', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Receipt className="w-3 h-3" /> Billing Address
+                  </Label>
+                  <Input value={formData.billing_address} onChange={(e) => handleInputChange('billing_address', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Phone className="w-3 h-3" /> Billing Phone
+                  </Label>
+                  <Input value={formData.billing_phone} onChange={(e) => handleInputChange('billing_phone', e.target.value)} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Invoice PDFs Section - Full Width Below */}
           <Card className="card-premium">
@@ -593,70 +520,23 @@ export default function FDACreator() {
                   <p className="text-xs">Upload invoice PDFs using the button above</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {projectInvoices.map((invoice, index) => (
-                    <div 
-                      key={invoice.id} 
-                      className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg border border-border/50 hover:border-border transition-colors"
-                    >
-                      {/* File Icon */}
-                      <div className="shrink-0">
-                        <FileText className="w-5 h-5 text-primary" />
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                  {projectInvoices.map((invoice) => (
+                    <div key={invoice.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg group">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CheckCircle className="w-4 h-4 text-success shrink-0" />
+                        <span className="text-sm truncate">{invoice.file_name}</span>
                       </div>
-                      
-                      {/* File Name - Takes most space */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{invoice.file_name}</p>
-                        {invoice.file_size && (
-                          <p className="text-xs text-muted-foreground">
-                            {(invoice.file_size / 1024).toFixed(1)} KB
-                          </p>
-                        )}
-                      </div>
-                      
-                      {/* Invoice Number - Editable */}
-                      <div className="shrink-0 flex items-center gap-2">
-                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Invoice #</Label>
-                        <Input
-                          value={invoiceNumbers[invoice.id] || ''}
-                          onChange={(e) => handleInvoiceNumberChange(invoice.id, e.target.value)}
-                          className="w-20 h-8 text-sm text-center"
-                          disabled={selectedProject.status === 'sent'}
-                        />
-                      </div>
-                      
-                      {/* Action Buttons */}
-                      <div className="shrink-0 flex items-center gap-1">
+                      {selectedProject.status !== 'sent' && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleViewInvoice(invoice)}
-                          title="View"
+                          className="shrink-0 opacity-0 group-hover:opacity-100 h-6 w-6"
+                          onClick={() => handleDeleteInvoice(invoice)}
                         >
-                          <FileText className="w-4 h-4" />
+                          <X className="w-3 h-3 text-destructive" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleDownloadInvoice(invoice)}
-                          title="Download"
-                        >
-                          <Upload className="w-4 h-4 rotate-180" />
-                        </Button>
-                        {selectedProject.status !== 'sent' && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteInvoice(invoice)}
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -746,8 +626,8 @@ export default function FDACreator() {
                   <div className="space-y-2">
                     <Label>Client Name</Label>
                     <Input
-                      value={formData.client_name}
-                      onChange={(e) => handleInputChange('client_name', e.target.value)}
+                      value={formData.client}
+                      onChange={(e) => handleInputChange('client', e.target.value)}
                       placeholder="Client Name"
                     />
                   </div>

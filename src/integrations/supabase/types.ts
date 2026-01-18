@@ -223,98 +223,6 @@ export type Database = {
           },
         ]
       }
-      fda_creator_invoices: {
-        Row: {
-          created_at: string | null
-          file_name: string
-          file_path: string
-          file_size: number | null
-          id: string
-          invoice_number: string | null
-          project_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          file_name: string
-          file_path: string
-          file_size?: number | null
-          id?: string
-          invoice_number?: string | null
-          project_id: string
-        }
-        Update: {
-          created_at?: string | null
-          file_name?: string
-          file_path?: string
-          file_size?: number | null
-          id?: string
-          invoice_number?: string | null
-          project_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fda_creator_invoices_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "fda_creator_projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      fda_creator_projects: {
-        Row: {
-          billing_address: string | null
-          billing_company: string | null
-          billing_email: string | null
-          billing_phone: string | null
-          client_email: string | null
-          client_name: string | null
-          client_phone: string | null
-          created_at: string | null
-          fda_responsible: string | null
-          id: string
-          lbh_number: string
-          sent_at: string | null
-          ship_name: string
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          billing_address?: string | null
-          billing_company?: string | null
-          billing_email?: string | null
-          billing_phone?: string | null
-          client_email?: string | null
-          client_name?: string | null
-          client_phone?: string | null
-          created_at?: string | null
-          fda_responsible?: string | null
-          id?: string
-          lbh_number: string
-          sent_at?: string | null
-          ship_name: string
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          billing_address?: string | null
-          billing_company?: string | null
-          billing_email?: string | null
-          billing_phone?: string | null
-          client_email?: string | null
-          client_name?: string | null
-          client_phone?: string | null
-          created_at?: string | null
-          fda_responsible?: string | null
-          id?: string
-          lbh_number?: string
-          sent_at?: string | null
-          ship_name?: string
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       fda_invoices: {
         Row: {
           created_at: string
@@ -323,7 +231,6 @@ export type Database = {
           file_path: string
           file_size: number | null
           id: string
-          invoice_number: string | null
         }
         Insert: {
           created_at?: string
@@ -332,7 +239,6 @@ export type Database = {
           file_path: string
           file_size?: number | null
           id?: string
-          invoice_number?: string | null
         }
         Update: {
           created_at?: string
@@ -341,75 +247,14 @@ export type Database = {
           file_path?: string
           file_size?: number | null
           id?: string
-          invoice_number?: string | null
-        }
-        Relationships: []
-      }
-      fda_processed_invoices: {
-        Row: {
-          created_at: string | null
-          currency: string | null
-          description: string | null
-          due_date: string | null
-          file_name: string
-          file_url: string | null
-          id: string
-          invoice_date: string | null
-          invoice_number: string
-          lbh_number: string
-          processed_at: string | null
-          project_id: string
-          remark: string | null
-          ship_name: string
-          supplier_name: string | null
-          total_amount: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          currency?: string | null
-          description?: string | null
-          due_date?: string | null
-          file_name: string
-          file_url?: string | null
-          id?: string
-          invoice_date?: string | null
-          invoice_number: string
-          lbh_number: string
-          processed_at?: string | null
-          project_id: string
-          remark?: string | null
-          ship_name: string
-          supplier_name?: string | null
-          total_amount?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          currency?: string | null
-          description?: string | null
-          due_date?: string | null
-          file_name?: string
-          file_url?: string | null
-          id?: string
-          invoice_date?: string | null
-          invoice_number?: string
-          lbh_number?: string
-          processed_at?: string | null
-          project_id?: string
-          remark?: string | null
-          ship_name?: string
-          supplier_name?: string | null
-          total_amount?: number | null
-          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "fda_processed_invoices_project_id_fkey"
-            columns: ["project_id"]
+            foreignKeyName: "fda_invoices_fda_project_id_fkey"
+            columns: ["fda_project_id"]
             isOneToOne: false
             referencedRelation: "fda_projects"
-            referencedColumns: ["project_id"]
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -419,75 +264,51 @@ export type Database = {
           billing_company: string | null
           billing_email: string | null
           billing_phone: string | null
+          client: string | null
           client_email: string | null
-          client_name: string | null
           client_phone: string | null
-          created_at: string | null
-          email_body: string | null
-          email_sent_at: string | null
-          email_subject: string | null
+          created_at: string
           fda_responsible: string | null
-          google_sheet_id: string | null
-          google_sheet_url: string | null
           id: string
           lbh_number: string
-          processed_at: string | null
-          project_id: string
+          sent_at: string | null
           ship_name: string
-          status: string | null
-          total_amount: number | null
-          total_invoices: number | null
-          updated_at: string | null
+          status: string
+          updated_at: string
         }
         Insert: {
           billing_address?: string | null
           billing_company?: string | null
           billing_email?: string | null
           billing_phone?: string | null
+          client?: string | null
           client_email?: string | null
-          client_name?: string | null
           client_phone?: string | null
-          created_at?: string | null
-          email_body?: string | null
-          email_sent_at?: string | null
-          email_subject?: string | null
+          created_at?: string
           fda_responsible?: string | null
-          google_sheet_id?: string | null
-          google_sheet_url?: string | null
           id?: string
           lbh_number: string
-          processed_at?: string | null
-          project_id: string
+          sent_at?: string | null
           ship_name: string
-          status?: string | null
-          total_amount?: number | null
-          total_invoices?: number | null
-          updated_at?: string | null
+          status?: string
+          updated_at?: string
         }
         Update: {
           billing_address?: string | null
           billing_company?: string | null
           billing_email?: string | null
           billing_phone?: string | null
+          client?: string | null
           client_email?: string | null
-          client_name?: string | null
           client_phone?: string | null
-          created_at?: string | null
-          email_body?: string | null
-          email_sent_at?: string | null
-          email_subject?: string | null
+          created_at?: string
           fda_responsible?: string | null
-          google_sheet_id?: string | null
-          google_sheet_url?: string | null
           id?: string
           lbh_number?: string
-          processed_at?: string | null
-          project_id?: string
+          sent_at?: string | null
           ship_name?: string
-          status?: string | null
-          total_amount?: number | null
-          total_invoices?: number | null
-          updated_at?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -793,8 +614,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_lbh_invoice_count: { Args: { p_lbh_number: string }; Returns: number }
-      get_project_total: { Args: { p_project_id: string }; Returns: number }
       search_by_keyword: {
         Args: { keyword_text: string }
         Returns: {
