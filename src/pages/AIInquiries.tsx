@@ -216,9 +216,15 @@ export default function AIInquiries() {
 
   return (
     <DashboardLayout title={t('inquiries.title')}>
-      <div className="flex items-center justify-end mb-4">
+      <div className="flex items-center justify-end gap-2 mb-4">
+        <Link to="/inquiries/manual?tab=history">
+          <Button variant="outline" className="gap-2">
+            <Mail className="w-4 h-4" />
+            History
+          </Button>
+        </Link>
         <Link to="/inquiries/manual">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
             <PlusCircle className="w-4 h-4" />
             Manual
           </Button>

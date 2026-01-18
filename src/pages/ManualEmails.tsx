@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +36,8 @@ import {
   RefreshCw,
   FileText,
   Trash2,
+  Copy,
+  Check,
 } from 'lucide-react';
 import {
   Select,
@@ -65,13 +68,16 @@ interface ManualEmail {
 
 export default function ManualEmails() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<string>('create');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'history' ? 'history' : 'create';
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [emails, setEmails] = useState<ManualEmail[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<ManualEmail | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterAgentType, setFilterAgentType] = useState<string>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [emailToDelete, setEmailToDelete] = useState<{ id: number; pdfPath: string | null } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Manual email creation state
   const [manualEmailContent, setManualEmailContent] = useState('');
@@ -79,6 +85,18 @@ export default function ManualEmails() {
   const [manualAgentType, setManualAgentType] = useState<'OWNERS_AGENT' | 'CARGO_AGENT'>('CARGO_AGENT');
   const [manualPdfFile, setManualPdfFile] = useState<File | null>(null);
   const [manualSending, setManualSending] = useState(false);
+
+  const handleCopyEmail = async () => {
+    if (!selectedEmail?.body) return;
+    const textToCopy = selectedEmail.subject 
+      ? `Subject: ${selectedEmail.subject}\n\n${selectedEmail.body}`
+      : selectedEmail.body;
+    
+    await navigator.clipboard.writeText(textToCopy);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast({ title: 'Gekopieerd', description: 'Email gekopieerd naar klembord' });
+  };
 
 
   const areEmailsEquivalentForUI = (a: ManualEmail, b: ManualEmail) =>
@@ -837,12 +855,34 @@ export default function ManualEmails() {
 
                     {/* AI Generated Response */}
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground flex items-center gap-2">
-                        AI Generated Email
-                        {selectedEmail.status === 'processing' && (
-                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                          AI Generated Email
+                          {selectedEmail.status === 'processing' && (
+                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                          )}
+                        </Label>
+                        {selectedEmail.body && selectedEmail.status !== 'processing' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCopyEmail}
+                            className="h-7 gap-1.5 text-xs"
+                          >
+                            {copied ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-green-500" />
+                                Gekopieerd
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                Kopieer
+                              </>
+                            )}
+                          </Button>
                         )}
-                      </Label>
+                      </div>
 
                       {selectedEmail.status === 'processing' ? (
                         <div className="border rounded-lg bg-muted/20 p-4">
@@ -860,7 +900,7 @@ export default function ManualEmails() {
                             </div>
                           )}
                           <ScrollArea className="h-[180px]">
-                            <pre className="p-4 text-sm whitespace-pre-wrap font-mono bg-muted/30">
+                            <pre className="p-4 text-sm whitespace-pre-wrap font-sans bg-muted/30">
                               {selectedEmail.body}
                             </pre>
                           </ScrollArea>
@@ -876,7 +916,7 @@ export default function ManualEmails() {
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Original Email</Label>
                       <ScrollArea className="h-[150px] border rounded-lg">
-                        <pre className="p-4 text-sm whitespace-pre-wrap font-mono">
+                        <pre className="p-4 text-sm whitespace-pre-wrap font-sans">
                           {selectedEmail.email_content}
                         </pre>
                       </ScrollArea>
