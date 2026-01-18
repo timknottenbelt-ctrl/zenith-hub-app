@@ -231,6 +231,7 @@ export type Database = {
           file_path: string
           file_size: number | null
           id: string
+          invoice_number: string | null
         }
         Insert: {
           created_at?: string
@@ -239,6 +240,7 @@ export type Database = {
           file_path: string
           file_size?: number | null
           id?: string
+          invoice_number?: string | null
         }
         Update: {
           created_at?: string
@@ -247,6 +249,7 @@ export type Database = {
           file_path?: string
           file_size?: number | null
           id?: string
+          invoice_number?: string | null
         }
         Relationships: [
           {

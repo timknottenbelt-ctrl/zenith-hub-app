@@ -144,13 +144,14 @@ export default function FDACreator() {
       .eq('fda_project_id', projectId)
       .order('created_at', { ascending: true });
 
-    const invoices = data || [];
+    const invoices = (data || []) as FDAInvoice[];
     setProjectInvoices(invoices);
     
-    // Initialize invoice numbers (auto-numbering)
+    // Initialize invoice numbers from database or auto-generate
     const numbers: Record<string, string> = {};
     invoices.forEach((inv, index) => {
-      numbers[inv.id] = String(index + 1).padStart(3, '0');
+      // Use saved invoice_number if available, otherwise auto-generate
+      numbers[inv.id] = inv.invoice_number || String(index + 1).padStart(3, '0');
     });
     setInvoiceNumbers(numbers);
   }
@@ -329,18 +330,33 @@ export default function FDACreator() {
     setSending(true);
 
     try {
-      // Get signed URLs for all files
-      const fileUrls: string[] = [];
+      // Save invoice numbers to database and get signed URLs
+      const invoicesWithUrls: { invoice_number: string; file_name: string; file_url: string }[] = [];
+      
       for (const invoice of projectInvoices) {
+        const invoiceNumber = invoiceNumbers[invoice.id] || '';
+        
+        // Save invoice number to database
+        await supabase
+          .from('fda_invoices')
+          .update({ invoice_number: invoiceNumber })
+          .eq('id', invoice.id);
+        
+        // Get signed URL
         const { data } = await supabase.storage
           .from('fda-invoices')
           .createSignedUrl(invoice.file_path, 86400); // 24 hours
+        
         if (data?.signedUrl) {
-          fileUrls.push(data.signedUrl);
+          invoicesWithUrls.push({
+            invoice_number: invoiceNumber,
+            file_name: invoice.file_name,
+            file_url: data.signedUrl,
+          });
         }
       }
 
-      // Prepare payload
+      // Prepare payload with invoice numbers
       const payload = {
         project_id: selectedProject.id,
         lbh_number: formData.lbh_number,
@@ -353,7 +369,7 @@ export default function FDACreator() {
         billing_address: formData.billing_address,
         billing_email: formData.billing_email,
         billing_phone: formData.billing_phone,
-        invoice_files: fileUrls,
+        invoices: invoicesWithUrls,
         invoice_count: projectInvoices.length,
         sent_at: new Date().toISOString(),
       };
