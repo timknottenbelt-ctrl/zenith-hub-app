@@ -406,76 +406,90 @@ export default function FDACreator() {
             </div>
           </div>
 
-          {/* All form fields in horizontal layout */}
-          <Card className="card-premium">
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {/* Vessel Info */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Ship className="w-3 h-3" /> LBH Number *
-                  </Label>
-                  <Input value={formData.lbh_number} onChange={(e) => handleInputChange('lbh_number', e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Ship className="w-3 h-3" /> Ship Name *
-                  </Label>
-                  <Input value={formData.ship_name} onChange={(e) => handleInputChange('ship_name', e.target.value)} />
+          {/* Form Sections */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Ship Information */}
+            <Card className="card-premium">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Ship className="w-4 h-4 text-primary" />
+                  Ship Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">LBH Number *</Label>
+                    <Input value={formData.lbh_number} onChange={(e) => handleInputChange('lbh_number', e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Ship Name *</Label>
+                    <Input value={formData.ship_name} onChange={(e) => handleInputChange('ship_name', e.target.value)} />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">FDA Responsible</Label>
                   <Input value={formData.fda_responsible} onChange={(e) => handleInputChange('fda_responsible', e.target.value)} />
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Client Info */}
+            {/* Client Information */}
+            <Card className="card-premium">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <User className="w-4 h-4 text-primary" />
+                  Client Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <User className="w-3 h-3" /> Client Name
-                  </Label>
+                  <Label className="text-xs text-muted-foreground">Client Name</Label>
                   <Input value={formData.client} onChange={(e) => handleInputChange('client', e.target.value)} />
                 </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Mail className="w-3 h-3" /> Client Email
-                  </Label>
-                  <Input type="email" value={formData.client_email} onChange={(e) => handleInputChange('client_email', e.target.value)} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <Input type="email" value={formData.client_email} onChange={(e) => handleInputChange('client_email', e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <Input value={formData.client_phone} onChange={(e) => handleInputChange('client_phone', e.target.value)} />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Phone className="w-3 h-3" /> Client Phone
-                  </Label>
-                  <Input value={formData.client_phone} onChange={(e) => handleInputChange('client_phone', e.target.value)} />
-                </div>
+              </CardContent>
+            </Card>
 
-                {/* Billing Info */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Building2 className="w-3 h-3" /> Billing Company
-                  </Label>
-                  <Input value={formData.billing_company} onChange={(e) => handleInputChange('billing_company', e.target.value)} />
+            {/* Billing Information - Spans full width */}
+            <Card className="card-premium lg:col-span-2">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-primary" />
+                  Billing Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Company</Label>
+                    <Input value={formData.billing_company} onChange={(e) => handleInputChange('billing_company', e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <Input type="email" value={formData.billing_email} onChange={(e) => handleInputChange('billing_email', e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Address</Label>
+                    <Input value={formData.billing_address} onChange={(e) => handleInputChange('billing_address', e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <Input value={formData.billing_phone} onChange={(e) => handleInputChange('billing_phone', e.target.value)} />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Mail className="w-3 h-3" /> Billing Email
-                  </Label>
-                  <Input type="email" value={formData.billing_email} onChange={(e) => handleInputChange('billing_email', e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Receipt className="w-3 h-3" /> Billing Address
-                  </Label>
-                  <Input value={formData.billing_address} onChange={(e) => handleInputChange('billing_address', e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Phone className="w-3 h-3" /> Billing Phone
-                  </Label>
-                  <Input value={formData.billing_phone} onChange={(e) => handleInputChange('billing_phone', e.target.value)} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Invoice PDFs Section - Full Width Below */}
           <Card className="card-premium">

@@ -1,16 +1,16 @@
-import { useState, useEffect, useRef } from "react";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { useSearchParams } from "react-router-dom";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { useState, useEffect, useRef } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useSearchParams } from 'react-router-dom';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +20,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 import {
   Mail,
   CheckCircle,
@@ -38,9 +38,15 @@ import {
   Trash2,
   Copy,
   Check,
-} from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Link } from "react-router-dom";
+} from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Link } from 'react-router-dom';
 
 interface ManualEmail {
   id: number;
@@ -63,20 +69,20 @@ interface ManualEmail {
 export default function ManualEmails() {
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get("tab") === "history" ? "history" : "create";
+  const initialTab = searchParams.get('tab') === 'history' ? 'history' : 'create';
   const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [emails, setEmails] = useState<ManualEmail[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<ManualEmail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filterAgentType, setFilterAgentType] = useState<string>("all");
+  const [filterAgentType, setFilterAgentType] = useState<string>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [emailToDelete, setEmailToDelete] = useState<{ id: number; pdfPath: string | null } | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Manual email creation state
-  const [manualEmailContent, setManualEmailContent] = useState("");
-  const [manualSubject, setManualSubject] = useState("");
-  const [manualAgentType, setManualAgentType] = useState<"OWNERS_AGENT" | "CARGO_AGENT">("CARGO_AGENT");
+  const [manualEmailContent, setManualEmailContent] = useState('');
+  const [manualSubject, setManualSubject] = useState('');
+  const [manualAgentType, setManualAgentType] = useState<'OWNERS_AGENT' | 'CARGO_AGENT'>('CARGO_AGENT');
   const [manualPdfFile, setManualPdfFile] = useState<File | null>(null);
   const [manualSending, setManualSending] = useState(false);
   const submitLockRef = useRef(false);
@@ -86,15 +92,16 @@ export default function ManualEmails() {
 
   const handleCopyEmail = async () => {
     if (!selectedEmail?.body) return;
-    const textToCopy = selectedEmail.subject
+    const textToCopy = selectedEmail.subject 
       ? `Subject: ${selectedEmail.subject}\n\n${selectedEmail.body}`
       : selectedEmail.body;
-
+    
     await navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    toast({ title: "Gekopieerd", description: "Email gekopieerd naar klembord" });
+    toast({ title: 'Gekopieerd', description: 'Email gekopieerd naar klembord' });
   };
+
 
   const areEmailsEquivalentForUI = (a: ManualEmail, b: ManualEmail) =>
     a.id === b.id &&
@@ -112,12 +119,12 @@ export default function ManualEmails() {
     a.email_content === b.email_content &&
     a.agent_type === b.agent_type;
 
-  const normalizeForKey = (value: string) => value.trim().replace(/\s+/g, " ");
+  const normalizeForKey = (value: string) => value.trim().replace(/\s+/g, ' ');
 
   const isCloseDuplicate = (a: ManualEmail, b: ManualEmail) => {
     if (a.id < 0 || b.id < 0) return false; // never dedupe optimistic placeholders
     if (a.agent_type !== b.agent_type) return false;
-    if ((a.subject || "").trim() !== (b.subject || "").trim()) return false;
+    if ((a.subject || '').trim() !== (b.subject || '').trim()) return false;
     if (normalizeForKey(a.email_content) !== normalizeForKey(b.email_content)) return false;
 
     const ta = a.created_at ? Date.parse(a.created_at) : NaN;
@@ -158,42 +165,37 @@ export default function ManualEmails() {
     for (const e of emails) {
       if (e.id >= 0) continue;
 
-      const shouldTimeout = e.status === "processing";
+      const shouldTimeout = e.status === 'processing';
       const hasTimeout = !!timeouts[e.id];
 
       if (shouldTimeout && !hasTimeout) {
         timeouts[e.id] = window.setTimeout(() => {
           const timeoutBody =
-            "Geen response van de workflow ontvangen. Controleer of n8n daadwerkelijk een rij in Supabase (manual_emails) aanmaakt en de status bijwerkt.";
+            'Geen response van de workflow ontvangen. Controleer of n8n daadwerkelijk een rij in Supabase (manual_emails) aanmaakt en de status bijwerkt.';
 
           setEmails((prev) =>
             prev.map((row) =>
               row.id === e.id
                 ? {
                     ...row,
-                    status: "error",
-                    subject:
-                      row.subject && row.subject !== "AI is thinking…"
-                        ? row.subject
-                        : "Timeout (geen workflow response)",
+                    status: 'error',
+                    subject: row.subject && row.subject !== 'AI is thinking…' ? row.subject : 'Timeout (geen workflow response)',
                     body: row.body ?? timeoutBody,
                   }
-                : row,
-            ),
+                : row
+            )
           );
 
           setSelectedEmail((prev) =>
             prev?.id === e.id
               ? {
                   ...prev,
-                  status: "error",
+                  status: 'error',
                   subject:
-                    prev.subject && prev.subject !== "AI is thinking…"
-                      ? prev.subject
-                      : "Timeout (geen workflow response)",
+                    prev.subject && prev.subject !== 'AI is thinking…' ? prev.subject : 'Timeout (geen workflow response)',
                   body: prev.body ?? timeoutBody,
                 }
-              : prev,
+              : prev
           );
         }, 45_000);
       }
@@ -207,11 +209,15 @@ export default function ManualEmails() {
 
   // Auto-refresh polling for processing emails (silent, no UI flicker)
   useEffect(() => {
-    if (selectedEmail?.status !== "processing") return;
+    if (selectedEmail?.status !== 'processing') return;
     if (selectedEmail.id < 0) return; // optimistic placeholder, wait for realtime/id-based reconcile
 
     const interval = setInterval(async () => {
-      const { data, error } = await supabase.from("manual_emails").select("*").eq("id", selectedEmail.id).single();
+      const { data, error } = await supabase
+        .from('manual_emails')
+        .select('*')
+        .eq('id', selectedEmail.id)
+        .single();
 
       if (error || !data) return;
 
@@ -238,13 +244,13 @@ export default function ManualEmails() {
   // Realtime subscription for updates (update local state; avoid refetch flicker)
   useEffect(() => {
     const channel = supabase
-      .channel("manual_emails_changes")
+      .channel('manual_emails_changes')
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "*",
-          schema: "public",
-          table: "manual_emails",
+          event: '*',
+          schema: 'public',
+          table: 'manual_emails',
         },
         (payload) => {
           const eventType = payload.eventType;
@@ -255,14 +261,17 @@ export default function ManualEmails() {
             const next = [...prev];
 
             const matchesFilter = (agentType?: string | null) =>
-              filterAgentType === "all" || agentType === filterAgentType;
+              filterAgentType === 'all' || agentType === filterAgentType;
 
             const findOptimisticMatchIndex = (row: ManualEmail) =>
               next.findIndex(
-                (e) => e.id < 0 && e.agent_type === row.agent_type && e.email_content === row.email_content,
+                (e) =>
+                  e.id < 0 &&
+                  e.agent_type === row.agent_type &&
+                  e.email_content === row.email_content
               );
 
-            if (eventType === "INSERT" && newRow) {
+            if (eventType === 'INSERT' && newRow) {
               const row = newRow;
               if (!matchesFilter(row.agent_type)) return prev;
 
@@ -281,7 +290,7 @@ export default function ManualEmails() {
               return next;
             }
 
-            if (eventType === "UPDATE" && newRow) {
+            if (eventType === 'UPDATE' && newRow) {
               const row = newRow;
               const idx = next.findIndex((e) => e.id === row.id);
 
@@ -305,16 +314,16 @@ export default function ManualEmails() {
               return next;
             }
 
-            if (eventType === "DELETE") {
+            if (eventType === 'DELETE') {
               const idToRemove = oldRow?.id;
-              return typeof idToRemove === "number" ? next.filter((e) => e.id !== idToRemove) : prev;
+              return typeof idToRemove === 'number' ? next.filter((e) => e.id !== idToRemove) : prev;
             }
 
             return prev;
           });
 
           // Keep details pane in sync (also replace optimistic selection)
-          if ((eventType === "INSERT" || eventType === "UPDATE") && newRow) {
+          if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRow) {
             const isSameSelected = selectedEmail?.id === newRow.id;
             const isOptimisticSelectedMatch =
               !!selectedEmail &&
@@ -327,10 +336,10 @@ export default function ManualEmails() {
             }
           }
 
-          if (eventType === "DELETE" && oldRow?.id && selectedEmail?.id === oldRow.id) {
+          if (eventType === 'DELETE' && oldRow?.id && selectedEmail?.id === oldRow.id) {
             setSelectedEmail(null);
           }
-        },
+        }
       )
       .subscribe();
 
@@ -343,27 +352,30 @@ export default function ManualEmails() {
     const shouldShowLoading = options.showLoading ?? emails.length === 0;
     if (shouldShowLoading) setLoading(true);
 
-    let query = supabase.from("manual_emails").select("*").order("created_at", { ascending: false });
+    let query = supabase
+      .from('manual_emails')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    if (filterAgentType !== "all") {
-      query = query.eq("agent_type", filterAgentType);
+    if (filterAgentType !== 'all') {
+      query = query.eq('agent_type', filterAgentType);
     }
 
     const { data, error } = await query;
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       const serverRows = (data as ManualEmail[]) || [];
       setEmails((prev) => {
         const optimistic = prev.filter(
-          (e) => e.id < 0 && (filterAgentType === "all" || e.agent_type === filterAgentType),
+          (e) => e.id < 0 && (filterAgentType === 'all' || e.agent_type === filterAgentType)
         );
 
         // If the server already has the row, replace the optimistic placeholder (prevents "2 emails")
         const resolvedOptimistic = optimistic.map((o) => {
           const match = serverRows.find(
-            (row) => row.agent_type === o.agent_type && row.email_content === o.email_content,
+            (row) => row.agent_type === o.agent_type && row.email_content === o.email_content
           );
           return match ?? o;
         });
@@ -383,7 +395,7 @@ export default function ManualEmails() {
     if (manualSending || submitLockRef.current) return;
 
     if (!manualEmailContent.trim()) {
-      toast({ title: "Error", description: "Please paste an email message", variant: "destructive" });
+      toast({ title: 'Error', description: 'Please paste an email message', variant: 'destructive' });
       return;
     }
 
@@ -405,8 +417,8 @@ export default function ManualEmails() {
       vessel_name: null,
       imo: null,
       port: null,
-      status: "processing",
-      subject: originalSubject || "AI is thinking…",
+      status: 'processing',
+      subject: originalSubject || 'AI is thinking…',
       body: null,
       pda_link_1: null,
       pda_link_2: null,
@@ -416,31 +428,31 @@ export default function ManualEmails() {
     };
 
     // Make sure the user can see the new record even if a filter was active
-    if (filterAgentType !== "all" && filterAgentType !== originalAgentType) {
-      setFilterAgentType("all");
+    if (filterAgentType !== 'all' && filterAgentType !== originalAgentType) {
+      setFilterAgentType('all');
     }
 
     setEmails((prev) => [optimisticEmail, ...prev]);
     setSelectedEmail(optimisticEmail);
-    setActiveTab("history");
+    setActiveTab('history');
     setManualSending(true);
 
     try {
       // n8n is responsible for inserting/updating Supabase.
       // We only send the original email (email_content) + optional PDF.
       const formData = new FormData();
-      formData.append("email_content", originalEmailContent);
-      formData.append("agent_type", originalAgentType);
-      if (originalSubject) formData.append("subject", originalSubject);
-      if (manualPdfFile) formData.append("pdf", manualPdfFile);
+      formData.append('email_content', originalEmailContent);
+      formData.append('agent_type', originalAgentType);
+      if (originalSubject) formData.append('subject', originalSubject);
+      if (manualPdfFile) formData.append('pdf', manualPdfFile);
 
-      const response = await fetch("https://lbhcuracao.app.n8n.cloud/webhook/MANUAL-EMAIL-CREATION", {
-        method: "POST",
+      const response = await fetch('https://lbhcuracao.app.n8n.cloud/webhook-test/MANUAL-EMAIL-CREATION', {
+        method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error("Webhook request failed");
+        throw new Error('Webhook request failed');
       }
 
       // n8n returns subject/body (and optionally id) directly in the webhook response
@@ -474,10 +486,10 @@ export default function ManualEmails() {
                     subject: subj ?? e.subject,
                     body: bd ?? e.body,
                     vessel_name: respVesselName ?? e.vessel_name,
-                    status: "draft", // Mark as ready
+                    status: 'draft', // Mark as ready
                   }
-                : e,
-            ),
+                : e
+            )
           );
           setSelectedEmail((prev) =>
             prev?.id === optimisticId
@@ -486,9 +498,9 @@ export default function ManualEmails() {
                   subject: subj ?? prev.subject,
                   body: bd ?? prev.body,
                   vessel_name: respVesselName ?? prev.vessel_name,
-                  status: "draft",
+                  status: 'draft',
                 }
-              : prev,
+              : prev
           );
         };
         updateOptimistic(respSubject, respBody);
@@ -506,7 +518,11 @@ export default function ManualEmails() {
 
       if (respEmailId && Number.isFinite(respEmailId)) {
         const tryFetchById = async () => {
-          const { data } = await supabase.from("manual_emails").select("*").eq("id", respEmailId).single();
+          const { data } = await supabase
+            .from('manual_emails')
+            .select('*')
+            .eq('id', respEmailId)
+            .single();
           return (data as ManualEmail | null) ?? null;
         };
 
@@ -531,24 +547,24 @@ export default function ManualEmails() {
       }
 
       toast({
-        title: "Email Submitted",
-        description: "AI is thinking… it will update automatically in the list.",
+        title: 'Email Submitted',
+        description: 'AI is thinking… it will update automatically in the list.',
       });
 
-      setManualEmailContent("");
-      setManualSubject("");
+      setManualEmailContent('');
+      setManualSubject('');
       setManualPdfFile(null);
-      const fileInput = document.getElementById("manual-pdf-input") as HTMLInputElement;
-      if (fileInput) fileInput.value = "";
+      const fileInput = document.getElementById('manual-pdf-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     } catch (error) {
       // Remove optimistic placeholder if submission failed
       setEmails((prev) => prev.filter((e) => e.id !== optimisticId));
       setSelectedEmail((prev) => (prev?.id === optimisticId ? null : prev));
 
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to process email",
-        variant: "destructive",
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to process email',
+        variant: 'destructive',
       });
     } finally {
       submitLockRef.current = false;
@@ -557,14 +573,16 @@ export default function ManualEmails() {
   }
 
   async function handleViewPdf(pdfPath: string) {
-    const { data, error } = await supabase.storage.from("pdfs").createSignedUrl(pdfPath, 3600); // 1 hour expiry
+    const { data, error } = await supabase.storage
+      .from('pdfs')
+      .createSignedUrl(pdfPath, 3600); // 1 hour expiry
 
     if (error) {
-      toast({ title: "Error", description: "Could not load PDF", variant: "destructive" });
+      toast({ title: 'Error', description: 'Could not load PDF', variant: 'destructive' });
       return;
     }
 
-    window.open(data.signedUrl, "_blank");
+    window.open(data.signedUrl, '_blank');
   }
 
   function openDeleteDialog(emailId: number, pdfPath: string | null) {
@@ -579,7 +597,7 @@ export default function ManualEmails() {
     if (emailToDelete.id < 0) {
       setEmails((prev) => prev.filter((e) => e.id !== emailToDelete.id));
       setSelectedEmail(null);
-      toast({ title: "Verwijderd", description: "Concept email is verwijderd" });
+      toast({ title: 'Verwijderd', description: 'Concept email is verwijderd' });
       setDeleteDialogOpen(false);
       setEmailToDelete(null);
       return;
@@ -588,11 +606,14 @@ export default function ManualEmails() {
     try {
       // Delete PDF from storage if exists
       if (emailToDelete.pdfPath) {
-        await supabase.storage.from("pdfs").remove([emailToDelete.pdfPath]);
+        await supabase.storage.from('pdfs').remove([emailToDelete.pdfPath]);
       }
 
       // Delete from database
-      const { error } = await supabase.from("manual_emails").delete().eq("id", emailToDelete.id);
+      const { error } = await supabase
+        .from('manual_emails')
+        .delete()
+        .eq('id', emailToDelete.id);
 
       if (error) throw error;
 
@@ -600,13 +621,13 @@ export default function ManualEmails() {
       setEmails((prev) => prev.filter((e) => e.id !== emailToDelete.id));
       setSelectedEmail(null);
 
-      toast({ title: "Verwijderd", description: "Email is succesvol verwijderd" });
+      toast({ title: 'Verwijderd', description: 'Email is succesvol verwijderd' });
       await fetchManualEmails({ showLoading: false });
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete email",
-        variant: "destructive",
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to delete email',
+        variant: 'destructive',
       });
     } finally {
       setDeleteDialogOpen(false);
@@ -616,27 +637,28 @@ export default function ManualEmails() {
 
   const getStatusBadge = (status: string | null) => {
     const styles: Record<string, string> = {
-      processing: "bg-primary/10 text-primary",
-      completed: "bg-success/10 text-success",
-      draft: "bg-muted text-muted-foreground",
-      error: "bg-destructive/10 text-destructive",
+      processing: 'bg-primary/10 text-primary',
+      completed: 'bg-success/10 text-success',
+      draft: 'bg-muted text-muted-foreground',
+      error: 'bg-destructive/10 text-destructive',
     };
-    return styles[status || "processing"] || "bg-muted text-muted-foreground";
+    return styles[status || 'processing'] || 'bg-muted text-muted-foreground';
   };
 
   const getStatusIcon = (status: string | null) => {
     switch (status) {
-      case "processing":
+      case 'processing':
         return <Loader2 className="w-3 h-3 animate-spin" />;
-      case "completed":
+      case 'completed':
         return <CheckCircle className="w-3 h-3" />;
-      case "error":
+      case 'error':
         return <XCircle className="w-3 h-3" />;
-      case "draft":
+      case 'draft':
       default:
         return <Mail className="w-3 h-3" />;
     }
   };
+
 
   return (
     <DashboardLayout title="Manual Emails">
@@ -676,9 +698,9 @@ export default function ManualEmails() {
                 {/* Agent Type Selection */}
                 <div className="space-y-2">
                   <Label htmlFor="agent-type">Agent Type</Label>
-                  <Select
-                    value={manualAgentType}
-                    onValueChange={(value: "OWNERS_AGENT" | "CARGO_AGENT") => setManualAgentType(value)}
+                  <Select 
+                    value={manualAgentType} 
+                    onValueChange={(value: 'OWNERS_AGENT' | 'CARGO_AGENT') => setManualAgentType(value)}
                   >
                     <SelectTrigger id="agent-type">
                       <SelectValue placeholder="Select agent type" />
@@ -723,7 +745,7 @@ export default function ManualEmails() {
                       <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-muted/50 transition-colors">
                         <Upload className="w-5 h-5 text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">
-                          {manualPdfFile ? manualPdfFile.name : "Click to upload PDF"}
+                          {manualPdfFile ? manualPdfFile.name : 'Click to upload PDF'}
                         </span>
                       </div>
                       <input
@@ -733,14 +755,10 @@ export default function ManualEmails() {
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file && file.type === "application/pdf") {
+                          if (file && file.type === 'application/pdf') {
                             setManualPdfFile(file);
                           } else if (file) {
-                            toast({
-                              title: "Error",
-                              description: "Only PDF files are allowed",
-                              variant: "destructive",
-                            });
+                            toast({ title: 'Error', description: 'Only PDF files are allowed', variant: 'destructive' });
                           }
                         }}
                       />
@@ -751,8 +769,8 @@ export default function ManualEmails() {
                         size="icon"
                         onClick={() => {
                           setManualPdfFile(null);
-                          const fileInput = document.getElementById("manual-pdf-input") as HTMLInputElement;
-                          if (fileInput) fileInput.value = "";
+                          const fileInput = document.getElementById('manual-pdf-input') as HTMLInputElement;
+                          if (fileInput) fileInput.value = '';
                         }}
                       >
                         <X className="w-4 h-4" />
@@ -849,7 +867,9 @@ export default function ManualEmails() {
                       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                     </div>
                   ) : emails.length === 0 ? (
-                    <div className="text-center p-8 text-muted-foreground">No manual emails found</div>
+                    <div className="text-center p-8 text-muted-foreground">
+                      No manual emails found
+                    </div>
                   ) : (
                     <div className="divide-y">
                       {emails.map((email) => (
@@ -857,12 +877,14 @@ export default function ManualEmails() {
                           key={email.id}
                           onClick={() => setSelectedEmail(email)}
                           className={`p-3 cursor-pointer transition-colors hover:bg-muted/50 ${
-                            selectedEmail?.id === email.id ? "bg-primary/5 border-l-2 border-primary" : ""
+                            selectedEmail?.id === email.id ? 'bg-primary/5 border-l-2 border-primary' : ''
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="text-sm font-medium line-clamp-1">{email.vessel_name || "TBN"}</p>
-                            {email.status === "processing" ? (
+                            <p className="text-sm font-medium line-clamp-1">
+                              {email.vessel_name || 'TBN'}
+                            </p>
+                            {email.status === 'processing' ? (
                               <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
                             ) : (
                               <Badge className={`${getStatusBadge(email.status)} text-xs shrink-0`} variant="secondary">
@@ -872,15 +894,19 @@ export default function ManualEmails() {
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="text-xs">
-                              {email.agent_type === "OWNERS_AGENT" ? "Owners" : "Cargo"}
+                              {email.agent_type === 'OWNERS_AGENT' ? 'Owners' : 'Cargo'}
                             </Badge>
-                            {email.port && <span className="text-xs text-muted-foreground">{email.port}</span>}
+                            {email.port && (
+                              <span className="text-xs text-muted-foreground">{email.port}</span>
+                            )}
                           </div>
-                          {email.subject && email.subject !== "AI is thinking…" && (
-                            <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1 italic">{email.subject}</p>
+                          {email.subject && email.subject !== 'AI is thinking…' && (
+                            <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1 italic">
+                              {email.subject}
+                            </p>
                           )}
                           <p className="text-xs text-muted-foreground mt-1">
-                            {email.created_at ? new Date(email.created_at).toLocaleString("nl-NL") : "Unknown date"}
+                            {email.created_at ? new Date(email.created_at).toLocaleString('nl-NL') : 'Unknown date'}
                           </p>
                         </div>
                       ))}
@@ -894,9 +920,9 @@ export default function ManualEmails() {
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-medium">Email Details</CardTitle>
                 {selectedEmail && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => openDeleteDialog(selectedEmail.id, selectedEmail.pdf_path)}
                   >
@@ -912,13 +938,13 @@ export default function ManualEmails() {
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Agent Type</Label>
                         <p className="text-sm font-medium">
-                          {selectedEmail.agent_type === "OWNERS_AGENT" ? "Owners Agent" : "Cargo Agent"}
+                          {selectedEmail.agent_type === 'OWNERS_AGENT' ? 'Owners Agent' : 'Cargo Agent'}
                         </p>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Status</Label>
                         <Badge className={getStatusBadge(selectedEmail.status)}>
-                          {selectedEmail.status || "processing"}
+                          {selectedEmail.status || 'processing'}
                         </Badge>
                       </div>
                       {selectedEmail.vessel_name && (
@@ -969,9 +995,9 @@ export default function ManualEmails() {
                         </a>
                       )}
                       {selectedEmail.pdf_path && (
-                        <Button
-                          variant="outline"
-                          size="sm"
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
                           className="gap-1"
                           onClick={() => handleViewPdf(selectedEmail.pdf_path!)}
                         >
@@ -986,12 +1012,17 @@ export default function ManualEmails() {
                       <div className="flex items-center justify-between">
                         <Label className="text-xs text-muted-foreground flex items-center gap-2">
                           AI Generated Email
-                          {selectedEmail.status === "processing" && (
+                          {selectedEmail.status === 'processing' && (
                             <Loader2 className="w-4 h-4 animate-spin text-primary" />
                           )}
                         </Label>
-                        {selectedEmail.body && selectedEmail.status !== "processing" && (
-                          <Button variant="ghost" size="sm" onClick={handleCopyEmail} className="h-7 gap-1.5 text-xs">
+                        {selectedEmail.body && selectedEmail.status !== 'processing' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCopyEmail}
+                            className="h-7 gap-1.5 text-xs"
+                          >
                             {copied ? (
                               <>
                                 <Check className="w-3.5 h-3.5 text-green-500" />
@@ -1007,7 +1038,7 @@ export default function ManualEmails() {
                         )}
                       </div>
 
-                      {selectedEmail.status === "processing" ? (
+                      {selectedEmail.status === 'processing' ? (
                         <div className="border rounded-lg bg-muted/20 p-4">
                           <div className="flex items-center gap-3 text-muted-foreground">
                             <Loader2 className="w-5 h-5 animate-spin" />
@@ -1039,7 +1070,9 @@ export default function ManualEmails() {
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Original Email</Label>
                       <ScrollArea className="h-[150px] border rounded-lg">
-                        <pre className="p-4 text-sm whitespace-pre-wrap font-sans">{selectedEmail.email_content}</pre>
+                        <pre className="p-4 text-sm whitespace-pre-wrap font-sans">
+                          {selectedEmail.email_content}
+                        </pre>
                       </ScrollArea>
                     </div>
                   </div>
@@ -1065,7 +1098,7 @@ export default function ManualEmails() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuleren</AlertDialogCancel>
-            <AlertDialogAction
+            <AlertDialogAction 
               onClick={confirmDeleteEmail}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
