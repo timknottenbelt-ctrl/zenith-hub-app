@@ -542,7 +542,12 @@ export default function FDACreator() {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit className="w-4 h-4" />}
                 <span className="ml-2">Save</span>
               </Button>
-              {selectedProject.status !== 'sent' && (
+              {selectedProject.status === 'sent' ? (
+                <Button onClick={() => navigate(`/fda-preview/${selectedProject.project_id}`)}>
+                  <Send className="w-4 h-4" />
+                  <span className="ml-2">View Preview</span>
+                </Button>
+              ) : (
                 <Button onClick={handleSendToWebhook} disabled={sending || projectInvoices.length === 0}>
                   {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   <span className="ml-2">Send FDA</span>
