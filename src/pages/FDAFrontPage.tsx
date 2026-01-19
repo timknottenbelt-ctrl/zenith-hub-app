@@ -33,6 +33,8 @@ import {
   Pencil,
   Check,
   X,
+  Sparkles,
+  CheckCircle,
 } from 'lucide-react';
 
 interface FDAProject {
@@ -64,6 +66,7 @@ export default function FDAFrontPage() {
   const [project, setProject] = useState<FDAProject | null>(null);
   const [invoices, setInvoices] = useState<ProcessedInvoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checkingGoogleSheet, setCheckingGoogleSheet] = useState(true);
   const [uploadingFrontPage, setUploadingFrontPage] = useState(false);
   const [uploadingAgencyCost, setUploadingAgencyCost] = useState(false);
   const [merging, setMerging] = useState(false);
@@ -120,6 +123,29 @@ export default function FDAFrontPage() {
     }
     loadData();
   }, [fetchProject, fetchInvoices]);
+
+  // Poll for Google Sheet URL if not yet available
+  useEffect(() => {
+    if (!project?.google_sheet_url && project && !loading) {
+      const interval = setInterval(async () => {
+        const { data } = await supabase
+          .from('fda_projects')
+          .select('google_sheet_url')
+          .eq('project_id', projectId)
+          .single();
+
+        if (data?.google_sheet_url) {
+          setProject((prev) => prev ? { ...prev, google_sheet_url: data.google_sheet_url } : null);
+          setCheckingGoogleSheet(false);
+          clearInterval(interval);
+        }
+      }, 3000);
+
+      return () => clearInterval(interval);
+    } else if (project?.google_sheet_url) {
+      setCheckingGoogleSheet(false);
+    }
+  }, [project, projectId, loading]);
 
   async function handleFileUpload(
     e: React.ChangeEvent<HTMLInputElement>,
@@ -341,31 +367,63 @@ export default function FDAFrontPage() {
           </div>
         </div>
 
+        {/* AI Processing Status */}
+        {checkingGoogleSheet && !project.google_sheet_url && (
+          <Card className="border-primary/50 bg-primary/5">
+            <CardContent className="py-8">
+              <div className="flex flex-col items-center justify-center gap-4">
+                <div className="relative">
+                  <div className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
+                  <div className="relative bg-primary rounded-full p-4">
+                    <Sparkles className="w-8 h-8 text-primary-foreground animate-pulse" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold">AI is processing invoices...</h3>
+                  <p className="text-muted-foreground text-sm mt-1">
+                    This usually takes 30-60 seconds. The Google Sheet link will appear automatically.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Checking status...</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Section 1: Google Sheet Link */}
-        <Card className="card-premium">
+        <Card className={project.google_sheet_url ? "card-premium border-green-500/50 bg-green-500/5" : "card-premium"}>
           <CardHeader className="pb-4">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4 text-primary" />
+              {project.google_sheet_url ? (
+                <CheckCircle className="w-4 h-4 text-green-500" />
+              ) : (
+                <FileSpreadsheet className="w-4 h-4 text-primary" />
+              )}
               Google Sheet
+              {project.google_sheet_url && (
+                <Badge variant="outline" className="text-green-600 border-green-200 ml-2">Ready</Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {project.google_sheet_url ? (
               <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground truncate flex-1">
-                  {project.google_sheet_url}
+                  Invoice data has been processed successfully
                 </span>
                 <Button
-                  variant="outline"
                   size="sm"
                   onClick={() => window.open(project.google_sheet_url!, '_blank')}
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
-                  Open Sheet
+                  Open Google Sheet
                 </Button>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No Google Sheet linked yet</p>
+              <p className="text-sm text-muted-foreground">Waiting for AI to process invoices...</p>
             )}
           </CardContent>
         </Card>

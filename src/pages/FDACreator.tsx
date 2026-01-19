@@ -431,7 +431,7 @@ export default function FDACreator() {
     }
 
     // Navigate immediately to preview page - loading will show there
-    navigate(`/fda-preview/${selectedProject.project_id}`);
+    navigate(`/fda-front-page/${selectedProject.project_id}`);
 
     // Do the webhook call in background (fire and forget, preview page will poll for results)
     try {
@@ -543,9 +543,9 @@ export default function FDACreator() {
                 <span className="ml-2">Save</span>
               </Button>
               {selectedProject.status === 'sent' ? (
-                <Button onClick={() => navigate(`/fda-preview/${selectedProject.project_id}`)}>
+                <Button onClick={() => navigate(`/fda-front-page/${selectedProject.project_id}`)}>
                   <Send className="w-4 h-4" />
-                  <span className="ml-2">View Preview</span>
+                  <span className="ml-2">View FDA</span>
                 </Button>
               ) : (
                 <Button onClick={handleSendToWebhook} disabled={sending || projectInvoices.length === 0}>
