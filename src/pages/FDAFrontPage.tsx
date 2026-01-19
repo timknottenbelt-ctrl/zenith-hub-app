@@ -35,6 +35,7 @@ import {
   X,
   Sparkles,
   CheckCircle,
+  GripVertical,
 } from 'lucide-react';
 
 interface FDAProject {
@@ -79,6 +80,8 @@ export default function FDAFrontPage() {
   const [mergeDialog, setMergeDialog] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const fetchProject = useCallback(async () => {
     if (!projectId) return;
@@ -279,6 +282,40 @@ export default function FDAFrontPage() {
   function cancelEdit() {
     setEditingInvoice(null);
     setEditValue('');
+  }
+
+  // Drag and drop handlers
+  function handleDragStart(index: number) {
+    setDraggedIndex(index);
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }
+
+  function handleDragLeave() {
+    setDragOverIndex(null);
+  }
+
+  function handleDrop(index: number) {
+    if (draggedIndex === null || draggedIndex === index) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newInvoices = [...invoices];
+    const [draggedItem] = newInvoices.splice(draggedIndex, 1);
+    newInvoices.splice(index, 0, draggedItem);
+    setInvoices(newInvoices);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  }
+
+  function handleDragEnd() {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   }
 
   async function handleMergePDFs() {
@@ -504,12 +541,26 @@ export default function FDAFrontPage() {
                 No invoices processed yet
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground mb-3">Drag to reorder invoices</p>
                 {invoices.map((invoice, index) => (
                   <div
                     key={invoice.id}
-                    className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg border border-border/50"
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={() => handleDrop(index)}
+                    onDragEnd={handleDragEnd}
+                    className={`flex items-center gap-4 p-4 bg-muted/30 rounded-lg border transition-all cursor-grab active:cursor-grabbing ${
+                      draggedIndex === index ? 'opacity-50 border-primary' : 
+                      dragOverIndex === index ? 'border-primary bg-primary/10' : 'border-border/50'
+                    }`}
                   >
+                    {/* Drag handle */}
+                    <div className="text-muted-foreground hover:text-foreground">
+                      <GripVertical className="w-4 h-4" />
+                    </div>
                     {/* Invoice Number - Editable */}
                     <div className="flex items-center gap-2 min-w-[100px]">
                       {editingInvoice === invoice.id ? (
@@ -617,12 +668,12 @@ export default function FDAFrontPage() {
           </CardContent>
         </Card>
 
-        {/* Section 4: Upload Agency Cost PDF */}
+        {/* Section 4: Upload Agency Cost */}
         <Card className="card-premium">
           <CardHeader className="pb-4">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" />
-              Agency Cost PDF
+              Agency Cost
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -660,7 +711,7 @@ export default function FDAFrontPage() {
                     <>
                       <Upload className="w-8 h-8 text-muted-foreground mb-2" />
                       <p className="text-sm text-muted-foreground">
-                        Click to upload <span className="font-medium">Agency Cost PDF</span>
+                        Click to upload <span className="font-medium">Agency Cost</span>
                       </p>
                       <p className="text-xs text-muted-foreground">PDF, max 10MB</p>
                     </>
