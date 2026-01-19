@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
 import {
   ArrowLeft,
   ExternalLink,
@@ -28,6 +29,10 @@ import {
   Receipt,
   FileCheck,
   Merge,
+  Eye,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react';
 
 interface FDAProject {
@@ -63,11 +68,14 @@ export default function FDAFrontPage() {
   const [uploadingAgencyCost, setUploadingAgencyCost] = useState(false);
   const [merging, setMerging] = useState(false);
   
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'front_page' | 'agency_cost' | null }>({
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'front_page' | 'agency_cost' | null; invoiceId?: string }>({
     open: false,
     type: null,
+    invoiceId: undefined,
   });
   const [mergeDialog, setMergeDialog] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   const fetchProject = useCallback(async () => {
     if (!projectId) return;
@@ -198,7 +206,53 @@ export default function FDAFrontPage() {
       toast({ title: 'Error', description: 'Failed to delete file', variant: 'destructive' });
     }
 
-    setDeleteDialog({ open: false, type: null });
+    setDeleteDialog({ open: false, type: null, invoiceId: undefined });
+  }
+
+  async function handleDeleteInvoice(invoiceId: string) {
+    try {
+      const { error } = await supabase
+        .from('fda_processed_invoices')
+        .delete()
+        .eq('id', invoiceId);
+
+      if (error) throw error;
+
+      await fetchInvoices();
+      toast({ title: 'Success', description: 'Invoice deleted' });
+    } catch (error) {
+      console.error('Delete invoice error:', error);
+      toast({ title: 'Error', description: 'Failed to delete invoice', variant: 'destructive' });
+    }
+    setDeleteDialog({ open: false, type: null, invoiceId: undefined });
+  }
+
+  async function handleUpdateInvoiceNumber(invoiceId: string, newNumber: string) {
+    try {
+      const { error } = await supabase
+        .from('fda_processed_invoices')
+        .update({ invoice_number: newNumber })
+        .eq('id', invoiceId);
+
+      if (error) throw error;
+
+      await fetchInvoices();
+      setEditingInvoice(null);
+      toast({ title: 'Success', description: 'Invoice number updated' });
+    } catch (error) {
+      console.error('Update invoice error:', error);
+      toast({ title: 'Error', description: 'Failed to update invoice number', variant: 'destructive' });
+    }
+  }
+
+  function startEditInvoice(invoice: ProcessedInvoice) {
+    setEditingInvoice(invoice.id);
+    setEditValue(invoice.invoice_number);
+  }
+
+  function cancelEdit() {
+    setEditingInvoice(null);
+    setEditValue('');
   }
 
   async function handleMergePDFs() {
@@ -208,11 +262,24 @@ export default function FDAFrontPage() {
     setMergeDialog(false);
 
     try {
+      // Include invoices in the payload
+      const invoicesPayload = invoices.map((inv, index) => ({
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        file_name: inv.file_name,
+        file_url: inv.file_url,
+        description: inv.description,
+        total_amount: inv.total_amount,
+        currency: inv.currency,
+        order: index + 1,
+      }));
+
       const payload = {
         project_id: projectId,
         front_page_url: project.front_page_url,
         agency_cost_url: project.agency_cost_url,
         google_sheet_url: project.google_sheet_url,
+        invoices: invoicesPayload,
       };
 
       const response = await fetch(MERGE_WEBHOOK_URL, {
@@ -379,39 +446,112 @@ export default function FDAFrontPage() {
                 No invoices processed yet
               </p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {invoices.map((invoice) => (
+              <div className="space-y-3">
+                {invoices.map((invoice, index) => (
                   <div
                     key={invoice.id}
-                    className="flex items-center justify-between p-4 bg-muted/30 rounded-lg"
+                    className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg border border-border/50"
                   >
+                    {/* Invoice Number - Editable */}
+                    <div className="flex items-center gap-2 min-w-[100px]">
+                      {editingInvoice === invoice.id ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="w-20 h-8 text-sm"
+                            placeholder="001"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleUpdateInvoiceNumber(invoice.id, editValue)}
+                          >
+                            <Check className="w-4 h-4 text-green-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={cancelEdit}
+                          >
+                            <X className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="font-mono">
+                            #{invoice.invoice_number || String(index + 1).padStart(3, '0')}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => startEditInvoice(invoice)}
+                          >
+                            <Pencil className="w-3 h-3 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* File name and details */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="shrink-0">
-                          #{invoice.invoice_number}
-                        </Badge>
-                        <span className="font-medium truncate">{invoice.file_name}</span>
-                      </div>
+                      <span className="font-medium text-sm truncate block">{invoice.file_name}</span>
                       {invoice.description && (
-                        <p className="text-sm text-muted-foreground mt-1 truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {invoice.description}
                         </p>
                       )}
-                      {invoice.total_amount && (
-                        <p className="text-sm font-medium mt-1">
-                          {invoice.currency || 'USD'} {invoice.total_amount.toLocaleString()}
-                        </p>
-                      )}
                     </div>
-                    {invoice.file_url && (
+
+                    {/* Amount */}
+                    {invoice.total_amount && (
+                      <div className="text-sm font-medium whitespace-nowrap">
+                        {invoice.currency || 'USD'} {invoice.total_amount.toLocaleString()}
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-1">
+                      {invoice.file_url && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => window.open(invoice.file_url!, '_blank')}
+                            title="View PDF"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = invoice.file_url!;
+                              link.download = invoice.file_name;
+                              link.click();
+                            }}
+                            title="Download PDF"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => window.open(invoice.file_url!, '_blank')}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        onClick={() => setDeleteDialog({ open: true, type: null, invoiceId: invoice.id })}
+                        title="Delete Invoice"
                       >
-                        <Download className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
-                    )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -505,10 +645,12 @@ export default function FDAFrontPage() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, type: deleteDialog.type })}>
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, type: deleteDialog.type, invoiceId: deleteDialog.invoiceId })}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Weet je zeker dat je deze PDF wilt verwijderen?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteDialog.invoiceId ? 'Weet je zeker dat je deze factuur wilt verwijderen?' : 'Weet je zeker dat je deze PDF wilt verwijderen?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. The file will be permanently deleted.
             </AlertDialogDescription>
@@ -516,7 +658,13 @@ export default function FDAFrontPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteDialog.type && handleDeleteFile(deleteDialog.type)}
+              onClick={() => {
+                if (deleteDialog.invoiceId) {
+                  handleDeleteInvoice(deleteDialog.invoiceId);
+                } else if (deleteDialog.type) {
+                  handleDeleteFile(deleteDialog.type);
+                }
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
