@@ -473,8 +473,8 @@ export default function FDACreator() {
 
       toast({ title: 'Success!', description: 'FDA sent to n8n workflow' });
       await fetchProjects();
-      // Navigate to FDA Front Page
-      navigate(`/fda-front-page/${selectedProject.project_id}`);
+      // Navigate to FDA Preview page
+      navigate(`/fda-preview/${selectedProject.project_id}`);
     } catch (error) {
       console.error('Send error:', error);
       toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to send', variant: 'destructive' });
