@@ -36,6 +36,7 @@ import {
   Sparkles,
   CheckCircle,
   GripVertical,
+  Mail,
 } from "lucide-react";
 
 interface FDAProject {
@@ -46,6 +47,7 @@ interface FDAProject {
   google_sheet_url: string | null;
   front_page_url: string | null;
   agency_cost_url: string | null;
+  final_pdf_url: string | null;
 }
 
 interface ProcessedInvoice {
@@ -93,7 +95,7 @@ export default function FDAFrontPage() {
 
     const { data, error } = await supabase
       .from("fda_projects")
-      .select("id, project_id, lbh_number, ship_name, google_sheet_url, front_page_url, agency_cost_url")
+      .select("id, project_id, lbh_number, ship_name, google_sheet_url, front_page_url, agency_cost_url, final_pdf_url")
       .eq("project_id", projectId)
       .single();
 
@@ -771,7 +773,7 @@ export default function FDAFrontPage() {
       {/* Section 5: Sticky Bottom Bar - starts after sidebar */}
       <div className="fixed bottom-0 left-64 right-0 p-4 bg-background/95 backdrop-blur border-t z-40">
         <div className="flex items-center justify-end gap-4 pr-4">
-          {!canMerge && (
+          {!canMerge && !project.final_pdf_url && (
             <span className="text-sm text-muted-foreground">
               Upload both Front Page and Agency Cost PDFs to continue
             </span>
@@ -780,6 +782,12 @@ export default function FDAFrontPage() {
             {merging ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Merge className="w-4 h-4 mr-2" />}
             Merge PDFs & Create Email Draft
           </Button>
+          {project.final_pdf_url && (
+            <Button size="lg" onClick={() => navigate(`/fda/email/${projectId}`)}>
+              <Mail className="w-4 h-4 mr-2" />
+              Send Email
+            </Button>
+          )}
         </div>
       </div>
 
