@@ -337,8 +337,13 @@ export default function FDAFrontPage() {
         order: index + 1,
       }));
 
+      const fdaName = `FDA - ${project.ship_name} - ${project.lbh_number} - LBH Curacao`;
+
       const payload = {
         project_id: projectId,
+        fda_name: fdaName,
+        ship_name: project.ship_name,
+        lbh_number: project.lbh_number,
         front_page_url: project.front_page_url,
         agency_cost_url: project.agency_cost_url,
         google_sheet_url: project.google_sheet_url,
@@ -726,18 +731,24 @@ export default function FDAFrontPage() {
                 />
               </label>
             )}
+            
+            {/* Suggested FDA Name */}
+            <div className="mt-4 p-3 bg-muted/30 rounded-lg border border-border/50">
+              <p className="text-xs text-muted-foreground mb-1">FDA Filename</p>
+              <p className="text-sm font-medium">
+                FDA - {project.ship_name} - {project.lbh_number} - LBH Curacao
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Section 5: Sticky Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t z-50">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            {!canMerge && (
-              <span>Upload both Front Page and Agency Cost PDFs to continue</span>
-            )}
-          </div>
+      {/* Section 5: Sticky Bottom Bar - starts after sidebar */}
+      <div className="fixed bottom-0 left-64 right-0 p-4 bg-background/95 backdrop-blur border-t z-40">
+        <div className="flex items-center justify-end gap-4 pr-4">
+          {!canMerge && (
+            <span className="text-sm text-muted-foreground">Upload both Front Page and Agency Cost PDFs to continue</span>
+          )}
           <Button
             size="lg"
             disabled={!canMerge || merging}
