@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,20 +35,24 @@ import {
 
 interface FDAProject {
   id: string;
+  project_id: string;
   lbh_number: string;
   ship_name: string;
   fda_responsible: string | null;
-  client: string | null;
+  client_name: string | null;
   client_email: string | null;
   client_phone: string | null;
   billing_company: string | null;
   billing_address: string | null;
   billing_email: string | null;
   billing_phone: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  sent_at: string | null;
+  status: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  email_sent_at: string | null;
+  front_page_url: string | null;
+  agency_cost_url: string | null;
+  google_sheet_url: string | null;
 }
 
 interface FDAInvoice {
@@ -63,7 +68,7 @@ interface FDAFormData {
   lbh_number: string;
   ship_name: string;
   fda_responsible: string;
-  client: string;
+  client_name: string;
   client_email: string;
   client_phone: string;
   billing_company: string;
@@ -76,6 +81,7 @@ const WEBHOOK_URL = 'https://lbhcuracao.app.n8n.cloud/webhook-test/invoice-uploa
 
 export default function FDACreator() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<FDAProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<FDAProject | null>(null);
@@ -89,7 +95,7 @@ export default function FDACreator() {
     lbh_number: '',
     ship_name: '',
     fda_responsible: '',
-    client: '',
+    client_name: '',
     client_email: '',
     client_phone: '',
     billing_company: '',
@@ -108,7 +114,7 @@ export default function FDACreator() {
         lbh_number: selectedProject.lbh_number,
         ship_name: selectedProject.ship_name,
         fda_responsible: selectedProject.fda_responsible || '',
-        client: selectedProject.client || '',
+        client_name: selectedProject.client_name || '',
         client_email: selectedProject.client_email || '',
         client_phone: selectedProject.client_phone || '',
         billing_company: selectedProject.billing_company || '',
@@ -159,10 +165,11 @@ export default function FDACreator() {
     const { data, error } = await supabase
       .from('fda_projects')
       .insert({
+        project_id: crypto.randomUUID(),
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
         fda_responsible: formData.fda_responsible || null,
-        client: formData.client || null,
+        client_name: formData.client_name || null,
         client_email: formData.client_email || null,
         client_phone: formData.client_phone || null,
         billing_company: formData.billing_company || null,
@@ -197,7 +204,7 @@ export default function FDACreator() {
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
         fda_responsible: formData.fda_responsible || null,
-        client: formData.client || null,
+        client_name: formData.client_name || null,
         client_email: formData.client_email || null,
         client_phone: formData.client_phone || null,
         billing_company: formData.billing_company || null,
@@ -303,7 +310,7 @@ export default function FDACreator() {
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
         fda_responsible: formData.fda_responsible,
-        client: formData.client,
+        client_name: formData.client_name,
         client_email: formData.client_email,
         client_phone: formData.client_phone,
         billing_company: formData.billing_company,
@@ -329,12 +336,13 @@ export default function FDACreator() {
       // Update project status
       await supabase
         .from('fda_projects')
-        .update({ status: 'sent', sent_at: new Date().toISOString() })
+        .update({ status: 'sent', email_sent_at: new Date().toISOString() })
         .eq('id', selectedProject.id);
 
       toast({ title: 'Success!', description: 'FDA sent to n8n workflow' });
       await fetchProjects();
-      setSelectedProject(null);
+      // Navigate to FDA Front Page
+      navigate(`/fda-front-page/${selectedProject.project_id}`);
     } catch (error) {
       console.error('Send error:', error);
       toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to send', variant: 'destructive' });
@@ -348,7 +356,7 @@ export default function FDACreator() {
       lbh_number: '',
       ship_name: '',
       fda_responsible: '',
-      client: '',
+      client_name: '',
       client_email: '',
       client_phone: '',
       billing_company: '',
@@ -445,7 +453,7 @@ export default function FDACreator() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Client Name</Label>
-                  <Input value={formData.client} onChange={(e) => handleInputChange('client', e.target.value)} />
+                  <Input value={formData.client_name} onChange={(e) => handleInputChange('client_name', e.target.value)} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -640,8 +648,8 @@ export default function FDACreator() {
                   <div className="space-y-2">
                     <Label>Client Name</Label>
                     <Input
-                      value={formData.client}
-                      onChange={(e) => handleInputChange('client', e.target.value)}
+                      value={formData.client_name}
+                      onChange={(e) => handleInputChange('client_name', e.target.value)}
                       placeholder="Client Name"
                     />
                   </div>
