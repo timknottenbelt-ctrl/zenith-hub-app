@@ -47,6 +47,37 @@ interface ExtraAttachment {
 
 const SEND_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/Send-FDA";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
+
+// Convert storage path to public URL
+function getPublicPdfUrl(url: string | null): string | null {
+  if (!url) return null;
+  
+  // If already a full URL, return as-is
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  
+  // Handle signed URL path like /object/sign/fda-final-packages/...
+  if (url.startsWith("/object/sign/")) {
+    // Extract project_id and filename from the path
+    const match = url.match(/\/object\/sign\/fda-final-packages\/([^/]+)\/(.+?)(\?|$)/);
+    if (match) {
+      const [, projectId, fileName] = match;
+      // fda-final-packages is a PUBLIC bucket, so use public URL
+      return `${SUPABASE_URL}/storage/v1/object/public/fda-final-packages/${projectId}/${fileName}`;
+    }
+    // Fallback to signed URL
+    return `${SUPABASE_URL}/storage/v1${url}`;
+  }
+  
+  // Handle direct storage path
+  if (url.includes("fda-final-packages/")) {
+    return `${SUPABASE_URL}/storage/v1/object/public/${url}`;
+  }
+  
+  return url;
+}
 
 export default function FDAEmailPreview() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -144,20 +175,41 @@ LBH Curaçao`;
     }
     loadData();
 
-    // Set up polling to check for PDF updates
+    // Set up polling to check for PDF in storage bucket
     const interval = setInterval(async () => {
       if (!projectId) return;
       
+      // First check database for final_pdf_url
       const { data } = await supabase
         .from("fda_projects")
-        .select("final_pdf_url")
+        .select("final_pdf_url, ship_name, lbh_number")
         .eq("project_id", projectId)
         .single();
       
       if (data?.final_pdf_url) {
-        // PDF is ready, update project and stop polling
+        // PDF URL is in database, update and stop polling
         setProject(prev => prev ? { ...prev, final_pdf_url: data.final_pdf_url } : null);
         clearInterval(interval);
+        return;
+      }
+      
+      // Also check storage bucket directly for the PDF
+      try {
+        const { data: files } = await supabase.storage
+          .from("fda-final-packages")
+          .list(projectId);
+        
+        if (files && files.length > 0) {
+          // Found PDF in storage, construct the URL
+          const pdfFile = files.find(f => f.name.endsWith(".pdf"));
+          if (pdfFile) {
+            const storageUrl = `fda-final-packages/${projectId}/${pdfFile.name}`;
+            setProject(prev => prev ? { ...prev, final_pdf_url: storageUrl } : null);
+            clearInterval(interval);
+          }
+        }
+      } catch (err) {
+        // Storage check failed, continue polling
       }
     }, 3000);
 
@@ -480,7 +532,7 @@ LBH Curaçao`;
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Main PDF Attachment */}
-            {project.final_pdf_url ? (
+            {getPublicPdfUrl(project.final_pdf_url) ? (
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
                 <div className="flex items-center gap-3">
                   <FileText className="w-5 h-5 text-primary" />
@@ -494,7 +546,7 @@ LBH Curaçao`;
                     <Eye className="w-4 h-4 mr-1" />
                     Preview
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => window.open(project.final_pdf_url!, "_blank")}>
+                  <Button variant="outline" size="sm" onClick={() => window.open(getPublicPdfUrl(project.final_pdf_url)!, "_blank")}>
                     <Download className="w-4 h-4 mr-1" />
                     Download
                   </Button>
@@ -586,9 +638,9 @@ LBH Curaçao`;
             <DialogDescription>Preview of the FDA package PDF document</DialogDescription>
           </DialogHeader>
           <div className="flex-1 h-full">
-            {project.final_pdf_url ? (
+            {getPublicPdfUrl(project?.final_pdf_url) ? (
               <iframe
-                src={project.final_pdf_url}
+                src={getPublicPdfUrl(project.final_pdf_url)!}
                 className="w-full h-full min-h-[60vh] rounded-lg border"
                 title="PDF Preview"
               />
