@@ -29,12 +29,10 @@ import {
   Loader2,
   Send,
   Ship,
-  Building2,
   User,
   Mail,
   Phone,
   Receipt,
-  X,
   Plus,
   Edit,
   Clock,
@@ -44,19 +42,8 @@ import {
   Calendar,
   Eye,
   Download,
-  Save,
   History,
-  ExternalLink,
-  Paperclip,
 } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 interface FDAProject {
   id: string;
@@ -88,20 +75,6 @@ interface FDAInvoice {
   file_size: number | null;
   created_at: string;
   invoice_number: string | null;
-}
-
-interface FDAEmailDraft {
-  id: string;
-  project_id: string;
-  email_to: string;
-  email_cc: string | null;
-  email_subject: string;
-  email_body: string;
-  attachment_name: string;
-  attachment_url: string;
-  status: string | null;
-  sent_at: string | null;
-  created_at: string | null;
 }
 
 interface FDAFormData {
@@ -226,9 +199,6 @@ export default function FDACreator() {
   const [selectedProject, setSelectedProject] = useState<FDAProject | null>(null);
   const [projectInvoices, setProjectInvoices] = useState<FDAInvoice[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
-  const [emailHistory, setEmailHistory] = useState<FDAEmailDraft[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -524,32 +494,6 @@ export default function FDACreator() {
       billing_email: "",
       billing_phone: "",
     });
-  }
-
-  async function fetchEmailHistory() {
-    setLoadingHistory(true);
-    const { data, error } = await supabase
-      .from("fda_email_drafts")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      setEmailHistory(data);
-    }
-    setLoadingHistory(false);
-  }
-
-  async function openHistoryDialog() {
-    setShowHistoryDialog(true);
-    await fetchEmailHistory();
-  }
-
-  function getAttachmentDownloadUrl(attachmentUrl: string): string {
-    // Convert the relative path to full URL
-    if (attachmentUrl.startsWith("/object/sign/")) {
-      return `https://oxkshjaombffbdemqrqb.supabase.co/storage/v1${attachmentUrl}`;
-    }
-    return attachmentUrl;
   }
 
   const getStatusBadge = (status: string | null) => {
@@ -874,7 +818,7 @@ export default function FDACreator() {
             <p className="text-muted-foreground">Manage your FDA projects</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="lg" className="gap-2" onClick={openHistoryDialog}>
+            <Button variant="outline" size="lg" className="gap-2" onClick={() => navigate("/fda/history")}>
               <History className="w-4 h-4" />
               Email History
             </Button>
@@ -1020,100 +964,6 @@ export default function FDACreator() {
           </Dialog>
           </div>
         </div>
-
-        {/* Email History Dialog */}
-        <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
-          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <History className="w-5 h-5" />
-                Email History
-              </DialogTitle>
-              <DialogDescription>
-                View all sent FDA emails and their attachments
-              </DialogDescription>
-            </DialogHeader>
-            <div className="pt-4">
-              {loadingHistory ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : emailHistory.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Mail className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No emails sent yet</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Subject</TableHead>
-                      <TableHead>To</TableHead>
-                      <TableHead>CC</TableHead>
-                      <TableHead>Attachment</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {emailHistory.map((email) => (
-                      <TableRow key={email.id}>
-                        <TableCell className="whitespace-nowrap">
-                          {email.created_at 
-                            ? new Date(email.created_at).toLocaleDateString("nl-NL", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit"
-                              })
-                            : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="max-w-[200px] truncate" title={email.email_subject}>
-                            {email.email_subject}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="max-w-[150px] truncate" title={email.email_to}>
-                            {email.email_to}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="max-w-[150px] truncate" title={email.email_cc || ""}>
-                            {email.email_cc || "-"}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1 h-8 text-xs"
-                            onClick={() => window.open(getAttachmentDownloadUrl(email.attachment_url), "_blank")}
-                          >
-                            <Paperclip className="w-3 h-3" />
-                            <span className="max-w-[100px] truncate">{email.attachment_name}</span>
-                          </Button>
-                        </TableCell>
-                        <TableCell>
-                          {email.status === "sent" || email.sent_at ? (
-                            <Badge className="bg-success/10 text-success border-success/20" variant="outline">
-                              <CheckCircle className="w-3 h-3 mr-1" /> Sent
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline">
-                              <Clock className="w-3 h-3 mr-1" /> Draft
-                            </Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Projects Grid */}
         {projects.length === 0 ? (
