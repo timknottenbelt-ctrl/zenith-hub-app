@@ -46,6 +46,7 @@ const EMAIL_TYPE_MAP: Record<string, string> = {
   'CARGO_AGENT': 'CARGO AGENT',
   'OWNERS_AGENT': 'OWNERS_AGENT',
   'OUT_OF_SCOPE': 'Out of Scope',
+  'INCOMPLETE': 'INCOMPLETE', // special: filters by status instead of Email Type
 };
 
 export default function AIInquiries() {
@@ -93,13 +94,19 @@ export default function AIInquiries() {
 
   async function fetchEmails() {
     setLoading(true);
-    const emailType = EMAIL_TYPE_MAP[activeTab];
     
-    const { data, error } = await supabase
-      .from('email')
-      .select('*')
-      .eq('Email Type', emailType)
-      .order('created_at', { ascending: false });
+    let query = supabase.from('email').select('*');
+    
+    if (activeTab === 'INCOMPLETE') {
+      // Filter emails that have missing_information (incomplete emails)
+      query = query.not('missing_information', 'is', null);
+    } else {
+      // Filter by Email Type for other tabs
+      const emailType = EMAIL_TYPE_MAP[activeTab];
+      query = query.eq('Email Type', emailType);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
@@ -235,6 +242,7 @@ export default function AIInquiries() {
           <TabsTrigger value="CARGO_AGENT">{t('inquiries.cargoAgent')}</TabsTrigger>
           <TabsTrigger value="OWNERS_AGENT">{t('inquiries.ownersAgent')}</TabsTrigger>
           <TabsTrigger value="OUT_OF_SCOPE">{t('inquiries.outOfScope')}</TabsTrigger>
+          <TabsTrigger value="INCOMPLETE">Incomplete</TabsTrigger>
         </TabsList>
 
 
