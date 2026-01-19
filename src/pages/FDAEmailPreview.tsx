@@ -55,6 +55,7 @@ export default function FDAEmailPreview() {
   const [project, setProject] = useState<FDAProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // Email form state
   const [toEmails, setToEmails] = useState<string[]>([]);
@@ -134,6 +135,7 @@ LBH Curaçao`;
     }
   }, [projectId, navigate]);
 
+  // Initial load and polling for PDF
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -141,7 +143,26 @@ LBH Curaçao`;
       setLoading(false);
     }
     loadData();
-  }, [fetchProject]);
+
+    // Set up polling to check for PDF updates
+    const interval = setInterval(async () => {
+      if (!projectId) return;
+      
+      const { data } = await supabase
+        .from("fda_projects")
+        .select("final_pdf_url")
+        .eq("project_id", projectId)
+        .single();
+      
+      if (data?.final_pdf_url) {
+        // PDF is ready, update project and stop polling
+        setProject(prev => prev ? { ...prev, final_pdf_url: data.final_pdf_url } : null);
+        clearInterval(interval);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [fetchProject, projectId]);
 
   // Email validation
   function isValidEmail(email: string): boolean {
@@ -480,8 +501,17 @@ LBH Curaçao`;
                 </div>
               </div>
             ) : (
-              <div className="p-4 bg-muted/50 rounded-lg border border-dashed text-center">
-                <p className="text-muted-foreground">No PDF generated yet</p>
+              <div className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg border border-primary/20 text-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
+                    <FileText className="w-5 h-5 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">Generating PDF...</p>
+                    <p className="text-sm text-muted-foreground">Your FDA package is being prepared</p>
+                  </div>
+                </div>
               </div>
             )}
 
