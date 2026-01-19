@@ -255,7 +255,7 @@ export default function FDACreator() {
       .from('fda_invoices')
       .select('*')
       .eq('fda_project_id', projectId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true }); // Oldest first, newest at bottom
 
     setProjectInvoices(data || []);
   }
@@ -349,6 +349,9 @@ export default function FDACreator() {
 
     setUploadingFiles(true);
 
+    // Get current invoice count to auto-increment invoice numbers
+    let currentCount = projectInvoices.length;
+
     for (const file of Array.from(files)) {
       if (file.type !== 'application/pdf') {
         toast({ title: 'Error', description: 'Only PDF files are allowed', variant: 'destructive' });
@@ -366,11 +369,16 @@ export default function FDACreator() {
         continue;
       }
 
+      // Auto-assign invoice number based on current count
+      currentCount += 1;
+      const invoiceNumber = String(currentCount).padStart(3, '0');
+
       const { error: insertError } = await supabase.from('fda_invoices').insert({
         fda_project_id: selectedProject.id,
         file_path: filePath,
         file_name: file.name,
         file_size: file.size,
+        invoice_number: invoiceNumber,
       });
 
       if (insertError) {
