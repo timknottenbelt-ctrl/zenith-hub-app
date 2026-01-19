@@ -731,14 +731,21 @@ export default function FDAFrontPage() {
                 />
               </label>
             )}
-            
-            {/* Suggested FDA Name */}
-            <div className="mt-4 p-3 bg-muted/30 rounded-lg border border-border/50">
-              <p className="text-xs text-muted-foreground mb-1">FDA Filename</p>
-              <p className="text-sm font-medium">
-                FDA - {project.ship_name} - {project.lbh_number} - LBH Curacao
-              </p>
-            </div>
+          </CardContent>
+        </Card>
+
+        {/* Section 5: FDA Filename */}
+        <Card className="card-premium">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
+              FDA Filename
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm font-medium">
+              FDA - {project.ship_name} - {project.lbh_number} - LBH Curacao
+            </p>
           </CardContent>
         </Card>
       </div>
