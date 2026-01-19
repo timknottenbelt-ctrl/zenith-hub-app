@@ -439,7 +439,7 @@ export default function FDACreator() {
 
       // Prepare payload
       const payload = {
-        project_id: selectedProject.id,
+        project_id: selectedProject.project_id,
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
         fda_responsible: formData.fda_responsible,
@@ -455,45 +455,30 @@ export default function FDACreator() {
         sent_at: new Date().toISOString(),
       };
 
-      // Send to webhook and wait for response with project_id
-      const response = await fetch(WEBHOOK_URL, {
+      // Update status immediately
+      await supabase
+        .from("fda_projects")
+        .update({ status: "processing" })
+        .eq("project_id", selectedProject.project_id);
+
+      // Navigate immediately - don't wait for webhook response
+      // The FDAFrontPage will show the "AI is processing" animation
+      navigate(`/fda-front-page/${selectedProject.project_id}`);
+
+      // Fire webhook in background (don't await)
+      fetch(WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+      }).catch(err => console.error("Webhook error (background):", err));
 
-      if (!response.ok) {
-        throw new Error(`Webhook failed: ${response.status}`);
-      }
-
-      // Parse response to get the real project_id from n8n
-      const responseData = await response.json();
-      const realProjectId = responseData.project_id;
-
-      if (!realProjectId) {
-        console.warn("No project_id in webhook response, falling back to local project_id");
-        navigate(`/fda-front-page/${selectedProject.project_id}`);
-        return;
-      }
-
-      console.log("Webhook returned project_id:", realProjectId);
-
-      // Update project status
-      await supabase
-        .from("fda_projects")
-        .update({ status: "sent", email_sent_at: new Date().toISOString() })
-        .eq("project_id", realProjectId);
-
-      // Navigate to the correct project page using the webhook response
-      navigate(`/fda-front-page/${realProjectId}`);
     } catch (error) {
       console.error("Send error:", error);
       toast({ 
         title: "Error", 
-        description: error instanceof Error ? error.message : "Failed to send to webhook", 
+        description: error instanceof Error ? error.message : "Failed to prepare data", 
         variant: "destructive" 
       });
-    } finally {
       setSending(false);
     }
   }
