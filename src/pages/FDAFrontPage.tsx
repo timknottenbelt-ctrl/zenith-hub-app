@@ -139,18 +139,32 @@ export default function FDAFrontPage() {
     }
   }, [project, fdaFilename]);
 
-  // Poll for Google Sheet URL if not yet available
+  // Poll for Google Sheet URL and invoices if not yet available
   useEffect(() => {
     if (!project?.google_sheet_url && project && !loading) {
       const interval = setInterval(async () => {
-        const { data } = await supabase
-          .from("fda_projects")
-          .select("google_sheet_url")
-          .eq("project_id", projectId)
-          .single();
+        // Check both the Google Sheet URL and invoices
+        const [projectResult, invoicesResult] = await Promise.all([
+          supabase
+            .from("fda_projects")
+            .select("google_sheet_url")
+            .eq("project_id", projectId)
+            .single(),
+          supabase
+            .from("fda_processed_invoices")
+            .select("id, invoice_number, file_name, description, total_amount, currency, file_url")
+            .eq("project_id", projectId)
+            .order("invoice_number", { ascending: true })
+        ]);
 
-        if (data?.google_sheet_url) {
-          setProject((prev) => (prev ? { ...prev, google_sheet_url: data.google_sheet_url } : null));
+        // Update invoices if we got new data
+        if (invoicesResult.data && invoicesResult.data.length > 0) {
+          setInvoices(invoicesResult.data);
+        }
+
+        // Update project and stop polling if Google Sheet is ready
+        if (projectResult.data?.google_sheet_url) {
+          setProject((prev) => (prev ? { ...prev, google_sheet_url: projectResult.data.google_sheet_url } : null));
           setCheckingGoogleSheet(false);
           clearInterval(interval);
         }
