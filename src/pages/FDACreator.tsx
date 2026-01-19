@@ -31,6 +31,9 @@ import {
   ArrowLeft,
   FileUp,
   Calendar,
+  Eye,
+  Download,
+  Save,
 } from 'lucide-react';
 
 interface FDAProject {
@@ -62,6 +65,7 @@ interface FDAInvoice {
   file_name: string;
   file_size: number | null;
   created_at: string;
+  invoice_number: string | null;
 }
 
 interface FDAFormData {
@@ -75,6 +79,129 @@ interface FDAFormData {
   billing_address: string;
   billing_email: string;
   billing_phone: string;
+}
+
+// Invoice Row Component
+interface InvoiceRowProps {
+  invoice: FDAInvoice;
+  index: number;
+  isSent: boolean;
+  onDelete: (invoice: FDAInvoice) => void;
+  onUpdateInvoiceNumber: (invoiceId: string, invoiceNumber: string) => void;
+}
+
+function InvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }: InvoiceRowProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [invoiceNumber, setInvoiceNumber] = useState(
+    invoice.invoice_number || String(index + 1).padStart(3, '0')
+  );
+  const [loadingUrl, setLoadingUrl] = useState(false);
+
+  const handleSaveNumber = () => {
+    onUpdateInvoiceNumber(invoice.id, invoiceNumber);
+    setIsEditing(false);
+  };
+
+  const handleViewPdf = async () => {
+    setLoadingUrl(true);
+    const { data } = await supabase.storage
+      .from('fda-invoices')
+      .createSignedUrl(invoice.file_path, 3600);
+    setLoadingUrl(false);
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank');
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setLoadingUrl(true);
+    const { data } = await supabase.storage
+      .from('fda-invoices')
+      .createSignedUrl(invoice.file_path, 3600);
+    setLoadingUrl(false);
+    if (data?.signedUrl) {
+      const link = document.createElement('a');
+      link.href = data.signedUrl;
+      link.download = invoice.file_name;
+      link.click();
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+      {/* Invoice Number */}
+      <div className="flex items-center gap-2 min-w-[100px]">
+        {isEditing && !isSent ? (
+          <div className="flex items-center gap-1">
+            <Input
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              className="w-20 h-8 text-sm"
+              placeholder="001"
+            />
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleSaveNumber}>
+              <Save className="w-3.5 h-3.5 text-success" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setIsEditing(false)}>
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="font-mono">
+              #{invoice.invoice_number || String(index + 1).padStart(3, '0')}
+            </Badge>
+            {!isSent && (
+              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setIsEditing(true)}>
+                <Edit className="w-3 h-3" />
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* File Name */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <CheckCircle className="w-4 h-4 text-success shrink-0" />
+        <span className="text-sm truncate">{invoice.file_name}</span>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleViewPdf}
+          disabled={loadingUrl}
+          title="View PDF"
+        >
+          {loadingUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleDownloadPdf}
+          disabled={loadingUrl}
+          title="Download PDF"
+        >
+          <Download className="w-4 h-4" />
+        </Button>
+        {!isSent && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={() => onDelete(invoice)}
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 const WEBHOOK_URL = 'https://lbhcuracao.app.n8n.cloud/webhook-test/invoice-upload';
@@ -282,6 +409,29 @@ export default function FDACreator() {
       await fetchProjectInvoices(selectedProject.id);
     }
     toast({ title: 'Success', description: 'File deleted' });
+  }
+
+  async function handleUpdateInvoiceNumber(invoiceId: string, invoiceNumber: string) {
+    const { error } = await supabase
+      .from('fda_invoices')
+      .update({ invoice_number: invoiceNumber })
+      .eq('id', invoiceId);
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Saved', description: 'Invoice number updated' });
+      if (selectedProject) {
+        await fetchProjectInvoices(selectedProject.id);
+      }
+    }
+  }
+
+  async function getInvoiceSignedUrl(filePath: string): Promise<string | null> {
+    const { data } = await supabase.storage
+      .from('fda-invoices')
+      .createSignedUrl(filePath, 3600); // 1 hour
+    return data?.signedUrl || null;
   }
 
   async function handleSendToWebhook() {
@@ -542,24 +692,16 @@ export default function FDACreator() {
                   <p className="text-xs">Upload invoice PDFs using the button above</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                  {projectInvoices.map((invoice) => (
-                    <div key={invoice.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg group">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <CheckCircle className="w-4 h-4 text-success shrink-0" />
-                        <span className="text-sm truncate">{invoice.file_name}</span>
-                      </div>
-                      {selectedProject.status !== 'sent' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0 opacity-0 group-hover:opacity-100 h-6 w-6"
-                          onClick={() => handleDeleteInvoice(invoice)}
-                        >
-                          <X className="w-3 h-3 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
+                <div className="space-y-2">
+                  {projectInvoices.map((invoice, index) => (
+                    <InvoiceRow 
+                      key={invoice.id}
+                      invoice={invoice}
+                      index={index}
+                      isSent={selectedProject.status === 'sent'}
+                      onDelete={handleDeleteInvoice}
+                      onUpdateInvoiceNumber={handleUpdateInvoiceNumber}
+                    />
                   ))}
                 </div>
               )}
