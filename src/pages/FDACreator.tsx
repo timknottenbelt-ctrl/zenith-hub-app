@@ -542,18 +542,16 @@ export default function FDACreator() {
                   <p className="text-xs">Upload invoice PDFs using the button above</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                <div className="flex flex-wrap gap-2">
                   {projectInvoices.map((invoice) => (
-                    <div key={invoice.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg group">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <CheckCircle className="w-4 h-4 text-success shrink-0" />
-                        <span className="text-sm truncate">{invoice.file_name}</span>
-                      </div>
+                    <div key={invoice.id} className="inline-flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg group hover:bg-muted transition-colors">
+                      <CheckCircle className="w-4 h-4 text-success shrink-0" />
+                      <span className="text-sm max-w-[120px] truncate">{invoice.file_name}</span>
                       {selectedProject.status !== 'sent' && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="shrink-0 opacity-0 group-hover:opacity-100 h-6 w-6"
+                          className="shrink-0 opacity-0 group-hover:opacity-100 h-5 w-5 ml-1"
                           onClick={() => handleDeleteInvoice(invoice)}
                         >
                           <X className="w-3 h-3 text-destructive" />
