@@ -766,10 +766,32 @@ export default function FDACreator() {
           {/* Danger Zone */}
           {selectedProject.status !== "sent" && (
             <div className="flex justify-end">
-              <Button variant="destructive" onClick={() => handleDeleteProject(selectedProject.id)}>
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Project
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Project
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Weet u het zeker?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      U staat op het punt om het FDA project voor "{selectedProject.ship_name}" ({selectedProject.lbh_number}) te verwijderen. 
+                      Alle bijbehorende facturen en data worden permanent verwijderd. Deze actie kan niet ongedaan worden gemaakt.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => handleDeleteProject(selectedProject.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Verwijderen
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           )}
         </div>
