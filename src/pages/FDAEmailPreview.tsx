@@ -13,6 +13,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   ArrowLeft,
@@ -595,14 +596,21 @@ LBH Curaçao`;
         <DialogContent className="max-w-4xl h-[80vh]">
           <DialogHeader>
             <DialogTitle>PDF Preview</DialogTitle>
+            <DialogDescription>
+              Preview of the FDA package PDF document
+            </DialogDescription>
           </DialogHeader>
           <div className="flex-1 h-full">
-            {project.final_pdf_url && (
+            {project.final_pdf_url ? (
               <iframe
                 src={project.final_pdf_url}
                 className="w-full h-full min-h-[60vh] rounded-lg border"
                 title="PDF Preview"
               />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No PDF available
+              </div>
             )}
           </div>
         </DialogContent>
