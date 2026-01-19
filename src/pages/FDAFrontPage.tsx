@@ -82,6 +82,7 @@ export default function FDAFrontPage() {
   const [editValue, setEditValue] = useState('');
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [fdaFilename, setFdaFilename] = useState('');
 
   const fetchProject = useCallback(async () => {
     if (!projectId) return;
@@ -126,6 +127,13 @@ export default function FDAFrontPage() {
     }
     loadData();
   }, [fetchProject, fetchInvoices]);
+
+  // Set default FDA filename when project loads
+  useEffect(() => {
+    if (project && !fdaFilename) {
+      setFdaFilename(`FDA - ${project.ship_name} - ${project.lbh_number} - LBH Curacao`);
+    }
+  }, [project, fdaFilename]);
 
   // Poll for Google Sheet URL if not yet available
   useEffect(() => {
@@ -337,11 +345,9 @@ export default function FDAFrontPage() {
         order: index + 1,
       }));
 
-      const fdaName = `FDA - ${project.ship_name} - ${project.lbh_number} - LBH Curacao`;
-
       const payload = {
         project_id: projectId,
-        fda_name: fdaName,
+        fda_name: fdaFilename,
         ship_name: project.ship_name,
         lbh_number: project.lbh_number,
         front_page_url: project.front_page_url,
@@ -743,9 +749,12 @@ export default function FDAFrontPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm font-medium">
-              FDA - {project.ship_name} - {project.lbh_number} - LBH Curacao
-            </p>
+            <Input
+              value={fdaFilename}
+              onChange={(e) => setFdaFilename(e.target.value)}
+              placeholder="Enter FDA filename..."
+              className="font-medium"
+            />
           </CardContent>
         </Card>
       </div>
