@@ -430,8 +430,10 @@ export default function FDACreator() {
       return;
     }
 
-    setSending(true);
+    // Navigate immediately to preview page - loading will show there
+    navigate(`/fda-preview/${selectedProject.project_id}`);
 
+    // Do the webhook call in background (fire and forget, preview page will poll for results)
     try {
       // Get signed URLs for all files
       const fileUrls: string[] = [];
@@ -470,7 +472,7 @@ export default function FDACreator() {
       });
 
       if (!response.ok) {
-        throw new Error(`Webhook failed: ${response.status}`);
+        console.error('Webhook failed:', response.status);
       }
 
       // Update project status
@@ -479,13 +481,8 @@ export default function FDACreator() {
         .update({ status: 'sent', email_sent_at: new Date().toISOString() })
         .eq('id', selectedProject.id);
 
-      toast({ title: 'Success!', description: 'FDA sent to n8n workflow' });
-      await fetchProjects();
-      // Navigate to FDA Preview page
-      navigate(`/fda-preview/${selectedProject.project_id}`);
     } catch (error) {
       console.error('Send error:', error);
-      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to send', variant: 'destructive' });
     } finally {
       setSending(false);
     }
