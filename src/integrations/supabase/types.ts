@@ -799,6 +799,101 @@ export type Database = {
         }
         Relationships: []
       }
+      vessel_pda_data: {
+        Row: {
+          cargo_quantity: number | null
+          cargo_type: string | null
+          cargo_unit: string | null
+          company_name: string | null
+          contact_name: string | null
+          created_at: string | null
+          eta: string | null
+          facility: string | null
+          id: number
+          operation: string | null
+          pilotage: boolean | null
+          port_area: string | null
+          port_country: string | null
+          port_stay: number | null
+          supabase_email_id: number | null
+          terminal: string | null
+          tugs: number | null
+          vessel_beam: number | null
+          vessel_draft: number | null
+          vessel_dwt: number | null
+          vessel_flag: string | null
+          vessel_grt: number | null
+          vessel_imo: string | null
+          vessel_loa: number | null
+          vessel_name: string | null
+          vessel_number: number | null
+        }
+        Insert: {
+          cargo_quantity?: number | null
+          cargo_type?: string | null
+          cargo_unit?: string | null
+          company_name?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          eta?: string | null
+          facility?: string | null
+          id?: number
+          operation?: string | null
+          pilotage?: boolean | null
+          port_area?: string | null
+          port_country?: string | null
+          port_stay?: number | null
+          supabase_email_id?: number | null
+          terminal?: string | null
+          tugs?: number | null
+          vessel_beam?: number | null
+          vessel_draft?: number | null
+          vessel_dwt?: number | null
+          vessel_flag?: string | null
+          vessel_grt?: number | null
+          vessel_imo?: string | null
+          vessel_loa?: number | null
+          vessel_name?: string | null
+          vessel_number?: number | null
+        }
+        Update: {
+          cargo_quantity?: number | null
+          cargo_type?: string | null
+          cargo_unit?: string | null
+          company_name?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          eta?: string | null
+          facility?: string | null
+          id?: number
+          operation?: string | null
+          pilotage?: boolean | null
+          port_area?: string | null
+          port_country?: string | null
+          port_stay?: number | null
+          supabase_email_id?: number | null
+          terminal?: string | null
+          tugs?: number | null
+          vessel_beam?: number | null
+          vessel_draft?: number | null
+          vessel_dwt?: number | null
+          vessel_flag?: string | null
+          vessel_grt?: number | null
+          vessel_imo?: string | null
+          vessel_loa?: number | null
+          vessel_name?: string | null
+          vessel_number?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vessel_pda_data_supabase_email_id_fkey"
+            columns: ["supabase_email_id"]
+            isOneToOne: false
+            referencedRelation: "email"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vessels: {
         Row: {
           beam_m: number | null
