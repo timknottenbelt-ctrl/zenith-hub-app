@@ -45,6 +45,22 @@ interface FDAProject {
   total_amount: number | null;
 }
 
+const SUPABASE_URL = 'https://oxkshjaombffbdemqrqb.supabase.co';
+
+// Helper to ensure final_pdf_url is a full URL
+function getFullPdfUrl(url: string | null): string | null {
+  if (!url) return null;
+  // If it's already a full URL, return as-is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  // If it starts with /object/sign, prepend the Supabase storage URL
+  if (url.startsWith('/object/sign') || url.startsWith('/storage/v1')) {
+    return `${SUPABASE_URL}/storage/v1${url.replace('/storage/v1', '')}`;
+  }
+  return url;
+}
+
 interface ExtraAttachment {
   id: string;
   name: string;
@@ -60,6 +76,7 @@ export default function FDAEmailPreview() {
 
   const [project, setProject] = useState<FDAProject | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkingPdf, setCheckingPdf] = useState(true);
   const [sending, setSending] = useState(false);
 
   // Email form state
@@ -146,6 +163,35 @@ LBH Curaçao`;
     }
     loadData();
   }, [fetchProject]);
+
+  // Poll for final_pdf_url if not yet available
+  useEffect(() => {
+    if (!project || loading) return;
+
+    if (project.final_pdf_url) {
+      setCheckingPdf(false);
+      return;
+    }
+
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from('fda_projects')
+        .select('final_pdf_url')
+        .eq('project_id', projectId)
+        .limit(1);
+
+      const polledProject = data?.[0];
+      if (polledProject?.final_pdf_url) {
+        setProject((prev) =>
+          prev ? { ...prev, final_pdf_url: polledProject.final_pdf_url } : prev
+        );
+        setCheckingPdf(false);
+        clearInterval(interval);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [projectId, project, loading]);
 
   // Email validation
   function isValidEmail(email: string): boolean {
@@ -277,13 +323,14 @@ LBH Curaçao`;
     setSending(true);
 
     try {
+      const pdfUrl = getFullPdfUrl(project?.final_pdf_url);
       const payload = {
         project_id: projectId,
         email_to: toEmails.join(','),
         email_cc: ccEmails.join(','),
         email_subject: subject,
         email_body: body,
-        attachment_url: project?.final_pdf_url || '',
+        attachment_url: pdfUrl || '',
         extra_attachments: extraAttachments.map(a => a.url),
       };
 
@@ -503,12 +550,20 @@ LBH Curaçao`;
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open(project.final_pdf_url!, '_blank')}
+                    onClick={() => {
+                      const url = getFullPdfUrl(project.final_pdf_url);
+                      if (url) window.open(url, '_blank');
+                    }}
                   >
                     <Download className="w-4 h-4 mr-1" />
                     Download
                   </Button>
                 </div>
+              </div>
+            ) : checkingPdf ? (
+              <div className="p-4 bg-primary/5 rounded-lg border border-primary/30 flex items-center justify-center gap-3">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <p className="text-muted-foreground">Waiting for PDF to be generated...</p>
               </div>
             ) : (
               <div className="p-4 bg-muted/50 rounded-lg border border-dashed text-center">
@@ -603,7 +658,7 @@ LBH Curaçao`;
           <div className="flex-1 h-full">
             {project.final_pdf_url ? (
               <iframe
-                src={project.final_pdf_url}
+                src={getFullPdfUrl(project.final_pdf_url) || ''}
                 className="w-full h-full min-h-[60vh] rounded-lg border"
                 title="PDF Preview"
               />
