@@ -147,10 +147,21 @@ export default function FDAFrontPage() {
   useEffect(() => {
     if (!project || loading) return;
 
-    // If already ready, stop immediately
-    if (project.google_sheet_url) {
+    // Determine if we need to keep polling:
+    // - If no Google Sheet URL yet, keep polling
+    // - If Google Sheet URL exists but no invoices, keep polling (AI might still be processing)
+    const hasGoogleSheet = !!project.google_sheet_url;
+    const hasInvoices = invoices.length > 0;
+
+    // If everything is ready, stop immediately
+    if (hasGoogleSheet && hasInvoices) {
       setCheckingGoogleSheet(false);
       return;
+    }
+
+    // If we have the sheet, at least mark that part as done
+    if (hasGoogleSheet) {
+      setCheckingGoogleSheet(false);
     }
 
     const interval = setInterval(async () => {
@@ -167,7 +178,7 @@ export default function FDAFrontPage() {
           .order("invoice_number", { ascending: true }),
       ]);
 
-      // Update invoices if we got new data
+      // Always update invoices if we got new data
       if (invoicesResult.data && invoicesResult.data.length > 0) {
         setInvoices(invoicesResult.data);
       }
@@ -187,13 +198,18 @@ export default function FDAFrontPage() {
 
         if (polledProject.google_sheet_url) {
           setCheckingGoogleSheet(false);
+        }
+
+        // Only stop polling when BOTH conditions are met
+        const invoiceCount = invoicesResult.data?.length ?? 0;
+        if (polledProject.google_sheet_url && invoiceCount > 0) {
           clearInterval(interval);
         }
       }
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [projectId, project, loading]);
+  }, [projectId, project, loading, invoices.length]);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>, type: "front_page" | "agency_cost") {
     const file = e.target.files?.[0];
