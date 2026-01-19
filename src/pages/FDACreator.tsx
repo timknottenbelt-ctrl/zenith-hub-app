@@ -425,10 +425,8 @@ export default function FDACreator() {
       return;
     }
 
-    // Navigate immediately to preview page - loading will show there
-    navigate(`/fda-front-page/${selectedProject.project_id}`);
+    setSending(true);
 
-    // Do the webhook call in background (fire and forget, preview page will poll for results)
     try {
       // Get signed URLs for all files
       const fileUrls: string[] = [];
@@ -457,7 +455,7 @@ export default function FDACreator() {
         sent_at: new Date().toISOString(),
       };
 
-      // Send to webhook
+      // Send to webhook and wait for response with project_id
       const response = await fetch(WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -465,16 +463,36 @@ export default function FDACreator() {
       });
 
       if (!response.ok) {
-        console.error("Webhook failed:", response.status);
+        throw new Error(`Webhook failed: ${response.status}`);
       }
+
+      // Parse response to get the real project_id from n8n
+      const responseData = await response.json();
+      const realProjectId = responseData.project_id;
+
+      if (!realProjectId) {
+        console.warn("No project_id in webhook response, falling back to local project_id");
+        navigate(`/fda-front-page/${selectedProject.project_id}`);
+        return;
+      }
+
+      console.log("Webhook returned project_id:", realProjectId);
 
       // Update project status
       await supabase
         .from("fda_projects")
         .update({ status: "sent", email_sent_at: new Date().toISOString() })
-        .eq("id", selectedProject.id);
+        .eq("project_id", realProjectId);
+
+      // Navigate to the correct project page using the webhook response
+      navigate(`/fda-front-page/${realProjectId}`);
     } catch (error) {
       console.error("Send error:", error);
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to send to webhook", 
+        variant: "destructive" 
+      });
     } finally {
       setSending(false);
     }
