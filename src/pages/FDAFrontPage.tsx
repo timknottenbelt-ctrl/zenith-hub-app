@@ -142,41 +142,58 @@ export default function FDAFrontPage() {
   }, [project, fdaFilename]);
 
   // Poll for Google Sheet URL and invoices if not yet available
+  // NOTE: We intentionally avoid `.single()` here because PostgREST returns 406 when 0 rows are found,
+  // which would keep the UI stuck in "Checking status...".
   useEffect(() => {
-    if (!project?.google_sheet_url && project && !loading) {
-      const interval = setInterval(async () => {
-        // Check both the Google Sheet URL and invoices
-        const [projectResult, invoicesResult] = await Promise.all([
-          supabase
-            .from("fda_projects")
-            .select("google_sheet_url")
-            .eq("project_id", projectId)
-            .single(),
-          supabase
-            .from("fda_processed_invoices")
-            .select("id, invoice_number, file_name, description, total_amount, currency, file_url")
-            .eq("project_id", projectId)
-            .order("invoice_number", { ascending: true })
-        ]);
+    if (!project || loading) return;
 
-        // Update invoices if we got new data
-        if (invoicesResult.data && invoicesResult.data.length > 0) {
-          setInvoices(invoicesResult.data);
-        }
+    // If already ready, stop immediately
+    if (project.google_sheet_url) {
+      setCheckingGoogleSheet(false);
+      return;
+    }
 
-        // Update project and stop polling if Google Sheet is ready
-        if (projectResult.data?.google_sheet_url) {
-          setProject((prev) => (prev ? { ...prev, google_sheet_url: projectResult.data.google_sheet_url } : null));
+    const interval = setInterval(async () => {
+      const [projectResult, invoicesResult] = await Promise.all([
+        supabase
+          .from("fda_projects")
+          .select("google_sheet_url, final_pdf_url")
+          .eq("project_id", projectId)
+          .limit(1),
+        supabase
+          .from("fda_processed_invoices")
+          .select("id, invoice_number, file_name, description, total_amount, currency, file_url")
+          .eq("project_id", projectId)
+          .order("invoice_number", { ascending: true }),
+      ]);
+
+      // Update invoices if we got new data
+      if (invoicesResult.data && invoicesResult.data.length > 0) {
+        setInvoices(invoicesResult.data);
+      }
+
+      const polledProject = projectResult.data?.[0];
+      if (polledProject) {
+        // Keep project in sync (we only need a couple fields here)
+        setProject((prev) =>
+          prev
+            ? {
+                ...prev,
+                google_sheet_url: polledProject.google_sheet_url ?? prev.google_sheet_url,
+                final_pdf_url: polledProject.final_pdf_url ?? prev.final_pdf_url,
+              }
+            : prev
+        );
+
+        if (polledProject.google_sheet_url) {
           setCheckingGoogleSheet(false);
           clearInterval(interval);
         }
-      }, 3000);
+      }
+    }, 3000);
 
-      return () => clearInterval(interval);
-    } else if (project?.google_sheet_url) {
-      setCheckingGoogleSheet(false);
-    }
-  }, [project, projectId, loading]);
+    return () => clearInterval(interval);
+  }, [projectId, project, loading]);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>, type: "front_page" | "agency_cost") {
     const file = e.target.files?.[0];
