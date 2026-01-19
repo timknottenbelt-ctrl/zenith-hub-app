@@ -1,20 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   ArrowLeft,
   Mail,
@@ -28,7 +22,7 @@ import {
   Upload,
   Trash2,
   Paperclip,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface FDAProject {
   project_id: string;
@@ -45,29 +39,13 @@ interface FDAProject {
   total_amount: number | null;
 }
 
-const SUPABASE_URL = 'https://oxkshjaombffbdemqrqb.supabase.co';
-
-// Helper to ensure final_pdf_url is a full URL
-function getFullPdfUrl(url: string | null): string | null {
-  if (!url) return null;
-  // If it's already a full URL, return as-is
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
-  }
-  // If it starts with /object/sign, prepend the Supabase storage URL
-  if (url.startsWith('/object/sign') || url.startsWith('/storage/v1')) {
-    return `${SUPABASE_URL}/storage/v1${url.replace('/storage/v1', '')}`;
-  }
-  return url;
-}
-
 interface ExtraAttachment {
   id: string;
   name: string;
   url: string;
 }
 
-const SEND_WEBHOOK_URL = 'https://lbhcuracao.app.n8n.cloud/webhook-test/Send-FDA';
+const SEND_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/Send-FDA";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function FDAEmailPreview() {
@@ -76,16 +54,15 @@ export default function FDAEmailPreview() {
 
   const [project, setProject] = useState<FDAProject | null>(null);
   const [loading, setLoading] = useState(true);
-  const [checkingPdf, setCheckingPdf] = useState(true);
   const [sending, setSending] = useState(false);
 
   // Email form state
   const [toEmails, setToEmails] = useState<string[]>([]);
   const [ccEmails, setCcEmails] = useState<string[]>([]);
-  const [newToEmail, setNewToEmail] = useState('');
-  const [newCcEmail, setNewCcEmail] = useState('');
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
+  const [newToEmail, setNewToEmail] = useState("");
+  const [newCcEmail, setNewCcEmail] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
   const [extraAttachments, setExtraAttachments] = useState<ExtraAttachment[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
@@ -96,8 +73,9 @@ export default function FDAEmailPreview() {
     if (!projectId) return;
 
     const { data, error } = await supabase
-      .from('fda_projects')
-      .select(`
+      .from("fda_projects")
+      .select(
+        `
         project_id,
         lbh_number,
         ship_name,
@@ -110,14 +88,15 @@ export default function FDAEmailPreview() {
         fda_responsible,
         total_invoices,
         total_amount
-      `)
-      .eq('project_id', projectId)
+      `,
+      )
+      .eq("project_id", projectId)
       .single();
 
     if (error) {
-      console.error('Error fetching project:', error);
-      toast({ title: 'Error', description: 'Project not found', variant: 'destructive' });
-      navigate('/fda');
+      console.error("Error fetching project:", error);
+      toast({ title: "Error", description: "Project not found", variant: "destructive" });
+      navigate("/fda");
       return;
     }
 
@@ -139,17 +118,17 @@ export default function FDAEmailPreview() {
       setBody(data.email_body);
     } else {
       // Generate default body
-      const defaultBody = `Dear ${data.client_name || 'Client'},
+      const defaultBody = `Dear ${data.client_name || "Client"},
 
 Please find attached the invoices for project ${data.lbh_number} - ${data.ship_name}.
 
-Total number of invoices: ${data.total_invoices || 'N/A'}
-Total amount: ${data.total_amount ? `USD ${data.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : 'N/A'}
+Total number of invoices: ${data.total_invoices || "N/A"}
+Total amount: ${data.total_amount ? `USD ${data.total_amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "N/A"}
 
 You can download the complete FDA package via the attachment.
 
 Best regards,
-${data.fda_responsible || 'LBH Team'}
+${data.fda_responsible || "LBH Team"}
 LBH Curaçao`;
       setBody(defaultBody);
     }
@@ -164,35 +143,6 @@ LBH Curaçao`;
     loadData();
   }, [fetchProject]);
 
-  // Poll for final_pdf_url if not yet available
-  useEffect(() => {
-    if (!project || loading) return;
-
-    if (project.final_pdf_url) {
-      setCheckingPdf(false);
-      return;
-    }
-
-    const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from('fda_projects')
-        .select('final_pdf_url')
-        .eq('project_id', projectId)
-        .limit(1);
-
-      const polledProject = data?.[0];
-      if (polledProject?.final_pdf_url) {
-        setProject((prev) =>
-          prev ? { ...prev, final_pdf_url: polledProject.final_pdf_url } : prev
-        );
-        setCheckingPdf(false);
-        clearInterval(interval);
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [projectId, project, loading]);
-
   // Email validation
   function isValidEmail(email: string): boolean {
     return EMAIL_REGEX.test(email.trim());
@@ -203,15 +153,15 @@ LBH Curaçao`;
     const email = newToEmail.trim();
     if (!email) return;
     if (!isValidEmail(email)) {
-      toast({ title: 'Invalid email', description: 'Please enter a valid email address', variant: 'destructive' });
+      toast({ title: "Invalid email", description: "Please enter a valid email address", variant: "destructive" });
       return;
     }
     if (toEmails.includes(email)) {
-      toast({ title: 'Duplicate', description: 'This email is already added', variant: 'destructive' });
+      toast({ title: "Duplicate", description: "This email is already added", variant: "destructive" });
       return;
     }
     setToEmails([...toEmails, email]);
-    setNewToEmail('');
+    setNewToEmail("");
   }
 
   // Remove TO email
@@ -224,15 +174,15 @@ LBH Curaçao`;
     const email = newCcEmail.trim();
     if (!email) return;
     if (!isValidEmail(email)) {
-      toast({ title: 'Invalid email', description: 'Please enter a valid email address', variant: 'destructive' });
+      toast({ title: "Invalid email", description: "Please enter a valid email address", variant: "destructive" });
       return;
     }
     if (ccEmails.includes(email)) {
-      toast({ title: 'Duplicate', description: 'This email is already added', variant: 'destructive' });
+      toast({ title: "Duplicate", description: "This email is already added", variant: "destructive" });
       return;
     }
     setCcEmails([...ccEmails, email]);
-    setNewCcEmail('');
+    setNewCcEmail("");
   }
 
   // Remove CC email
@@ -242,14 +192,14 @@ LBH Curaçao`;
 
   // Handle keyboard for adding emails
   function handleToKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       addToEmail();
     }
   }
 
   function handleCcKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       addCcEmail();
     }
@@ -261,7 +211,7 @@ LBH Curaçao`;
     if (!file || !projectId) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      toast({ title: 'Error', description: 'File must be less than 10MB', variant: 'destructive' });
+      toast({ title: "Error", description: "File must be less than 10MB", variant: "destructive" });
       return;
     }
 
@@ -271,72 +221,66 @@ LBH Curaçao`;
       const fileName = `${Date.now()}_${file.name}`;
       const filePath = `${projectId}/extra/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('fda-attachments')
-        .upload(filePath, file);
+      const { error: uploadError } = await supabase.storage.from("fda-attachments").upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: urlData } = await supabase.storage
-        .from('fda-attachments')
+        .from("fda-attachments")
         .createSignedUrl(filePath, 60 * 60 * 24 * 365);
 
-      if (!urlData?.signedUrl) throw new Error('Failed to get URL');
+      if (!urlData?.signedUrl) throw new Error("Failed to get URL");
 
-      setExtraAttachments([
-        ...extraAttachments,
-        { id: fileName, name: file.name, url: urlData.signedUrl }
-      ]);
+      setExtraAttachments([...extraAttachments, { id: fileName, name: file.name, url: urlData.signedUrl }]);
 
-      toast({ title: 'Success', description: 'Attachment uploaded' });
+      toast({ title: "Success", description: "Attachment uploaded" });
     } catch (error) {
-      console.error('Upload error:', error);
-      toast({ title: 'Error', description: 'Failed to upload attachment', variant: 'destructive' });
+      console.error("Upload error:", error);
+      toast({ title: "Error", description: "Failed to upload attachment", variant: "destructive" });
     } finally {
       setUploadingAttachment(false);
-      e.target.value = '';
+      e.target.value = "";
     }
   }
 
   // Remove extra attachment
   function removeAttachment(id: string) {
-    setExtraAttachments(extraAttachments.filter(a => a.id !== id));
+    setExtraAttachments(extraAttachments.filter((a) => a.id !== id));
   }
 
   // Send email
   async function handleSendEmail() {
     if (toEmails.length === 0) {
-      toast({ title: 'Error', description: 'Please add at least one recipient', variant: 'destructive' });
+      toast({ title: "Error", description: "Please add at least one recipient", variant: "destructive" });
       return;
     }
 
     if (!subject.trim()) {
-      toast({ title: 'Error', description: 'Please enter a subject', variant: 'destructive' });
+      toast({ title: "Error", description: "Please enter a subject", variant: "destructive" });
       return;
     }
 
     if (!body.trim()) {
-      toast({ title: 'Error', description: 'Please enter email body', variant: 'destructive' });
+      toast({ title: "Error", description: "Please enter email body", variant: "destructive" });
       return;
     }
 
     setSending(true);
 
     try {
-      const pdfUrl = getFullPdfUrl(project?.final_pdf_url);
       const payload = {
         project_id: projectId,
-        email_to: toEmails.join(','),
-        email_cc: ccEmails.join(','),
+        email_to: toEmails.join(","),
+        email_cc: ccEmails.join(","),
         email_subject: subject,
         email_body: body,
-        attachment_url: pdfUrl || '',
-        extra_attachments: extraAttachments.map(a => a.url),
+        attachment_url: project?.final_pdf_url || "",
+        extra_attachments: extraAttachments.map((a) => a.url),
       };
 
       const response = await fetch(SEND_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -344,11 +288,15 @@ LBH Curaçao`;
         throw new Error(`Send failed: ${response.status}`);
       }
 
-      toast({ title: 'Success!', description: 'Email sent successfully!' });
-      navigate('/fda');
+      toast({ title: "Success!", description: "Email sent successfully!" });
+      navigate("/fda");
     } catch (error) {
-      console.error('Send error:', error);
-      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to send email', variant: 'destructive' });
+      console.error("Send error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send email",
+        variant: "destructive",
+      });
     } finally {
       setSending(false);
     }
@@ -357,11 +305,11 @@ LBH Curaçao`;
   // Get filename from URL
   function getFilenameFromUrl(url: string): string {
     try {
-      const urlParts = url.split('/');
+      const urlParts = url.split("/");
       const fileNameWithParams = urlParts[urlParts.length - 1];
-      return fileNameWithParams.split('?')[0] || 'FDA_Package.pdf';
+      return fileNameWithParams.split("?")[0] || "FDA_Package.pdf";
     } catch {
-      return 'FDA_Package.pdf';
+      return "FDA_Package.pdf";
     }
   }
 
@@ -380,7 +328,7 @@ LBH Curaçao`;
       <DashboardLayout title="FDA Email">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Project not found</p>
-          <Button onClick={() => navigate('/fda')} className="mt-4">
+          <Button onClick={() => navigate("/fda")} className="mt-4">
             Back to FDA Creator
           </Button>
         </div>
@@ -401,7 +349,9 @@ LBH Curaçao`;
               <Mail className="w-6 h-6" />
               FDA Email
             </h1>
-            <p className="text-muted-foreground">{project.lbh_number} - {project.ship_name}</p>
+            <p className="text-muted-foreground">
+              {project.lbh_number} - {project.ship_name}
+            </p>
           </div>
         </div>
 
@@ -418,11 +368,7 @@ LBH Curaçao`;
                 {toEmails.map((email, index) => (
                   <Badge key={index} variant="secondary" className="flex items-center gap-1 py-1 px-2">
                     {email}
-                    <button
-                      type="button"
-                      onClick={() => removeToEmail(index)}
-                      className="ml-1 hover:text-destructive"
-                    >
+                    <button type="button" onClick={() => removeToEmail(index)} className="ml-1 hover:text-destructive">
                       <X className="w-3 h-3" />
                     </button>
                   </Badge>
@@ -436,13 +382,7 @@ LBH Curaçao`;
                     onKeyDown={handleToKeyDown}
                     className="border-0 shadow-none focus-visible:ring-0 p-0 h-auto"
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={addToEmail}
-                    disabled={!newToEmail.trim()}
-                  >
+                  <Button type="button" variant="ghost" size="sm" onClick={addToEmail} disabled={!newToEmail.trim()}>
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
@@ -456,11 +396,7 @@ LBH Curaçao`;
                 {ccEmails.map((email, index) => (
                   <Badge key={index} variant="outline" className="flex items-center gap-1 py-1 px-2">
                     {email}
-                    <button
-                      type="button"
-                      onClick={() => removeCcEmail(index)}
-                      className="ml-1 hover:text-destructive"
-                    >
+                    <button type="button" onClick={() => removeCcEmail(index)} className="ml-1 hover:text-destructive">
                       <X className="w-3 h-3" />
                     </button>
                   </Badge>
@@ -474,13 +410,7 @@ LBH Curaçao`;
                     onKeyDown={handleCcKeyDown}
                     className="border-0 shadow-none focus-visible:ring-0 p-0 h-auto"
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={addCcEmail}
-                    disabled={!newCcEmail.trim()}
-                  >
+                  <Button type="button" variant="ghost" size="sm" onClick={addCcEmail} disabled={!newCcEmail.trim()}>
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
@@ -539,31 +469,15 @@ LBH Curaçao`;
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPreviewOpen(true)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
                     <Eye className="w-4 h-4 mr-1" />
                     Preview
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const url = getFullPdfUrl(project.final_pdf_url);
-                      if (url) window.open(url, '_blank');
-                    }}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => window.open(project.final_pdf_url!, "_blank")}>
                     <Download className="w-4 h-4 mr-1" />
                     Download
                   </Button>
                 </div>
-              </div>
-            ) : checkingPdf ? (
-              <div className="p-4 bg-primary/5 rounded-lg border border-primary/30 flex items-center justify-center gap-3">
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <p className="text-muted-foreground">Waiting for PDF to be generated...</p>
               </div>
             ) : (
               <div className="p-4 bg-muted/50 rounded-lg border border-dashed text-center">
@@ -574,7 +488,7 @@ LBH Curaçao`;
             {/* Extra Attachments */}
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Extra Attachments (Optional)</p>
-              
+
               {extraAttachments.map((attachment) => (
                 <div
                   key={attachment.id}
@@ -602,13 +516,9 @@ LBH Curaçao`;
                   onChange={handleUploadAttachment}
                   disabled={uploadingAttachment}
                 />
-                {uploadingAttachment ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4" />
-                )}
+                {uploadingAttachment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                 <span className="text-sm text-muted-foreground">
-                  {uploadingAttachment ? 'Uploading...' : 'Add extra attachment'}
+                  {uploadingAttachment ? "Uploading..." : "Add extra attachment"}
                 </span>
               </label>
             </div>
@@ -618,18 +528,10 @@ LBH Curaçao`;
         {/* Action Buttons - Sticky Bottom */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t z-50">
           <div className="max-w-4xl mx-auto flex justify-end gap-4">
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/fda-front-page/${projectId}`)}
-              disabled={sending}
-            >
+            <Button variant="outline" onClick={() => navigate(`/fda-front-page/${projectId}`)} disabled={sending}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSendEmail}
-              disabled={sending || toEmails.length === 0}
-              className="min-w-[140px]"
-            >
+            <Button onClick={handleSendEmail} disabled={sending || toEmails.length === 0} className="min-w-[140px]">
               {sending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -651,21 +553,17 @@ LBH Curaçao`;
         <DialogContent className="max-w-4xl h-[80vh]">
           <DialogHeader>
             <DialogTitle>PDF Preview</DialogTitle>
-            <DialogDescription>
-              Preview of the FDA package PDF document
-            </DialogDescription>
+            <DialogDescription>Preview of the FDA package PDF document</DialogDescription>
           </DialogHeader>
           <div className="flex-1 h-full">
             {project.final_pdf_url ? (
               <iframe
-                src={getFullPdfUrl(project.final_pdf_url) || ''}
+                src={project.final_pdf_url}
                 className="w-full h-full min-h-[60vh] rounded-lg border"
                 title="PDF Preview"
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                No PDF available
-              </div>
+              <div className="flex items-center justify-center h-full text-muted-foreground">No PDF available</div>
             )}
           </div>
         </DialogContent>
