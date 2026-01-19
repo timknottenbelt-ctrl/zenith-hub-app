@@ -315,6 +315,59 @@ export type Database = {
         }
         Relationships: []
       }
+      fda_email_drafts: {
+        Row: {
+          attachment_name: string
+          attachment_url: string
+          created_at: string | null
+          email_body: string
+          email_cc: string | null
+          email_subject: string
+          email_to: string
+          error_message: string | null
+          id: string
+          project_id: string
+          sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          attachment_name: string
+          attachment_url: string
+          created_at?: string | null
+          email_body: string
+          email_cc?: string | null
+          email_subject: string
+          email_to: string
+          error_message?: string | null
+          id?: string
+          project_id: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          attachment_name?: string
+          attachment_url?: string
+          created_at?: string | null
+          email_body?: string
+          email_cc?: string | null
+          email_subject?: string
+          email_to?: string
+          error_message?: string | null
+          id?: string
+          project_id?: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fda_email_drafts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "fda_projects"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       fda_invoices: {
         Row: {
           created_at: string
@@ -428,6 +481,7 @@ export type Database = {
           email_sent_at: string | null
           email_subject: string | null
           fda_responsible: string | null
+          final_pdf_url: string | null
           front_page_url: string | null
           google_sheet_id: string | null
           google_sheet_url: string | null
@@ -455,6 +509,7 @@ export type Database = {
           email_sent_at?: string | null
           email_subject?: string | null
           fda_responsible?: string | null
+          final_pdf_url?: string | null
           front_page_url?: string | null
           google_sheet_id?: string | null
           google_sheet_url?: string | null
@@ -482,6 +537,7 @@ export type Database = {
           email_sent_at?: string | null
           email_subject?: string | null
           fda_responsible?: string | null
+          final_pdf_url?: string | null
           front_page_url?: string | null
           google_sheet_id?: string | null
           google_sheet_url?: string | null

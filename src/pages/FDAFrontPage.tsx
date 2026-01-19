@@ -367,7 +367,7 @@ export default function FDAFrontPage() {
       }
 
       toast({ title: 'Success!', description: 'PDFs succesvol samengevoegd!' });
-      navigate(`/fda-email-preview/${projectId}`);
+      navigate(`/fda/email/${projectId}`);
     } catch (error) {
       console.error('Merge error:', error);
       toast({ title: 'Error', description: error instanceof Error ? error.message : 'Merge failed', variant: 'destructive' });
