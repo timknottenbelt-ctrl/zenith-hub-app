@@ -91,15 +91,15 @@ interface InvoiceRowProps {
 }
 
 function InvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }: InvoiceRowProps) {
-  const [isEditing, setIsEditing] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState(
     invoice.invoice_number || String(index + 1).padStart(3, '0')
   );
   const [loadingUrl, setLoadingUrl] = useState(false);
 
   const handleSaveNumber = () => {
-    onUpdateInvoiceNumber(invoice.id, invoiceNumber);
-    setIsEditing(false);
+    if (invoiceNumber !== invoice.invoice_number) {
+      onUpdateInvoiceNumber(invoice.id, invoiceNumber);
+    }
   };
 
   const handleViewPdf = async () => {
@@ -129,41 +129,23 @@ function InvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }:
 
   return (
     <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
-      {/* Invoice Number */}
-      <div className="flex items-center gap-2 min-w-[100px]">
-        {isEditing && !isSent ? (
-          <div className="flex items-center gap-1">
-            <Input
-              value={invoiceNumber}
-              onChange={(e) => setInvoiceNumber(e.target.value)}
-              className="w-20 h-8 text-sm"
-              placeholder="001"
-            />
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleSaveNumber}>
-              <Save className="w-3.5 h-3.5 text-success" />
-            </Button>
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setIsEditing(false)}>
-              <X className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="font-mono">
-              #{invoice.invoice_number || String(index + 1).padStart(3, '0')}
-            </Badge>
-            {!isSent && (
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setIsEditing(true)}>
-                <Edit className="w-3 h-3" />
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* File Name */}
+      {/* File Name - First */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <CheckCircle className="w-4 h-4 text-success shrink-0" />
         <span className="text-sm truncate">{invoice.file_name}</span>
+      </div>
+
+      {/* Invoice Number - Always editable input */}
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-xs text-muted-foreground">Nr:</span>
+        <Input
+          value={invoiceNumber}
+          onChange={(e) => setInvoiceNumber(e.target.value)}
+          onBlur={handleSaveNumber}
+          className="w-20 h-8 text-sm font-normal"
+          placeholder="001"
+          disabled={isSent}
+        />
       </div>
 
       {/* Actions */}
