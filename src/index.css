@@ -121,11 +121,25 @@
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
+  }
+
+  /* GPU acceleration for smooth animations */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: transform, opacity;
+  }
+
+  /* Instant page transitions - no flicker */
+  main {
+    will-change: opacity;
   }
 
   /* Custom scrollbar */
@@ -151,7 +165,7 @@
 @layer utilities {
   /* Premium card styles */
   .card-premium {
-    @apply bg-card rounded-xl border border-border/50 shadow-sm hover:shadow-md transition-shadow duration-200;
+    @apply bg-card rounded-xl border border-border/50 shadow-sm hover:shadow-md transition-shadow duration-150;
   }
 
   /* Glass effect */
@@ -159,9 +173,14 @@
     @apply bg-white/70 backdrop-blur-xl border border-white/20;
   }
 
-  /* Smooth transitions */
+  /* Instant smooth transitions */
   .transition-smooth {
-    @apply transition-all duration-200 ease-out;
+    @apply transition-all duration-100 ease-out;
+  }
+
+  /* Fast transitions for interactive elements */
+  .transition-fast {
+    @apply transition-all duration-75 ease-out;
   }
 
   /* Status badges */
@@ -187,5 +206,10 @@
 
   .badge-sending {
     @apply bg-warning/10 text-warning;
+  }
+
+  /* Page content animation */
+  .page-content {
+    @apply animate-fade-in;
   }
 }

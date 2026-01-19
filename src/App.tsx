@@ -32,7 +32,13 @@ const App = () => {
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <Suspense fallback={<div className="min-h-screen bg-background" />}>
+            {/* Minimal skeleton fallback - shows layout structure instantly */}
+            <Suspense fallback={
+              <div className="min-h-screen bg-background flex">
+                <div className="w-64 bg-card border-r border-border" />
+                <div className="flex-1" />
+              </div>
+            }>
               <BrowserRouter>
                 <Routes>
                   <Route path="/auth" element={<Auth />} />
