@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -107,6 +107,18 @@ export default function FDAEmailPreview() {
   // Preview modal
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  // Avoid stale closures / dependency loops in polling
+  const emailDraftRef = useRef<FDAEmailDraft | null>(null);
+  const projectRef = useRef<FDAProject | null>(null);
+
+  useEffect(() => {
+    emailDraftRef.current = emailDraft;
+  }, [emailDraft]);
+
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
+
   const fetchProjectAndDraft = useCallback(async () => {
     if (!projectId) return;
 
@@ -201,11 +213,19 @@ LBH Curaçao`;
 
   // Initial load and polling for PDF
   useEffect(() => {
+    let cancelled = false;
+
     async function loadData() {
       setLoading(true);
-      await fetchProjectAndDraft();
-      setLoading(false);
+      try {
+        await fetchProjectAndDraft();
+      } catch (error) {
+        console.error("FDAEmailPreview load error:", error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
+
     loadData();
 
     // Poll for draft + PDF availability right after merge
@@ -217,7 +237,7 @@ LBH Curaçao`;
       tries += 1;
 
       // 1) Poll email draft (n8n) until it exists
-      if (!emailDraft) {
+      if (!emailDraftRef.current) {
         const { data: draftData } = await supabase
           .from("fda_email_drafts")
           .select("*")
@@ -247,7 +267,11 @@ LBH Curaçao`;
       }
 
       // 2) Poll PDF (only if we still don't have any main pdf url)
-      if (!getMainPdfUrl()) {
+      const currentDraft = emailDraftRef.current;
+      const currentProject = projectRef.current;
+      const hasAnyMainPdf = !!(currentDraft?.attachment_url || currentProject?.final_pdf_url);
+
+      if (!hasAnyMainPdf) {
         const { data } = await supabase
           .from("fda_projects")
           .select("final_pdf_url")
@@ -271,14 +295,19 @@ LBH Curaçao`;
       }
 
       // Stop polling if we have draft + pdf (or after timeout)
-      const done = (!!emailDraft || tries > maxTries) && !!getMainPdfUrl();
+      const nowHasDraft = !!emailDraftRef.current;
+      const nowHasPdf = !!(emailDraftRef.current?.attachment_url || projectRef.current?.final_pdf_url);
+      const done = (nowHasDraft || tries > maxTries) && nowHasPdf;
       if (done || tries > maxTries) {
         clearInterval(interval);
       }
     }, 3000);
 
-    return () => clearInterval(interval);
-  }, [fetchProjectAndDraft, projectId, emailDraft]);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [fetchProjectAndDraft, projectId]);
 
   // Email validation
   function isValidEmail(email: string): boolean {
