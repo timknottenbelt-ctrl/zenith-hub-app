@@ -77,7 +77,7 @@ export default function ManualEmails() {
   // Manual email creation state
   const [manualEmailContent, setManualEmailContent] = useState("");
   const [manualSubject, setManualSubject] = useState("");
-  const [manualAgentType, setManualAgentType] = useState<"OWNERS_AGENT" | "CARGO_AGENT">("CARGO_AGENT");
+  const [manualAgentType, setManualAgentType] = useState<"OWNERS_AGENT" | "CARGO_AGENT" | "">("");
   const [manualPdfFile, setManualPdfFile] = useState<File | null>(null);
   const [manualSending, setManualSending] = useState(false);
   const submitLockRef = useRef(false);
@@ -382,6 +382,11 @@ export default function ManualEmails() {
 
   async function handleManualSubmit() {
     if (manualSending || submitLockRef.current) return;
+
+    if (!manualAgentType) {
+      toast({ title: "Error", description: "Please select an agent type first", variant: "destructive" });
+      return;
+    }
 
     if (!manualEmailContent.trim()) {
       toast({ title: "Error", description: "Please paste an email message", variant: "destructive" });
@@ -771,19 +776,22 @@ export default function ManualEmails() {
               <CardContent className="space-y-4">
                 {/* Agent Type Selection */}
                 <div className="space-y-2">
-                  <Label htmlFor="agent-type">Agent Type</Label>
+                  <Label htmlFor="agent-type">Agent Type <span className="text-destructive">*</span></Label>
                   <Select
                     value={manualAgentType}
                     onValueChange={(value: "OWNERS_AGENT" | "CARGO_AGENT") => setManualAgentType(value)}
                   >
-                    <SelectTrigger id="agent-type">
-                      <SelectValue placeholder="Select agent type" />
+                    <SelectTrigger id="agent-type" className={!manualAgentType ? "border-destructive/50" : ""}>
+                      <SelectValue placeholder="Select agent type first..." />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="CARGO_AGENT">Cargo Agent</SelectItem>
                       <SelectItem value="OWNERS_AGENT">Owners Agent</SelectItem>
                     </SelectContent>
                   </Select>
+                  {!manualAgentType && (
+                    <p className="text-xs text-muted-foreground">Please select an agent type before sending</p>
+                  )}
                 </div>
 
                 {/* Subject */}
@@ -861,7 +869,7 @@ export default function ManualEmails() {
                 <Button
                   className="w-full"
                   onClick={handleManualSubmit}
-                  disabled={manualSending || !manualEmailContent.trim()}
+                  disabled={manualSending || !manualEmailContent.trim() || !manualAgentType}
                 >
                   {manualSending ? (
                     <>
