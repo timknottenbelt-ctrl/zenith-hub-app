@@ -829,9 +829,7 @@ export default function FDACreator() {
 
                   {/* Commodity */}
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Package className="w-3 h-3" /> Commodity
-                    </Label>
+                    <Label className="text-xs text-muted-foreground">Commodity</Label>
                     <Input
                       value={formData.commodity}
                       onChange={(e) => handleInputChange("commodity", e.target.value)}
