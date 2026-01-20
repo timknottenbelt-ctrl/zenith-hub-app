@@ -22,6 +22,7 @@ import {
   Upload,
   Trash2,
   Paperclip,
+  Sparkles,
 } from "lucide-react";
 
 interface FDAProject {
@@ -61,33 +62,25 @@ const SEND_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/Send-FDA";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
 
-// Convert storage path to public URL
+// Convert storage path to downloadable URL
 function getPublicPdfUrl(url: string | null): string | null {
   if (!url) return null;
-  
+
   // If already a full URL, return as-is
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
-  
-  // Handle signed URL path like /object/sign/fda-final-packages/...
+
+  // Signed URL path like /object/sign/... should stay signed (works for private buckets too)
   if (url.startsWith("/object/sign/")) {
-    // Extract project_id and filename from the path
-    const match = url.match(/\/object\/sign\/fda-final-packages\/([^/]+)\/(.+?)(\?|$)/);
-    if (match) {
-      const [, projectId, fileName] = match;
-      // fda-final-packages is a PUBLIC bucket, so use public URL
-      return `${SUPABASE_URL}/storage/v1/object/public/fda-final-packages/${projectId}/${fileName}`;
-    }
-    // Fallback to signed URL
-    return `${SUPABASE_URL}/storage/v1${url}`;
+    return encodeURI(`${SUPABASE_URL}/storage/v1${url}`);
   }
-  
-  // Handle direct storage path
+
+  // Public object path reference
   if (url.includes("fda-final-packages/")) {
-    return `${SUPABASE_URL}/storage/v1/object/public/${url}`;
+    return encodeURI(`${SUPABASE_URL}/storage/v1/object/public/${url}`);
   }
-  
+
   return url;
 }
 
@@ -215,47 +208,72 @@ LBH Curaçao`;
     }
     loadData();
 
-    // Set up polling to check for PDF in storage bucket (only if no draft attachment)
+    // Poll for draft + PDF availability right after merge
+    let tries = 0;
+    const maxTries = 30; // ~90s
+
     const interval = setInterval(async () => {
       if (!projectId) return;
-      
-      // If we have a draft with attachment_url, no need to poll
-      if (emailDraft?.attachment_url) {
-        clearInterval(interval);
-        return;
+      tries += 1;
+
+      // 1) Poll email draft (n8n) until it exists
+      if (!emailDraft) {
+        const { data: draftData } = await supabase
+          .from("fda_email_drafts")
+          .select("*")
+          .eq("project_id", projectId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (draftData) {
+          setEmailDraft(draftData);
+
+          const toList = (draftData.email_to || "")
+            .split(",")
+            .map((e) => e.trim())
+            .filter(Boolean);
+          setToEmails(toList);
+
+          const ccList = (draftData.email_cc || "")
+            .split(",")
+            .map((e) => e.trim())
+            .filter(Boolean);
+          setCcEmails(ccList);
+
+          setSubject(draftData.email_subject || "");
+          setBody(draftData.email_body || "");
+        }
       }
-      
-      // First check database for final_pdf_url
-      const { data } = await supabase
-        .from("fda_projects")
-        .select("final_pdf_url, ship_name, lbh_number")
-        .eq("project_id", projectId)
-        .single();
-      
-      if (data?.final_pdf_url) {
-        // PDF URL is in database, update and stop polling
-        setProject(prev => prev ? { ...prev, final_pdf_url: data.final_pdf_url } : null);
-        clearInterval(interval);
-        return;
-      }
-      
-      // Also check storage bucket directly for the PDF
-      try {
-        const { data: files } = await supabase.storage
-          .from("fda-final-packages")
-          .list(projectId);
-        
-        if (files && files.length > 0) {
-          // Found PDF in storage, construct the URL
-          const pdfFile = files.find(f => f.name.endsWith(".pdf"));
-          if (pdfFile) {
-            const storageUrl = `fda-final-packages/${projectId}/${pdfFile.name}`;
-            setProject(prev => prev ? { ...prev, final_pdf_url: storageUrl } : null);
-            clearInterval(interval);
+
+      // 2) Poll PDF (only if we still don't have any main pdf url)
+      if (!getMainPdfUrl()) {
+        const { data } = await supabase
+          .from("fda_projects")
+          .select("final_pdf_url")
+          .eq("project_id", projectId)
+          .single();
+
+        if (data?.final_pdf_url) {
+          setProject((prev) => (prev ? { ...prev, final_pdf_url: data.final_pdf_url } : null));
+        } else {
+          try {
+            const { data: files } = await supabase.storage.from("fda-final-packages").list(projectId);
+            const pdfFile = files?.find((f) => f.name.endsWith(".pdf"));
+            if (pdfFile) {
+              const storageUrl = `fda-final-packages/${projectId}/${pdfFile.name}`;
+              setProject((prev) => (prev ? { ...prev, final_pdf_url: storageUrl } : null));
+            }
+          } catch {
+            // ignore
           }
         }
-      } catch (err) {
-        // Storage check failed, continue polling
+      }
+
+      // Stop polling if we have draft + pdf (or after timeout)
+      const done = (!!emailDraft || tries > maxTries) && !!getMainPdfUrl();
+      if (done || tries > maxTries) {
+        clearInterval(interval);
       }
     }, 3000);
 
@@ -486,6 +504,14 @@ LBH Curaçao`;
             </p>
           </div>
         </div>
+
+        {!emailDraft && (
+          <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground animate-fade-in">
+            <Sparkles className="h-4 w-4" />
+            AI is de email aan het genereren… (je kunt alvast alles aanpassen)
+            <span className="ml-auto inline-flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+          </div>
+        )}
 
         {/* Recipients Section */}
         <Card className="card-premium">
