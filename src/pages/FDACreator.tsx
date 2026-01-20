@@ -45,9 +45,13 @@ import {
   History,
   Anchor,
   Package,
+  DollarSign,
+  CreditCard,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { format, parseISO, isValid } from "date-fns";
 
 interface FDAProject {
@@ -99,6 +103,12 @@ interface FDAFormData {
   operation: string;
   commodity: string;
   client_reference: string;
+  // Advanced Payment
+  advanced_payment_amount: string;
+  advanced_payment_currency: string;
+  advanced_payment_reference: string;
+  advanced_payment_status: string;
+  advanced_payment_remark: string;
 }
 
 // Invoice Row Component
@@ -230,6 +240,11 @@ export default function FDACreator() {
     operation: "",
     commodity: "",
     client_reference: "",
+    advanced_payment_amount: "",
+    advanced_payment_currency: "USD",
+    advanced_payment_reference: "",
+    advanced_payment_status: "unpaid",
+    advanced_payment_remark: "",
   });
 
   useEffect(() => {
@@ -247,13 +262,18 @@ export default function FDACreator() {
         client_phone: selectedProject.client_phone || "",
         billing_company: selectedProject.billing_company || "",
         billing_address: selectedProject.billing_address || "",
-        billing_email: selectedProject.billing_email || "",
+        billing_email: selectedProject.billing_phone || "",
         billing_phone: selectedProject.billing_phone || "",
         vessel_arrived: (selectedProject as any).vessel_arrived || "",
         vessel_sailed: (selectedProject as any).vessel_sailed || "",
         operation: (selectedProject as any).operation || "",
         commodity: (selectedProject as any).commodity || "",
         client_reference: (selectedProject as any).client_reference || "",
+        advanced_payment_amount: (selectedProject as any).advanced_payment_amount?.toString() || "",
+        advanced_payment_currency: (selectedProject as any).advanced_payment_currency || "USD",
+        advanced_payment_reference: (selectedProject as any).advanced_payment_reference || "",
+        advanced_payment_status: (selectedProject as any).advanced_payment_status || "unpaid",
+        advanced_payment_remark: (selectedProject as any).advanced_payment_remark || "",
       });
       fetchProjectInvoices(selectedProject.id);
     }
@@ -311,6 +331,11 @@ export default function FDACreator() {
         operation: formData.operation || null,
         commodity: formData.commodity || null,
         client_reference: formData.client_reference || null,
+        advanced_payment_amount: formData.advanced_payment_amount ? parseFloat(formData.advanced_payment_amount) : null,
+        advanced_payment_currency: formData.advanced_payment_currency || "USD",
+        advanced_payment_reference: formData.advanced_payment_reference || null,
+        advanced_payment_status: formData.advanced_payment_status || "unpaid",
+        advanced_payment_remark: formData.advanced_payment_remark || null,
       })
       .select()
       .single();
@@ -351,6 +376,11 @@ export default function FDACreator() {
         operation: formData.operation || null,
         commodity: formData.commodity || null,
         client_reference: formData.client_reference || null,
+        advanced_payment_amount: formData.advanced_payment_amount ? parseFloat(formData.advanced_payment_amount) : null,
+        advanced_payment_currency: formData.advanced_payment_currency || "USD",
+        advanced_payment_reference: formData.advanced_payment_reference || null,
+        advanced_payment_status: formData.advanced_payment_status || "unpaid",
+        advanced_payment_remark: formData.advanced_payment_remark || null,
       })
       .eq("id", selectedProject.id);
 
@@ -485,6 +515,8 @@ export default function FDACreator() {
         operation: formData.operation,
         commodity: formData.commodity,
         client_reference: formData.client_reference,
+        // Advanced Payment - only amount is sent
+        advanced_payment_amount: formData.advanced_payment_amount ? parseFloat(formData.advanced_payment_amount) : null,
         invoice_files: fileUrls,
         invoice_count: projectInvoices.length,
         sent_at: new Date().toISOString(),
@@ -535,6 +567,11 @@ export default function FDACreator() {
       operation: "",
       commodity: "",
       client_reference: "",
+      advanced_payment_amount: "",
+      advanced_payment_currency: "USD",
+      advanced_payment_reference: "",
+      advanced_payment_status: "unpaid",
+      advanced_payment_remark: "",
     });
   }
 
@@ -844,6 +881,95 @@ export default function FDACreator() {
                       value={formData.client_reference}
                       onChange={(e) => handleInputChange("client_reference", e.target.value)}
                       placeholder="Optional"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Advanced Payment */}
+            <Card className="card-premium">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-primary" />
+                  Advanced Payment
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {/* Amount */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Amount</Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        value={formData.advanced_payment_amount}
+                        onChange={(e) => handleInputChange("advanced_payment_amount", e.target.value)}
+                        placeholder="0.00"
+                        className="pl-9"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Currency */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Currency</Label>
+                    <Select
+                      value={formData.advanced_payment_currency}
+                      onValueChange={(value) => handleInputChange("advanced_payment_currency", value)}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="USD">USD - US Dollar</SelectItem>
+                        <SelectItem value="EUR">EUR - Euro</SelectItem>
+                        <SelectItem value="ANG">ANG - Antillean Guilder</SelectItem>
+                        <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                        <SelectItem value="CHF">CHF - Swiss Franc</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Reference Number */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Reference Number</Label>
+                    <Input
+                      value={formData.advanced_payment_reference}
+                      onChange={(e) => handleInputChange("advanced_payment_reference", e.target.value)}
+                      placeholder="Payment reference"
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Status</Label>
+                    <Select
+                      value={formData.advanced_payment_status}
+                      onValueChange={(value) => handleInputChange("advanced_payment_status", value)}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="unpaid">Not Paid</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="partial">Partially Paid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Remark - spans 2 columns */}
+                  <div className="space-y-2 col-span-2">
+                    <Label className="text-xs text-muted-foreground">Remark</Label>
+                    <Textarea
+                      value={formData.advanced_payment_remark}
+                      onChange={(e) => handleInputChange("advanced_payment_remark", e.target.value)}
+                      placeholder="Additional notes about payment..."
+                      rows={2}
                     />
                   </div>
                 </div>
