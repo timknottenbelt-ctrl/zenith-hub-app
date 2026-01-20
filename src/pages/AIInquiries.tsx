@@ -311,7 +311,7 @@ export default function AIInquiries() {
 
         {/* Tab Content */}
         <TabsContent value={activeTab} className="mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
               {/* Email List - Smaller */}
               <Card className="card-premium lg:col-span-1 flex flex-col min-h-0">
                 <CardHeader className="pb-3">
@@ -326,7 +326,7 @@ export default function AIInquiries() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0 flex-1 min-h-0">
-                  <ScrollArea className="h-[calc(100dvh-280px)]">
+                  <ScrollArea className="h-[calc(100dvh-200px)]">
                     {loading ? (
                       <div className="flex items-center justify-center p-8">
                         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
