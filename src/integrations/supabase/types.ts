@@ -468,6 +468,11 @@ export type Database = {
       }
       fda_projects: {
         Row: {
+          advanced_payment_amount: number | null
+          advanced_payment_currency: string | null
+          advanced_payment_reference: string | null
+          advanced_payment_remark: string | null
+          advanced_payment_status: string | null
           agency_cost_url: string | null
           billing_address: string | null
           billing_company: string | null
@@ -501,6 +506,11 @@ export type Database = {
           vessel_sailed: string | null
         }
         Insert: {
+          advanced_payment_amount?: number | null
+          advanced_payment_currency?: string | null
+          advanced_payment_reference?: string | null
+          advanced_payment_remark?: string | null
+          advanced_payment_status?: string | null
           agency_cost_url?: string | null
           billing_address?: string | null
           billing_company?: string | null
@@ -534,6 +544,11 @@ export type Database = {
           vessel_sailed?: string | null
         }
         Update: {
+          advanced_payment_amount?: number | null
+          advanced_payment_currency?: string | null
+          advanced_payment_reference?: string | null
+          advanced_payment_remark?: string | null
+          advanced_payment_status?: string | null
           agency_cost_url?: string | null
           billing_address?: string | null
           billing_company?: string | null
