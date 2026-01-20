@@ -28,7 +28,19 @@ import {
   FileText,
   X,
   PlusCircle,
+  Trash2,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Link } from 'react-router-dom';
 
 type Email = Tables<'email'>;
@@ -64,6 +76,7 @@ export default function AIInquiries() {
   const [editSubject, setEditSubject] = useState('');
   const [editBody, setEditBody] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
 
   async function handlePreviewPdf(attachment: EmailAttachment) {
@@ -220,6 +233,31 @@ export default function AIInquiries() {
     }
   };
 
+  async function handleDeleteEmail() {
+    if (!selectedEmail) return;
+    setDeleting(true);
+
+    // Delete attachments from storage first
+    for (const attachment of emailAttachments) {
+      await supabase.storage.from('pdfs').remove([attachment.file_path]);
+    }
+    
+    // Delete attachment records
+    await supabase.from('email_attachments').delete().eq('email_id', selectedEmail.id);
+
+    // Delete the email (note: this may fail if RLS doesn't allow DELETE on email table)
+    const { error } = await supabase.from('email').delete().eq('id', selectedEmail.id);
+
+    if (error) {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: t('common.success'), description: 'Email deleted' });
+      setSelectedEmail(null);
+      fetchEmails();
+    }
+    setDeleting(false);
+  }
+
 
   return (
     <DashboardLayout title={t('inquiries.title')}>
@@ -318,10 +356,38 @@ export default function AIInquiries() {
                             <CardTitle className="text-lg font-semibold">{selectedEmail.subject || 'No subject'}</CardTitle>
                             <p className="text-sm text-muted-foreground">To: {selectedEmail.email_to_person}</p>
                           </div>
-                          <Button variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)}>
-                            <Eye className="w-4 h-4 mr-1" />
-                            {showPreview ? 'Hide' : 'Show'} Original
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)}>
+                              <Eye className="w-4 h-4 mr-1" />
+                              {showPreview ? 'Hide' : 'Show'} Original
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Email verwijderen?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Weet je zeker dat je deze email wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={handleDeleteEmail}
+                                    disabled={deleting}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    {deleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                                    Verwijderen
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent>
