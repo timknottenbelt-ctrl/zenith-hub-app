@@ -237,24 +237,49 @@ export default function AIInquiries() {
     if (!selectedEmail) return;
     setDeleting(true);
 
-    // Delete attachments from storage first
-    for (const attachment of emailAttachments) {
-      await supabase.storage.from('pdfs').remove([attachment.file_path]);
-    }
-    
-    // Delete attachment records
-    await supabase.from('email_attachments').delete().eq('email_id', selectedEmail.id);
+    // Delete dependent data to avoid FK constraint failures
+    const { error: vesselDeleteError } = await supabase
+      .from('vessel_pda_data')
+      .delete()
+      .eq('supabase_email_id', selectedEmail.id);
 
-    // Delete the email (note: this may fail if RLS doesn't allow DELETE on email table)
+    if (vesselDeleteError) {
+      // Non-blocking: if there is no policy / table access, we still try to delete the email
+      console.warn('Could not delete vessel_pda_data for email', selectedEmail.id, vesselDeleteError);
+    }
+
+    // Delete attachments (storage + rows)
+    if (emailAttachments.length) {
+      const paths = emailAttachments.map((a) => a.file_path);
+      const { error: storageError } = await supabase.storage.from('pdfs').remove(paths);
+      if (storageError) {
+        console.warn('Could not remove attachment files', storageError);
+      }
+
+      const { error: attachmentsError } = await supabase
+        .from('email_attachments')
+        .delete()
+        .eq('email_id', selectedEmail.id);
+
+      if (attachmentsError) {
+        console.warn('Could not delete attachment records', attachmentsError);
+      }
+    }
+
     const { error } = await supabase.from('email').delete().eq('id', selectedEmail.id);
 
     if (error) {
-      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+      toast({
+        title: t('common.error'),
+        description: error.message || 'Kon email niet verwijderen',
+        variant: 'destructive',
+      });
     } else {
-      toast({ title: t('common.success'), description: 'Email deleted' });
+      toast({ title: t('common.success'), description: 'Email verwijderd' });
       setSelectedEmail(null);
       fetchEmails();
     }
+
     setDeleting(false);
   }
 
@@ -288,7 +313,7 @@ export default function AIInquiries() {
         <TabsContent value={activeTab} className="mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Email List - Smaller */}
-              <Card className="card-premium lg:col-span-1">
+              <Card className="card-premium lg:col-span-1 flex flex-col min-h-0">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -300,8 +325,8 @@ export default function AIInquiries() {
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="p-0">
-                  <ScrollArea className="h-[calc(100vh-280px)]">
+                <CardContent className="p-0 flex-1 min-h-0">
+                  <ScrollArea className="h-[calc(100dvh-280px)]">
                     {loading ? (
                       <div className="flex items-center justify-center p-8">
                         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
