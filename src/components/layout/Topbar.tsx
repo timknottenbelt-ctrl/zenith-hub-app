@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Search, Bell } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ interface TopbarProps {
   title: string;
 }
 
-export function Topbar({ title }: TopbarProps) {
+export const Topbar = memo(function Topbar({ title }: TopbarProps) {
   const { t } = useLanguage();
 
   return (
@@ -33,4 +34,4 @@ export function Topbar({ title }: TopbarProps) {
       </div>
     </header>
   );
-}
+});

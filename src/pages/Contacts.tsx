@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback, memo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,31 +27,107 @@ const emptyContact = {
   role: '',
 };
 
+const fetchContacts = async (): Promise<Contact[]> => {
+  const { data, error } = await supabase.from('contacts').select('*').order('name');
+  if (error) throw error;
+  return data || [];
+};
+
+const ContactRow = memo(function ContactRow({ 
+  contact, 
+  onEdit, 
+  onDelete, 
+  getRoleBadge 
+}: { 
+  contact: Contact; 
+  onEdit: (contact: Contact) => void; 
+  onDelete: (id: string) => void;
+  getRoleBadge: (role: string | null) => string;
+}) {
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{contact.name}</TableCell>
+      <TableCell>{contact.company || '-'}</TableCell>
+      <TableCell>{contact.email || '-'}</TableCell>
+      <TableCell>{contact.phone || '-'}</TableCell>
+      <TableCell>
+        {contact.role && (
+          <Badge className={getRoleBadge(contact.role)} variant="secondary">
+            {contact.role}
+          </Badge>
+        )}
+      </TableCell>
+      <TableCell>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" onClick={() => onEdit(contact)}>
+            <Edit className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => onDelete(contact.id)}>
+            <Trash2 className="w-4 h-4 text-destructive" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+});
+
 export default function Contacts() {
   const { t } = useLanguage();
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [form, setForm] = useState(emptyContact);
 
-  useEffect(() => {
-    fetchContacts();
-  }, []);
+  const { data: contacts = [], isLoading } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: fetchContacts,
+  });
 
-  async function fetchContacts() {
-    setLoading(true);
-    const { data, error } = await supabase.from('contacts').select('*').order('name');
+  const saveMutation = useMutation({
+    mutationFn: async (payload: typeof emptyContact & { id?: string }) => {
+      const data = {
+        name: payload.name,
+        company: payload.company || null,
+        vessel_name: payload.vessel_name || null,
+        email: payload.email || null,
+        phone: payload.phone || null,
+        function: payload.function || null,
+        role: payload.role,
+      };
 
-    if (error) {
+      if (payload.id) {
+        const { error } = await supabase.from('contacts').update(data).eq('id', payload.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('contacts').insert(data);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      toast({ title: t('common.success'), description: editingContact ? 'Contact updated' : 'Contact created' });
+      setShowDialog(false);
+    },
+    onError: (error: Error) => {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
-    } else {
-      setContacts(data || []);
-    }
-    setLoading(false);
-  }
+    },
+  });
 
-  function openEditDialog(contact: Contact) {
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('contacts').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      toast({ title: t('common.success'), description: 'Contact deleted' });
+    },
+    onError: (error: Error) => {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const openEditDialog = useCallback((contact: Contact) => {
     setEditingContact(contact);
     setForm({
       name: contact.name,
@@ -62,70 +139,34 @@ export default function Contacts() {
       role: contact.role || '',
     });
     setShowDialog(true);
-  }
+  }, []);
 
-  function openNewDialog() {
+  const openNewDialog = useCallback(() => {
     setEditingContact(null);
     setForm(emptyContact);
     setShowDialog(true);
-  }
+  }, []);
 
-  async function handleSave() {
+  const handleSave = useCallback(() => {
     if (!form.name || !form.role) {
       toast({ title: 'Error', description: 'Name and role are required', variant: 'destructive' });
       return;
     }
+    saveMutation.mutate({ ...form, id: editingContact?.id });
+  }, [form, editingContact, saveMutation]);
 
-    const payload = {
-      name: form.name,
-      company: form.company || null,
-      vessel_name: form.vessel_name || null,
-      email: form.email || null,
-      phone: form.phone || null,
-      function: form.function || null,
-      role: form.role,
-    };
+  const handleDelete = useCallback((id: string) => {
+    deleteMutation.mutate(id);
+  }, [deleteMutation]);
 
-    if (editingContact) {
-      const { error } = await supabase.from('contacts').update(payload).eq('id', editingContact.id);
-
-      if (error) {
-        toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
-        return;
-      }
-      toast({ title: t('common.success'), description: 'Contact updated' });
-    } else {
-      const { error } = await supabase.from('contacts').insert(payload);
-
-      if (error) {
-        toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
-        return;
-      }
-      toast({ title: t('common.success'), description: 'Contact created' });
-    }
-
-    setShowDialog(false);
-    fetchContacts();
-  }
-
-  async function handleDelete(id: string) {
-    const { error } = await supabase.from('contacts').delete().eq('id', id);
-    if (error) {
-      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: t('common.success'), description: 'Contact deleted' });
-      fetchContacts();
-    }
-  }
-
-  const getRoleBadge = (role: string | null) => {
+  const getRoleBadge = useCallback((role: string | null) => {
     const variants: Record<string, string> = {
       AGENT: 'bg-info/10 text-info',
       CLIENT: 'bg-success/10 text-success',
       SERVICE_PROVIDER: 'bg-warning/10 text-warning',
     };
     return role ? variants[role] || '' : '';
-  };
+  }, []);
 
   return (
     <DashboardLayout title={t('contacts.title')}>
@@ -139,7 +180,7 @@ export default function Contacts() {
 
         <Card className="card-premium">
           <CardContent className="p-0">
-            {loading ? (
+            {isLoading ? (
               <div className="flex items-center justify-center p-12">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
@@ -165,29 +206,13 @@ export default function Contacts() {
                 </TableHeader>
                 <TableBody>
                   {contacts.map((contact) => (
-                    <TableRow key={contact.id}>
-                      <TableCell className="font-medium">{contact.name}</TableCell>
-                      <TableCell>{contact.company || '-'}</TableCell>
-                      <TableCell>{contact.email || '-'}</TableCell>
-                      <TableCell>{contact.phone || '-'}</TableCell>
-                      <TableCell>
-                        {contact.role && (
-                          <Badge className={getRoleBadge(contact.role)} variant="secondary">
-                            {contact.role}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(contact)}>
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(contact.id)}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    <ContactRow
+                      key={contact.id}
+                      contact={contact}
+                      onEdit={openEditDialog}
+                      onDelete={handleDelete}
+                      getRoleBadge={getRoleBadge}
+                    />
                   ))}
                 </TableBody>
               </Table>
@@ -273,7 +298,10 @@ export default function Contacts() {
                 <Button variant="outline" onClick={() => setShowDialog(false)}>
                   {t('contacts.cancel')}
                 </Button>
-                <Button onClick={handleSave}>{t('contacts.save')}</Button>
+                <Button onClick={handleSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {t('contacts.save')}
+                </Button>
               </div>
             </div>
           </DialogContent>
