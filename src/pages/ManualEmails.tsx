@@ -412,7 +412,7 @@ export default function ManualEmails() {
       imo: null,
       port: null,
       status: "processing",
-      subject: originalSubject || "Wachten op Supabase…",
+      subject: originalSubject || "Verwerken…",
       body: null,
       pda_link_1: null,
       pda_link_2: null,
@@ -510,7 +510,7 @@ export default function ManualEmails() {
 
         const poll = async () => {
           pollCount++;
-          updatePollingStatus(`Wachten op Supabase… (${pollCount})`);
+          updatePollingStatus(`Verwerken… (${Math.floor(pollCount * 2)}s)`);
 
           const result = await tryFindEmail();
           if (result) {
@@ -530,8 +530,8 @@ export default function ManualEmails() {
                   ? {
                       ...e,
                       status: "error",
-                      subject: "Timeout (geen data in Supabase)",
-                      body: "Na 5 minuten is er nog geen verwerkt record gevonden in Supabase. Controleer of de AI workflow correct draait.",
+                      subject: "Timeout",
+                      body: "Na 5 minuten is de verwerking nog niet voltooid. Probeer het opnieuw.",
                     }
                   : e
               )
@@ -541,14 +541,14 @@ export default function ManualEmails() {
                 ? {
                     ...prev,
                     status: "error",
-                    subject: "Timeout (geen data in Supabase)",
-                    body: "Na 5 minuten is er nog geen verwerkt record gevonden in Supabase. Controleer of de AI workflow correct draait.",
+                    subject: "Timeout",
+                    body: "Na 5 minuten is de verwerking nog niet voltooid. Probeer het opnieuw.",
                   }
                 : prev
             );
             toast({
               title: "Timeout",
-              description: "Na 5 minuten geen verwerkt record gevonden in Supabase.",
+              description: "Verwerking duurde langer dan 5 minuten.",
               variant: "destructive",
             });
             return;
