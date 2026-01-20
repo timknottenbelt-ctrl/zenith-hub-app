@@ -74,6 +74,7 @@ interface FDAProject {
   front_page_url: string | null;
   agency_cost_url: string | null;
   google_sheet_url: string | null;
+  final_pdf_url?: string | null;
 }
 
 interface FDAInvoice {
@@ -666,10 +667,18 @@ export default function FDACreator() {
                   </Button>
                 </>
               ) : (
-                <Button onClick={handleSendToWebhook} disabled={sending || projectInvoices.length === 0}>
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  <span className="ml-2">Send FDA</span>
-                </Button>
+                <>
+                  {selectedProject.final_pdf_url && (
+                    <Button onClick={() => navigate(`/fda/email/${selectedProject.project_id}`)}>
+                      <Mail className="w-4 h-4" />
+                      <span className="ml-2">Ga naar Email</span>
+                    </Button>
+                  )}
+                  <Button onClick={handleSendToWebhook} disabled={sending || projectInvoices.length === 0}>
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    <span className="ml-2">Send FDA</span>
+                  </Button>
+                </>
               )}
             </div>
           </div>
