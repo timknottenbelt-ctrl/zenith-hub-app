@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { format } from "date-fns";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +47,8 @@ import {
   Eye,
   Download,
   History,
+  Anchor,
+  CalendarIcon,
 } from "lucide-react";
 
 interface FDAProject {
@@ -88,6 +94,12 @@ interface FDAFormData {
   billing_address: string;
   billing_email: string;
   billing_phone: string;
+  // Port Call Information
+  vessel_arrived: string;
+  vessel_sailed: string;
+  operation: string;
+  commodity: string;
+  client_reference: string;
 }
 
 // Invoice Row Component
@@ -214,6 +226,11 @@ export default function FDACreator() {
     billing_address: "",
     billing_email: "",
     billing_phone: "",
+    vessel_arrived: "",
+    vessel_sailed: "",
+    operation: "",
+    commodity: "",
+    client_reference: "",
   });
 
   useEffect(() => {
@@ -233,6 +250,11 @@ export default function FDACreator() {
         billing_address: selectedProject.billing_address || "",
         billing_email: selectedProject.billing_email || "",
         billing_phone: selectedProject.billing_phone || "",
+        vessel_arrived: (selectedProject as any).vessel_arrived || "",
+        vessel_sailed: (selectedProject as any).vessel_sailed || "",
+        operation: (selectedProject as any).operation || "",
+        commodity: (selectedProject as any).commodity || "",
+        client_reference: (selectedProject as any).client_reference || "",
       });
       fetchProjectInvoices(selectedProject.id);
     }
@@ -320,6 +342,11 @@ export default function FDACreator() {
         billing_address: formData.billing_address || null,
         billing_email: formData.billing_email || null,
         billing_phone: formData.billing_phone || null,
+        vessel_arrived: formData.vessel_arrived || null,
+        vessel_sailed: formData.vessel_sailed || null,
+        operation: formData.operation || null,
+        commodity: formData.commodity || null,
+        client_reference: formData.client_reference || null,
       })
       .eq("id", selectedProject.id);
 
@@ -448,6 +475,12 @@ export default function FDACreator() {
         billing_address: formData.billing_address,
         billing_email: formData.billing_email,
         billing_phone: formData.billing_phone,
+        // Port Call Information
+        vessel_arrived: formData.vessel_arrived,
+        vessel_sailed: formData.vessel_sailed,
+        operation: formData.operation,
+        commodity: formData.commodity,
+        client_reference: formData.client_reference,
         invoice_files: fileUrls,
         invoice_count: projectInvoices.length,
         sent_at: new Date().toISOString(),
@@ -493,6 +526,11 @@ export default function FDACreator() {
       billing_address: "",
       billing_email: "",
       billing_phone: "",
+      vessel_arrived: "",
+      vessel_sailed: "",
+      operation: "",
+      commodity: "",
+      client_reference: "",
     });
   }
 
@@ -705,6 +743,105 @@ export default function FDACreator() {
                     <Input
                       value={formData.billing_phone}
                       onChange={(e) => handleInputChange("billing_phone", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Port Call Information - Full Width */}
+            <Card className="card-premium lg:col-span-2">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Anchor className="w-4 h-4 text-primary" />
+                  Port Call Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {/* Vessel Arrived - Date Picker */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Vessel Arrived</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !formData.vessel_arrived && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.vessel_arrived ? format(new Date(formData.vessel_arrived), "dd/MM/yyyy") : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={formData.vessel_arrived ? new Date(formData.vessel_arrived) : undefined}
+                          onSelect={(date) => handleInputChange("vessel_arrived", date ? date.toISOString() : "")}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Vessel Sailed - Date Picker */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Vessel Sailed</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !formData.vessel_sailed && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.vessel_sailed ? format(new Date(formData.vessel_sailed), "dd/MM/yyyy") : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={formData.vessel_sailed ? new Date(formData.vessel_sailed) : undefined}
+                          onSelect={(date) => handleInputChange("vessel_sailed", date ? date.toISOString() : "")}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Operation */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Operation</Label>
+                    <Input
+                      value={formData.operation}
+                      onChange={(e) => handleInputChange("operation", e.target.value)}
+                      placeholder="Loading / Discharge"
+                    />
+                  </div>
+
+                  {/* Commodity */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Commodity</Label>
+                    <Input
+                      value={formData.commodity}
+                      onChange={(e) => handleInputChange("commodity", e.target.value)}
+                      placeholder="Fuel Oil"
+                    />
+                  </div>
+
+                  {/* Client Reference */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Client Reference</Label>
+                    <Input
+                      value={formData.client_reference}
+                      onChange={(e) => handleInputChange("client_reference", e.target.value)}
+                      placeholder="Optional"
                     />
                   </div>
                 </div>
