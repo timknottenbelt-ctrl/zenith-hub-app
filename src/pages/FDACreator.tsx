@@ -896,7 +896,7 @@ export default function FDACreator() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   {/* Amount */}
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Amount</Label>
@@ -921,25 +921,25 @@ export default function FDACreator() {
                       onValueChange={(value) => handleInputChange("advanced_payment_currency", value)}
                     >
                       <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select currency" />
+                        <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent className="bg-background z-50">
-                        <SelectItem value="USD">USD - US Dollar</SelectItem>
-                        <SelectItem value="EUR">EUR - Euro</SelectItem>
-                        <SelectItem value="ANG">ANG - Antillean Guilder</SelectItem>
-                        <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                        <SelectItem value="CHF">CHF - Swiss Franc</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="ANG">ANG</SelectItem>
+                        <SelectItem value="GBP">GBP</SelectItem>
+                        <SelectItem value="CHF">CHF</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   {/* Reference Number */}
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Reference Number</Label>
+                    <Label className="text-xs text-muted-foreground">Reference</Label>
                     <Input
                       value={formData.advanced_payment_reference}
                       onChange={(e) => handleInputChange("advanced_payment_reference", e.target.value)}
-                      placeholder="Payment reference"
+                      placeholder="Payment ref"
                     />
                   </div>
 
@@ -951,25 +951,24 @@ export default function FDACreator() {
                       onValueChange={(value) => handleInputChange("advanced_payment_status", value)}
                     >
                       <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select status" />
+                        <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent className="bg-background z-50">
                         <SelectItem value="unpaid">Not Paid</SelectItem>
                         <SelectItem value="paid">Paid</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="partial">Partially Paid</SelectItem>
+                        <SelectItem value="partial">Partial</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {/* Remark - spans 2 columns */}
-                  <div className="space-y-2 col-span-2">
+                  {/* Remark */}
+                  <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Remark</Label>
-                    <Textarea
+                    <Input
                       value={formData.advanced_payment_remark}
                       onChange={(e) => handleInputChange("advanced_payment_remark", e.target.value)}
-                      placeholder="Additional notes about payment..."
-                      rows={2}
+                      placeholder="Notes"
                     />
                   </div>
                 </div>
