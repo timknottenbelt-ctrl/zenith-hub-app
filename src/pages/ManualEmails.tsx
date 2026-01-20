@@ -412,7 +412,7 @@ export default function ManualEmails() {
       imo: null,
       port: null,
       status: "processing",
-      subject: originalSubject || "AI is thinking…",
+      subject: originalSubject || "Wachten op Supabase…",
       body: null,
       pda_link_1: null,
       pda_link_2: null,
@@ -451,7 +451,7 @@ export default function ManualEmails() {
 
       toast({
         title: "Email Submitted",
-        description: "AI is processing… polling for results.",
+        description: "Wachten tot AI klaar is in Supabase…",
       });
 
       // Poll Supabase until n8n has created the record with subject/body filled in
@@ -510,7 +510,7 @@ export default function ManualEmails() {
 
         const poll = async () => {
           pollCount++;
-          updatePollingStatus(`AI is thinking… (${pollCount})`);
+          updatePollingStatus(`Wachten op Supabase… (${pollCount})`);
 
           const result = await tryFindEmail();
           if (result) {
@@ -530,8 +530,8 @@ export default function ManualEmails() {
                   ? {
                       ...e,
                       status: "error",
-                      subject: "Timeout - no response from AI",
-                      body: "The AI workflow did not respond in time. Please try again.",
+                      subject: "Timeout (geen data in Supabase)",
+                      body: "Na 5 minuten is er nog geen verwerkt record gevonden in Supabase. Controleer of de AI workflow correct draait.",
                     }
                   : e
               )
@@ -541,14 +541,14 @@ export default function ManualEmails() {
                 ? {
                     ...prev,
                     status: "error",
-                    subject: "Timeout - no response from AI",
-                    body: "The AI workflow did not respond in time. Please try again.",
+                    subject: "Timeout (geen data in Supabase)",
+                    body: "Na 5 minuten is er nog geen verwerkt record gevonden in Supabase. Controleer of de AI workflow correct draait.",
                   }
                 : prev
             );
             toast({
               title: "Timeout",
-              description: "AI did not respond within 5 minutes.",
+              description: "Na 5 minuten geen verwerkt record gevonden in Supabase.",
               variant: "destructive",
             });
             return;
