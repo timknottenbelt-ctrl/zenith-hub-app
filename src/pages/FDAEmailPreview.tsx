@@ -155,7 +155,7 @@ export default function FDAEmailPreview() {
       .eq("project_id", projectId)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (draftData && !draftError) {
       // Use draft data from n8n
