@@ -72,6 +72,7 @@ export default function ManualEmails() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [emailToDelete, setEmailToDelete] = useState<{ id: number; pdfPath: string | null } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   // Manual email creation state
   const [manualEmailContent, setManualEmailContent] = useState("");
@@ -614,6 +615,101 @@ export default function ManualEmails() {
     }
   }
 
+  async function handleRetryEmail() {
+    if (!selectedEmail || retrying) return;
+
+    setRetrying(true);
+
+    // Update local state to processing
+    const updateToProcessing = (email: ManualEmail) => ({
+      ...email,
+      status: "processing",
+      subject: "AI is thinking…",
+      body: null,
+    });
+
+    setEmails((prev) =>
+      prev.map((e) => (e.id === selectedEmail.id ? updateToProcessing(e) : e))
+    );
+    setSelectedEmail(updateToProcessing(selectedEmail));
+
+    try {
+      const formData = new FormData();
+      formData.append("email_content", selectedEmail.email_content);
+      formData.append("agent_type", selectedEmail.agent_type);
+      if (selectedEmail.id > 0) {
+        formData.append("email_id", String(selectedEmail.id));
+      }
+
+      const response = await fetch("https://lbhcuracao.app.n8n.cloud/webhook/MANUAL-EMAIL-CREATION", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Webhook request failed");
+      }
+
+      let webhookData: {
+        subject?: string;
+        body?: string;
+        email_id?: number;
+        data?: { email_id?: number; subject?: string; body?: string; vessel_name?: string };
+      } | null = null;
+
+      try {
+        webhookData = await response.json();
+      } catch {
+        // ignore parse errors
+      }
+
+      const respSubject = webhookData?.data?.subject ?? webhookData?.subject;
+      const respBody = webhookData?.data?.body ?? webhookData?.body;
+      const respVesselName = webhookData?.data?.vessel_name;
+
+      if (respSubject || respBody) {
+        const updateWithResponse = (email: ManualEmail) => ({
+          ...email,
+          subject: respSubject ?? email.subject,
+          body: respBody ?? email.body,
+          vessel_name: respVesselName ?? email.vessel_name,
+          status: "draft",
+        });
+
+        setEmails((prev) =>
+          prev.map((e) => (e.id === selectedEmail.id ? updateWithResponse(e) : e))
+        );
+        setSelectedEmail((prev) => (prev?.id === selectedEmail.id ? updateWithResponse(prev) : prev));
+      }
+
+      toast({
+        title: "Opnieuw verzonden",
+        description: "Email is opnieuw naar AI gestuurd.",
+      });
+
+      // Refresh from DB after a short delay
+      setTimeout(() => fetchManualEmails({ showLoading: false }), 2000);
+    } catch (error) {
+      // Revert to error state
+      setEmails((prev) =>
+        prev.map((e) =>
+          e.id === selectedEmail.id ? { ...e, status: "error" } : e
+        )
+      );
+      setSelectedEmail((prev) =>
+        prev?.id === selectedEmail.id ? { ...prev, status: "error" } : prev
+      );
+
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to retry email",
+        variant: "destructive",
+      });
+    } finally {
+      setRetrying(false);
+    }
+  }
+
   const getStatusBadge = (status: string | null) => {
     const styles: Record<string, string> = {
       processing: "bg-primary/10 text-primary",
@@ -894,14 +990,32 @@ export default function ManualEmails() {
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-medium">Email Details</CardTitle>
                 {selectedEmail && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => openDeleteDialog(selectedEmail.id, selectedEmail.pdf_path)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {selectedEmail.status === "error" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRetryEmail}
+                        disabled={retrying}
+                        className="gap-1.5"
+                      >
+                        {retrying ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4" />
+                        )}
+                        Opnieuw proberen
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => openDeleteDialog(selectedEmail.id, selectedEmail.pdf_path)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 )}
               </CardHeader>
               <CardContent>
