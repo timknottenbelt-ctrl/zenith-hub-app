@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,7 +31,7 @@ const FLAGCDN_BASE = 'https://flagcdn.com';
 const getOfficeFlagUrl = (officeCode: string) =>
   `${FLAGCDN_BASE}/w80/${officeCode.toLowerCase()}.png`;
 
-export function Sidebar() {
+export const Sidebar = memo(function Sidebar() {
   const { t, office } = useLanguage();
   const { user, signOut } = useAuth();
 
@@ -112,4 +113,4 @@ export function Sidebar() {
       </div>
     </aside>
   );
-}
+});

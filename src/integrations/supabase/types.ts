@@ -476,6 +476,8 @@ export type Database = {
           client_email: string | null
           client_name: string | null
           client_phone: string | null
+          client_reference: string | null
+          commodity: string | null
           created_at: string | null
           email_body: string | null
           email_sent_at: string | null
@@ -487,6 +489,7 @@ export type Database = {
           google_sheet_url: string | null
           id: string
           lbh_number: string
+          operation: string | null
           processed_at: string | null
           project_id: string
           ship_name: string
@@ -494,6 +497,8 @@ export type Database = {
           total_amount: number | null
           total_invoices: number | null
           updated_at: string | null
+          vessel_arrived: string | null
+          vessel_sailed: string | null
         }
         Insert: {
           agency_cost_url?: string | null
@@ -504,6 +509,8 @@ export type Database = {
           client_email?: string | null
           client_name?: string | null
           client_phone?: string | null
+          client_reference?: string | null
+          commodity?: string | null
           created_at?: string | null
           email_body?: string | null
           email_sent_at?: string | null
@@ -515,6 +522,7 @@ export type Database = {
           google_sheet_url?: string | null
           id?: string
           lbh_number: string
+          operation?: string | null
           processed_at?: string | null
           project_id: string
           ship_name: string
@@ -522,6 +530,8 @@ export type Database = {
           total_amount?: number | null
           total_invoices?: number | null
           updated_at?: string | null
+          vessel_arrived?: string | null
+          vessel_sailed?: string | null
         }
         Update: {
           agency_cost_url?: string | null
@@ -532,6 +542,8 @@ export type Database = {
           client_email?: string | null
           client_name?: string | null
           client_phone?: string | null
+          client_reference?: string | null
+          commodity?: string | null
           created_at?: string | null
           email_body?: string | null
           email_sent_at?: string | null
@@ -543,6 +555,7 @@ export type Database = {
           google_sheet_url?: string | null
           id?: string
           lbh_number?: string
+          operation?: string | null
           processed_at?: string | null
           project_id?: string
           ship_name?: string
@@ -550,6 +563,8 @@ export type Database = {
           total_amount?: number | null
           total_invoices?: number | null
           updated_at?: string | null
+          vessel_arrived?: string | null
+          vessel_sailed?: string | null
         }
         Relationships: []
       }
