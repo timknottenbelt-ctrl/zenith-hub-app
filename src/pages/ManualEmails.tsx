@@ -82,8 +82,6 @@ export default function ManualEmails() {
   const [manualSending, setManualSending] = useState(false);
   const submitLockRef = useRef(false);
 
-  // Track per-optimistic placeholder timeouts so we can stop “processing…” when nothing comes back
-  const optimisticTimeoutsRef = useRef<Record<number, number>>({});
 
   const handleCopyEmail = async () => {
     if (!selectedEmail?.body) return;
@@ -143,68 +141,9 @@ export default function ManualEmails() {
     fetchManualEmails();
   }, [filterAgentType]);
 
-  // If an optimistic placeholder never gets reconciled (n8n didn’t insert/update Supabase), stop “loading forever”.
-  useEffect(() => {
-    const timeouts = optimisticTimeoutsRef.current;
 
-    // Clear timeouts for items that no longer exist
-    for (const idStr of Object.keys(timeouts)) {
-      const id = Number(idStr);
-      if (!emails.some((e) => e.id === id)) {
-        window.clearTimeout(timeouts[id]);
-        delete timeouts[id];
-      }
-    }
+  // NOTE: Optimistic placeholders stay in "processing" until a real row arrives (via realtime/polling).
 
-    for (const e of emails) {
-      if (e.id >= 0) continue;
-
-      const shouldTimeout = e.status === "processing";
-      const hasTimeout = !!timeouts[e.id];
-
-      if (shouldTimeout && !hasTimeout) {
-        timeouts[e.id] = window.setTimeout(() => {
-          const timeoutBody =
-            "Geen response van de workflow ontvangen. Controleer of n8n daadwerkelijk een rij in Supabase (manual_emails) aanmaakt en de status bijwerkt.";
-
-          setEmails((prev) =>
-            prev.map((row) =>
-              row.id === e.id
-                ? {
-                    ...row,
-                    status: "error",
-                    subject:
-                      row.subject && row.subject !== "AI is thinking…"
-                        ? row.subject
-                        : "Timeout (geen workflow response)",
-                    body: row.body ?? timeoutBody,
-                  }
-                : row,
-            ),
-          );
-
-          setSelectedEmail((prev) =>
-            prev?.id === e.id
-              ? {
-                  ...prev,
-                  status: "error",
-                  subject:
-                    prev.subject && prev.subject !== "AI is thinking…"
-                      ? prev.subject
-                      : "Timeout (geen workflow response)",
-                  body: prev.body ?? timeoutBody,
-                }
-              : prev,
-          );
-        }, 45_000);
-      }
-
-      if (!shouldTimeout && hasTimeout) {
-        window.clearTimeout(timeouts[e.id]);
-        delete timeouts[e.id];
-      }
-    }
-  }, [emails]);
 
   // Auto-refresh polling for processing emails (silent, no UI flicker)
   useEffect(() => {
@@ -260,7 +199,10 @@ export default function ManualEmails() {
 
             const findOptimisticMatchIndex = (row: ManualEmail) =>
               next.findIndex(
-                (e) => e.id < 0 && e.agent_type === row.agent_type && e.email_content === row.email_content,
+                (e) =>
+                  e.id < 0 &&
+                  e.agent_type === row.agent_type &&
+                  normalizeForKey(e.email_content) === normalizeForKey(row.email_content),
               );
 
             if (eventType === "INSERT" && newRow) {
@@ -321,7 +263,7 @@ export default function ManualEmails() {
               !!selectedEmail &&
               selectedEmail.id < 0 &&
               selectedEmail.agent_type === newRow.agent_type &&
-              selectedEmail.email_content === newRow.email_content;
+              normalizeForKey(selectedEmail.email_content) === normalizeForKey(newRow.email_content);
 
             if (isSameSelected || isOptimisticSelectedMatch) {
               setSelectedEmail(newRow);
@@ -412,7 +354,7 @@ export default function ManualEmails() {
       imo: null,
       port: null,
       status: "processing",
-      subject: originalSubject || "Verwerken…",
+      subject: originalSubject || null,
       body: null,
       pda_link_1: null,
       pda_link_2: null,
@@ -449,38 +391,35 @@ export default function ManualEmails() {
         throw new Error("Webhook request failed");
       }
 
-      toast({
-        title: "Email Submitted",
-        description: "Wachten tot AI klaar is in Supabase…",
-      });
+      toast({ title: "Verzonden" });
 
-      // Poll Supabase until n8n has created the record with subject/body filled in
+      const startedAt = Date.now();
+      const normalizeMatch = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
+      const target = normalizeMatch(originalEmailContent);
+
+      // Poll until we find the processed record (no UI messages, spinner stays active)
       const pollForResult = async () => {
-        const pollInterval = 2000; // 2 seconds between polls
-        const maxPolls = 150; // Max ~5 minutes of polling
-        let pollCount = 0;
-
         const tryFindEmail = async (): Promise<ManualEmail | null> => {
-          // Find the most recent email matching our content (n8n creates the row)
           const { data } = await supabase
             .from("manual_emails")
             .select("*")
             .eq("agent_type", originalAgentType)
             .order("created_at", { ascending: false })
-            .limit(10);
+            .limit(50);
 
-          if (!data || data.length === 0) return null;
+          if (!data?.length) return null;
 
-          // Find the email that matches our original content and has been processed
-          const match = data.find(
-            (e) =>
-              e.email_content === originalEmailContent &&
-              e.subject &&
-              e.body &&
-              e.status !== "processing"
-          );
+          const rows = data as ManualEmail[];
+          const snippet = target.slice(0, 160);
 
-          return (match as ManualEmail) ?? null;
+          const match = rows.find((e) => {
+            const content = normalizeMatch(e.email_content ?? "");
+            const isSame = content === target || (snippet && content.includes(snippet)) || target.includes(content);
+            const isDone = !!e.subject && !!e.body && e.status !== "processing";
+            return isSame && isDone;
+          });
+
+          return match ?? null;
         };
 
         const reconcileWithRealRow = (real: ManualEmail) => {
@@ -492,75 +431,23 @@ export default function ManualEmails() {
           setSelectedEmail(real);
         };
 
-        // Update optimistic UI with polling status
-        const updatePollingStatus = (message: string) => {
-          setEmails((prev) =>
-            prev.map((e) =>
-              e.id === optimisticId
-                ? { ...e, subject: message }
-                : e
-            )
-          );
-          setSelectedEmail((prev) =>
-            prev?.id === optimisticId
-              ? { ...prev, subject: message }
-              : prev
-          );
-        };
-
         const poll = async () => {
-          pollCount++;
-          updatePollingStatus(`Verwerken… (${Math.floor(pollCount * 2)}s)`);
-
           const result = await tryFindEmail();
           if (result) {
             reconcileWithRealRow(result);
-            toast({
-              title: "Ready!",
-              description: "AI has generated the email response.",
-            });
+            toast({ title: "Klaar", description: "Email is bijgewerkt." });
             return;
           }
 
-          if (pollCount >= maxPolls) {
-            // Mark as error after max polls
-            setEmails((prev) =>
-              prev.map((e) =>
-                e.id === optimisticId
-                  ? {
-                      ...e,
-                      status: "error",
-                      subject: "Timeout",
-                      body: "Na 5 minuten is de verwerking nog niet voltooid. Probeer het opnieuw.",
-                    }
-                  : e
-              )
-            );
-            setSelectedEmail((prev) =>
-              prev?.id === optimisticId
-                ? {
-                    ...prev,
-                    status: "error",
-                    subject: "Timeout",
-                    body: "Na 5 minuten is de verwerking nog niet voltooid. Probeer het opnieuw.",
-                  }
-                : prev
-            );
-            toast({
-              title: "Timeout",
-              description: "Verwerking duurde langer dan 5 minuten.",
-              variant: "destructive",
-            });
-            return;
-          }
-
-          // Continue polling
-          setTimeout(poll, pollInterval);
+          const elapsedMs = Date.now() - startedAt;
+          const intervalMs = elapsedMs < 3 * 60_000 ? 2000 : elapsedMs < 10 * 60_000 ? 5000 : 15000;
+          setTimeout(poll, intervalMs);
         };
 
-        // Start polling
         poll();
       };
+
+      pollForResult();
 
       pollForResult();
 
@@ -1003,9 +890,12 @@ export default function ManualEmails() {
                             </Badge>
                             {email.port && <span className="text-xs text-muted-foreground">{email.port}</span>}
                           </div>
-                          {email.subject && email.subject !== "AI is thinking…" && (
-                            <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1 italic">{email.subject}</p>
-                          )}
+                          {email.subject &&
+                            email.id >= 0 &&
+                            email.subject !== "AI is thinking…" &&
+                            email.subject !== "Verwerken…" && (
+                              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1 italic">{email.subject}</p>
+                            )}
                           <p className="text-xs text-muted-foreground mt-1">
                             {email.created_at ? new Date(email.created_at).toLocaleString("nl-NL") : "Unknown date"}
                           </p>
@@ -1156,7 +1046,7 @@ export default function ManualEmails() {
                         <div className="border rounded-lg bg-muted/20 p-4">
                           <div className="flex items-center gap-3 text-muted-foreground">
                             <Loader2 className="w-5 h-5 animate-spin" />
-                            <p className="text-sm">AI is generating your email response...</p>
+                            <p className="text-sm">Bezig met verwerken…</p>
                           </div>
                         </div>
                       ) : selectedEmail.body ? (
