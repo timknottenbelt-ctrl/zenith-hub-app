@@ -315,6 +315,30 @@ export default function FDACreator() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Success", description: "FDA project created" });
+      
+      // Save client as FDA Client contact if client_name is provided
+      if (formData.client_name) {
+        // Check if contact already exists
+        const { data: existingContact } = await supabase
+          .from("contacts")
+          .select("id")
+          .eq("name", formData.client_name)
+          .eq("role", "FDA Client")
+          .maybeSingle();
+        
+        if (!existingContact) {
+          await supabase.from("contacts").insert({
+            name: formData.client_name,
+            email: formData.client_email || null,
+            phone: formData.client_phone || null,
+            company: formData.billing_company || null,
+            role: "FDA Client",
+            vessel_name: formData.ship_name,
+            function: formData.billing_address || null,
+          });
+        }
+      }
+      
       setShowCreateDialog(false);
       resetForm();
       await fetchProjects();
