@@ -39,6 +39,18 @@ interface FDAProject {
   total_amount: number | null;
 }
 
+interface FDAEmailDraft {
+  id: string;
+  project_id: string;
+  email_to: string;
+  email_cc: string | null;
+  email_subject: string;
+  email_body: string;
+  attachment_url: string;
+  attachment_name: string;
+  status: string | null;
+}
+
 interface ExtraAttachment {
   id: string;
   name: string;
@@ -84,6 +96,7 @@ export default function FDAEmailPreview() {
   const navigate = useNavigate();
 
   const [project, setProject] = useState<FDAProject | null>(null);
+  const [emailDraft, setEmailDraft] = useState<FDAEmailDraft | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -101,10 +114,11 @@ export default function FDAEmailPreview() {
   // Preview modal
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  const fetchProject = useCallback(async () => {
+  const fetchProjectAndDraft = useCallback(async () => {
     if (!projectId) return;
 
-    const { data, error } = await supabase
+    // Fetch project data
+    const { data: projectData, error: projectError } = await supabase
       .from("fda_projects")
       .select(
         `
@@ -125,44 +139,70 @@ export default function FDAEmailPreview() {
       .eq("project_id", projectId)
       .single();
 
-    if (error) {
-      console.error("Error fetching project:", error);
+    if (projectError) {
+      console.error("Error fetching project:", projectError);
       toast({ title: "Error", description: "Project not found", variant: "destructive" });
       navigate("/fda");
       return;
     }
 
-    setProject(data);
+    setProject(projectData);
 
-    // Set default values from project
-    if (data.client_email) {
-      setToEmails([data.client_email]);
-    }
-    if (data.billing_email) {
-      setCcEmails([data.billing_email]);
-    }
-    if (data.email_subject) {
-      setSubject(data.email_subject);
+    // Fetch email draft from fda_email_drafts (created by n8n)
+    const { data: draftData, error: draftError } = await supabase
+      .from("fda_email_drafts")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (draftData && !draftError) {
+      // Use draft data from n8n
+      setEmailDraft(draftData);
+      
+      // Parse TO emails (can be comma-separated)
+      const toList = draftData.email_to.split(",").map(e => e.trim()).filter(e => e);
+      setToEmails(toList);
+      
+      // Parse CC emails (can be comma-separated)
+      if (draftData.email_cc) {
+        const ccList = draftData.email_cc.split(",").map(e => e.trim()).filter(e => e);
+        setCcEmails(ccList);
+      }
+      
+      setSubject(draftData.email_subject);
+      setBody(draftData.email_body);
     } else {
-      setSubject(`FDA Invoices - ${data.lbh_number} - ${data.ship_name}`);
-    }
-    if (data.email_body) {
-      setBody(data.email_body);
-    } else {
-      // Generate default body
-      const defaultBody = `Dear ${data.client_name || "Client"},
+      // Fallback to project data if no draft exists
+      if (projectData.client_email) {
+        setToEmails([projectData.client_email]);
+      }
+      if (projectData.billing_email) {
+        setCcEmails([projectData.billing_email]);
+      }
+      if (projectData.email_subject) {
+        setSubject(projectData.email_subject);
+      } else {
+        setSubject(`FDA Invoices - ${projectData.lbh_number} - ${projectData.ship_name}`);
+      }
+      if (projectData.email_body) {
+        setBody(projectData.email_body);
+      } else {
+        const defaultBody = `Dear ${projectData.client_name || "Client"},
 
-Please find attached the invoices for project ${data.lbh_number} - ${data.ship_name}.
+Please find attached the invoices for project ${projectData.lbh_number} - ${projectData.ship_name}.
 
-Total number of invoices: ${data.total_invoices || "N/A"}
-Total amount: ${data.total_amount ? `USD ${data.total_amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "N/A"}
+Total number of invoices: ${projectData.total_invoices || "N/A"}
+Total amount: ${projectData.total_amount ? `USD ${projectData.total_amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "N/A"}
 
 You can download the complete FDA package via the attachment.
 
 Best regards,
-${data.fda_responsible || "LBH Team"}
+${projectData.fda_responsible || "LBH Team"}
 LBH Curaçao`;
-      setBody(defaultBody);
+        setBody(defaultBody);
+      }
     }
   }, [projectId, navigate]);
 
@@ -170,14 +210,20 @@ LBH Curaçao`;
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      await fetchProject();
+      await fetchProjectAndDraft();
       setLoading(false);
     }
     loadData();
 
-    // Set up polling to check for PDF in storage bucket
+    // Set up polling to check for PDF in storage bucket (only if no draft attachment)
     const interval = setInterval(async () => {
       if (!projectId) return;
+      
+      // If we have a draft with attachment_url, no need to poll
+      if (emailDraft?.attachment_url) {
+        clearInterval(interval);
+        return;
+      }
       
       // First check database for final_pdf_url
       const { data } = await supabase
@@ -214,7 +260,7 @@ LBH Curaçao`;
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [fetchProject, projectId]);
+  }, [fetchProjectAndDraft, projectId, emailDraft]);
 
   // Email validation
   function isValidEmail(email: string): boolean {
@@ -347,7 +393,7 @@ LBH Curaçao`;
         email_cc: ccEmails.join(","),
         email_subject: subject,
         email_body: body,
-        attachment_url: project?.final_pdf_url || "",
+        attachment_url: emailDraft?.attachment_url || project?.final_pdf_url || "",
         extra_attachments: extraAttachments.map((a) => a.url),
       };
 
@@ -375,12 +421,25 @@ LBH Curaçao`;
     }
   }
 
-  // Get filename from URL
-  function getFilenameFromUrl(url: string): string {
+  // Get the main PDF URL - prefer draft attachment_url, fallback to project final_pdf_url
+  function getMainPdfUrl(): string | null {
+    if (emailDraft?.attachment_url) {
+      return emailDraft.attachment_url;
+    }
+    return project?.final_pdf_url || null;
+  }
+
+  // Get filename from URL or draft
+  function getFilenameFromUrl(url: string | null): string {
+    // First try from draft attachment_name
+    if (emailDraft?.attachment_name) {
+      return emailDraft.attachment_name;
+    }
+    if (!url) return "FDA_Package.pdf";
     try {
       const urlParts = url.split("/");
       const fileNameWithParams = urlParts[urlParts.length - 1];
-      return fileNameWithParams.split("?")[0] || "FDA_Package.pdf";
+      return decodeURIComponent(fileNameWithParams.split("?")[0]) || "FDA_Package.pdf";
     } catch {
       return "FDA_Package.pdf";
     }
@@ -532,12 +591,12 @@ LBH Curaçao`;
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Main PDF Attachment */}
-            {getPublicPdfUrl(project.final_pdf_url) ? (
+            {getPublicPdfUrl(getMainPdfUrl()) ? (
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
                 <div className="flex items-center gap-3">
                   <FileText className="w-5 h-5 text-primary" />
                   <div>
-                    <p className="font-medium">{getFilenameFromUrl(project.final_pdf_url)}</p>
+                    <p className="font-medium">{getFilenameFromUrl(getMainPdfUrl())}</p>
                     <p className="text-xs text-muted-foreground">Main FDA Package</p>
                   </div>
                 </div>
@@ -546,7 +605,7 @@ LBH Curaçao`;
                     <Eye className="w-4 h-4 mr-1" />
                     Preview
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => window.open(getPublicPdfUrl(project.final_pdf_url)!, "_blank")}>
+                  <Button variant="outline" size="sm" onClick={() => window.open(getPublicPdfUrl(getMainPdfUrl())!, "_blank")}>
                     <Download className="w-4 h-4 mr-1" />
                     Download
                   </Button>
@@ -638,9 +697,9 @@ LBH Curaçao`;
             <DialogDescription>Preview of the FDA package PDF document</DialogDescription>
           </DialogHeader>
           <div className="flex-1 h-full">
-            {getPublicPdfUrl(project?.final_pdf_url) ? (
+            {getPublicPdfUrl(getMainPdfUrl()) ? (
               <iframe
-                src={getPublicPdfUrl(project.final_pdf_url)!}
+                src={getPublicPdfUrl(getMainPdfUrl())!}
                 className="w-full h-full min-h-[60vh] rounded-lg border"
                 title="PDF Preview"
               />
