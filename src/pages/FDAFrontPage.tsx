@@ -816,10 +816,10 @@ export default function FDAFrontPage() {
             Merge PDFs & Create Email Draft
           </Button>
           {project.final_pdf_url && (
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               onClick={() => navigate(`/fda/email/${projectId}`)}
-              className="bg-green-600 hover:bg-green-700 text-white animate-fade-in"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 animate-fade-in"
             >
               <Mail className="w-4 h-4 mr-2" />
               Ga naar Email
