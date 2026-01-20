@@ -48,6 +48,7 @@ interface FDAProject {
   front_page_url: string | null;
   agency_cost_url: string | null;
   final_pdf_url: string | null;
+  status: string | null;
 }
 
 interface ProcessedInvoice {
@@ -95,7 +96,7 @@ export default function FDAFrontPage() {
 
     const { data, error } = await supabase
       .from("fda_projects")
-      .select("id, project_id, lbh_number, ship_name, google_sheet_url, front_page_url, agency_cost_url, final_pdf_url")
+      .select("id, project_id, lbh_number, ship_name, google_sheet_url, front_page_url, agency_cost_url, final_pdf_url, status")
       .eq("project_id", projectId)
       .single();
 
@@ -494,25 +495,19 @@ export default function FDAFrontPage() {
           </Card>
         )}
 
-        {/* Section 1: Google Sheet Link */}
-        <Card className={project.google_sheet_url ? "card-premium border-green-500/50 bg-green-500/5" : "card-premium"}>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              {project.google_sheet_url ? (
+        {/* Section 1: Google Sheet Link - Only show when status is ready_to_send */}
+        {project.status === "ready_to_send" && project.google_sheet_url && (
+          <Card className="card-premium border-green-500/50 bg-green-500/5">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-500" />
-              ) : (
-                <FileSpreadsheet className="w-4 h-4 text-primary" />
-              )}
-              Google Sheet
-              {project.google_sheet_url && (
+                Google Sheet
                 <Badge variant="outline" className="text-green-600 border-green-200 ml-2">
                   Ready
                 </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {project.google_sheet_url ? (
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground truncate flex-1">
                   Invoice data has been processed successfully
@@ -522,11 +517,9 @@ export default function FDAFrontPage() {
                   Open Google Sheet
                 </Button>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Waiting for AI to process invoices...</p>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Section 2: Upload Front Page PDF */}
         <Card className="card-premium">
