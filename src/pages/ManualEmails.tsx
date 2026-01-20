@@ -838,7 +838,7 @@ export default function ManualEmails() {
                     placeholder="Paste email content here..."
                     value={manualEmailContent}
                     onChange={(e) => setManualEmailContent(e.target.value)}
-                    className="min-h-[300px] font-mono text-sm"
+                    className="min-h-[300px] font-sans text-sm leading-relaxed"
                   />
                 </div>
 
@@ -932,7 +932,7 @@ export default function ManualEmails() {
                   <div className="space-y-2">
                     <Label>Preview</Label>
                     <div className="p-4 bg-muted/50 rounded-lg border max-h-[300px] overflow-auto">
-                      <pre className="whitespace-pre-wrap text-sm">{manualEmailContent}</pre>
+                      <p className="whitespace-pre-wrap text-sm font-sans leading-relaxed">{manualEmailContent}</p>
                     </div>
                   </div>
                 )}
