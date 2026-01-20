@@ -449,97 +449,120 @@ export default function ManualEmails() {
         throw new Error("Webhook request failed");
       }
 
-      // n8n returns subject/body (and optionally id) directly in the webhook response
-      let webhookData: {
-        subject?: string;
-        body?: string;
-        email_id?: number;
-        data?: { email_id?: number; subject?: string; body?: string; vessel_name?: string };
-      } | null = null;
+      toast({
+        title: "Email Submitted",
+        description: "AI is processing… polling for results.",
+      });
 
-      try {
-        webhookData = await response.json();
-      } catch {
-        // ignore parse errors
-      }
+      // Poll Supabase until n8n has created the record with subject/body filled in
+      const pollForResult = async () => {
+        const pollInterval = 2000; // 2 seconds between polls
+        const maxPolls = 150; // Max ~5 minutes of polling
+        let pollCount = 0;
 
-      // Extract subject/body from response (could be at root or inside data object)
-      const respSubject = webhookData?.data?.subject ?? webhookData?.subject;
-      const respBody = webhookData?.data?.body ?? webhookData?.body;
-      const respEmailId = webhookData?.data?.email_id ?? webhookData?.email_id;
-      const respVesselName = webhookData?.data?.vessel_name;
+        const tryFindEmail = async (): Promise<ManualEmail | null> => {
+          // Find the most recent email matching our content (n8n creates the row)
+          const { data } = await supabase
+            .from("manual_emails")
+            .select("*")
+            .eq("agent_type", originalAgentType)
+            .order("created_at", { ascending: false })
+            .limit(10);
 
-      // Update the optimistic placeholder with the real subject/body immediately
-      if (respSubject || respBody) {
-        const updateOptimistic = (subj: string | undefined, bd: string | undefined) => {
+          if (!data || data.length === 0) return null;
+
+          // Find the email that matches our original content and has been processed
+          const match = data.find(
+            (e) =>
+              e.email_content === originalEmailContent &&
+              e.subject &&
+              e.body &&
+              e.status !== "processing"
+          );
+
+          return (match as ManualEmail) ?? null;
+        };
+
+        const reconcileWithRealRow = (real: ManualEmail) => {
+          setEmails((prev) => {
+            const withoutOptimistic = prev.filter((e) => e.id !== optimisticId);
+            if (withoutOptimistic.some((e) => e.id === real.id)) return withoutOptimistic;
+            return [real, ...withoutOptimistic];
+          });
+          setSelectedEmail(real);
+        };
+
+        // Update optimistic UI with polling status
+        const updatePollingStatus = (message: string) => {
           setEmails((prev) =>
             prev.map((e) =>
               e.id === optimisticId
-                ? {
-                    ...e,
-                    subject: subj ?? e.subject,
-                    body: bd ?? e.body,
-                    vessel_name: respVesselName ?? e.vessel_name,
-                    status: "draft", // Mark as ready
-                  }
-                : e,
-            ),
+                ? { ...e, subject: message }
+                : e
+            )
           );
           setSelectedEmail((prev) =>
             prev?.id === optimisticId
-              ? {
-                  ...prev,
-                  subject: subj ?? prev.subject,
-                  body: bd ?? prev.body,
-                  vessel_name: respVesselName ?? prev.vessel_name,
-                  status: "draft",
-                }
-              : prev,
+              ? { ...prev, subject: message }
+              : prev
           );
         };
-        updateOptimistic(respSubject, respBody);
-      }
 
-      // If n8n also returns the database id, reconcile the optimistic with the real DB row
-      const reconcileWithRealRow = (real: ManualEmail) => {
-        setEmails((prev) => {
-          const withoutOptimistic = prev.filter((e) => e.id !== optimisticId);
-          if (withoutOptimistic.some((e) => e.id === real.id)) return withoutOptimistic;
-          return [real, ...withoutOptimistic];
-        });
-        setSelectedEmail(real);
-      };
+        const poll = async () => {
+          pollCount++;
+          updatePollingStatus(`AI is thinking… (${pollCount})`);
 
-      if (respEmailId && Number.isFinite(respEmailId)) {
-        const tryFetchById = async () => {
-          const { data } = await supabase.from("manual_emails").select("*").eq("id", respEmailId).single();
-          return (data as ManualEmail | null) ?? null;
+          const result = await tryFindEmail();
+          if (result) {
+            reconcileWithRealRow(result);
+            toast({
+              title: "Ready!",
+              description: "AI has generated the email response.",
+            });
+            return;
+          }
+
+          if (pollCount >= maxPolls) {
+            // Mark as error after max polls
+            setEmails((prev) =>
+              prev.map((e) =>
+                e.id === optimisticId
+                  ? {
+                      ...e,
+                      status: "error",
+                      subject: "Timeout - no response from AI",
+                      body: "The AI workflow did not respond in time. Please try again.",
+                    }
+                  : e
+              )
+            );
+            setSelectedEmail((prev) =>
+              prev?.id === optimisticId
+                ? {
+                    ...prev,
+                    status: "error",
+                    subject: "Timeout - no response from AI",
+                    body: "The AI workflow did not respond in time. Please try again.",
+                  }
+                : prev
+            );
+            toast({
+              title: "Timeout",
+              description: "AI did not respond within 5 minutes.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          // Continue polling
+          setTimeout(poll, pollInterval);
         };
 
-        const immediate = await tryFetchById();
-        if (immediate) {
-          reconcileWithRealRow(immediate);
-        } else {
-          // Poll a few times in case DB write is slightly delayed
-          const startedAt = Date.now();
-          const interval = window.setInterval(async () => {
-            const row = await tryFetchById();
-            if (row) {
-              window.clearInterval(interval);
-              reconcileWithRealRow(row);
-              return;
-            }
-            if (Date.now() - startedAt > 15000) {
-              window.clearInterval(interval);
-            }
-          }, 1500);
-        }
-      }
+        // Start polling
+        poll();
+      };
 
-      toast({
-        title: "Email Submitted",
-        description: "AI is thinking… it will update automatically in the list.",
-      });
+      pollForResult();
 
       setManualEmailContent("");
       setManualSubject("");
