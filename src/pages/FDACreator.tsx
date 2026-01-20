@@ -887,8 +887,8 @@ export default function FDACreator() {
               </CardContent>
             </Card>
 
-            {/* Advanced Payment */}
-            <Card className="card-premium">
+            {/* Advanced Payment - Full Width */}
+            <Card className="card-premium lg:col-span-2">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <CreditCard className="w-4 h-4 text-primary" />
