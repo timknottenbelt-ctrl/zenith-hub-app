@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useCallback, memo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import {
   FileText,
   ArrowRight,
@@ -14,148 +15,115 @@ import {
   CheckCircle,
   XCircle,
   Send,
-  Ship,
-  Users,
   Loader2,
   Inbox,
   AlertCircle,
-  FileStack,
   Globe,
   TrendingUp,
 } from 'lucide-react';
 
-export default function Overview() {
-  const { t } = useLanguage();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    // New Inquiries by type
-    cargoAgent: 0,
-    ownersAgent: 0,
-    outOfScope: 0,
-    incomplete: 0,
-    totalReady: 0,
-    // Sent stats
-    pdaSent: 0,
-    fdaSent: 0,
-    fdaCwSent: 0,
-    rejected: 0,
-    // General
-    vessels: 0,
-    contacts: 0,
-    // FDA counts
-    fdaCreatorCount: 0,
-    fdaCuracaoCount: 0,
-  });
-  const [recentEmails, setRecentEmails] = useState<any[]>([]);
+// Memoized stat card component
+const StatRow = memo(function StatRow({ 
+  label, 
+  value, 
+  className,
+  onClick 
+}: { 
+  label: string; 
+  value: number; 
+  className?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <div 
+      className={`flex items-center justify-between p-2 rounded-lg transition-colors ${className} ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
+      <span className="text-sm font-medium">{label}</span>
+      <Badge variant="secondary" className="font-semibold">{value}</Badge>
+    </div>
+  );
+});
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+// Fetch all dashboard data in parallel
+async function fetchDashboardData() {
+  const [
+    emailsResult,
+    vesselCountResult,
+    contactCountResult,
+    fdaCreatorCountResult,
+    fdaCuracaoCountResult,
+    fdaDraftsResult,
+    curacaoProjectsResult,
+  ] = await Promise.all([
+    supabase.from('email').select('id, subject, email_to_person, created_at, status, "Email Type", vessel_name, missing_information'),
+    supabase.from('vessels').select('*', { count: 'exact', head: true }),
+    supabase.from('contacts').select('*', { count: 'exact', head: true }),
+    supabase.from('fda_projects').select('*', { count: 'exact', head: true }),
+    supabase.from('fda_curacao_projects').select('*', { count: 'exact', head: true }),
+    supabase.from('fda_email_drafts').select('id, project_id, status'),
+    supabase.from('fda_curacao_projects').select('project_id'),
+  ]);
 
-  async function fetchDashboardData() {
-    setLoading(true);
-    
-    // Fetch email counts
-    const { data: emails } = await supabase
-      .from('email')
-      .select('id, subject, email_to_person, created_at, status, "Email Type", vessel_name, missing_information');
+  const emails = emailsResult.data || [];
+  const fdaDrafts = fdaDraftsResult.data || [];
+  const curacaoProjects = curacaoProjectsResult.data || [];
+  
+  const curacaoProjectIds = new Set(curacaoProjects.map(p => p.project_id));
+  const fdaSentDrafts = fdaDrafts.filter(d => d.status === 'sent');
+  const fdaCwSentCount = fdaSentDrafts.filter(d => curacaoProjectIds.has(d.project_id)).length;
+  const fdaSentCount = fdaSentDrafts.filter(d => !curacaoProjectIds.has(d.project_id)).length;
 
-    // Fetch vessel count
-    const { count: vesselCount } = await supabase
-      .from('vessels')
-      .select('*', { count: 'exact', head: true });
-
-    // Fetch contact count
-    const { count: contactCount } = await supabase
-      .from('contacts')
-      .select('*', { count: 'exact', head: true });
-
-    // Fetch FDA Creator project count
-    const { count: fdaCreatorCount } = await supabase
-      .from('fda_projects')
-      .select('*', { count: 'exact', head: true });
-
-    // Fetch FDA Curacao project count
-    const { count: fdaCuracaoCount } = await supabase
-      .from('fda_curacao_projects')
-      .select('*', { count: 'exact', head: true });
-
-    // Fetch FDA email drafts that have been sent
-    const { data: fdaDrafts } = await supabase
-      .from('fda_email_drafts')
-      .select('id, project_id, status');
-
-    // Check which FDA drafts are for FDA Creator vs FDA Curacao
-    const fdaSentDrafts = fdaDrafts?.filter(d => d.status === 'sent') || [];
-    
-    // Count FDA Curacao sent emails
-    const { data: curacaoProjects } = await supabase
-      .from('fda_curacao_projects')
-      .select('project_id');
-    const curacaoProjectIds = new Set(curacaoProjects?.map(p => p.project_id) || []);
-    
-    const fdaCwSentCount = fdaSentDrafts.filter(d => curacaoProjectIds.has(d.project_id)).length;
-    const fdaSentCount = fdaSentDrafts.filter(d => !curacaoProjectIds.has(d.project_id)).length;
-
-    if (emails) {
-      // Filter draft emails by type (case-insensitive matching)
-      const draftEmails = emails.filter(e => e.status === 'draft');
-      const cargoAgent = draftEmails.filter(e => 
-        e['Email Type']?.toUpperCase().includes('CARGO')
-      ).length;
-      const ownersAgent = draftEmails.filter(e => 
-        e['Email Type']?.toUpperCase().includes('OWNER')
-      ).length;
-      const outOfScope = draftEmails.filter(e => 
+  const draftEmails = emails.filter(e => e.status === 'draft');
+  
+  return {
+    stats: {
+      cargoAgent: draftEmails.filter(e => e['Email Type']?.toUpperCase().includes('CARGO')).length,
+      ownersAgent: draftEmails.filter(e => e['Email Type']?.toUpperCase().includes('OWNER')).length,
+      outOfScope: draftEmails.filter(e => 
         e['Email Type']?.toUpperCase().includes('OUT OF SCOPE') || 
         e['Email Type']?.toUpperCase().includes('OUT_OF_SCOPE')
-      ).length;
-      
-      // Incomplete = has missing_information or Email Type contains INCOMPLETE or pending_info
-      const incomplete = emails.filter(e => 
+      ).length,
+      incomplete: emails.filter(e => 
         e.missing_information || 
         e['Email Type']?.toUpperCase().includes('INCOMPLETE') ||
         e['Email Type']?.toLowerCase().includes('pending_info')
-      ).length;
-      
-      // Total ready = all draft emails (ready for review)
-      const totalReady = draftEmails.length;
-      
-      // PDA sent
-      const pdaSent = emails.filter(e => e.status === 'sent').length;
-      
-      // Rejected
-      const rejected = emails.filter(e => e.status === 'rejected').length;
+      ).length,
+      totalReady: draftEmails.length,
+      pdaSent: emails.filter(e => e.status === 'sent').length,
+      fdaSent: fdaSentCount,
+      fdaCwSent: fdaCwSentCount,
+      rejected: emails.filter(e => e.status === 'rejected').length,
+      vessels: vesselCountResult.count || 0,
+      contacts: contactCountResult.count || 0,
+      fdaCreatorCount: fdaCreatorCountResult.count || 0,
+      fdaCuracaoCount: fdaCuracaoCountResult.count || 0,
+    },
+    recentEmails: emails
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5),
+  };
+}
 
-      setStats({
-        cargoAgent,
-        ownersAgent,
-        outOfScope,
-        incomplete,
-        totalReady,
-        pdaSent,
-        fdaSent: fdaSentCount,
-        fdaCwSent: fdaCwSentCount,
-        rejected,
-        vessels: vesselCount || 0,
-        contacts: contactCount || 0,
-        fdaCreatorCount: fdaCreatorCount || 0,
-        fdaCuracaoCount: fdaCuracaoCount || 0,
-      });
+export default function Overview() {
+  const { t } = useLanguage();
+  const navigate = useNavigate();
+  
+  const { data, isLoading } = useQuery({
+    queryKey: ['dashboard-overview'],
+    queryFn: fetchDashboardData,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
+  });
 
-      // Get 5 most recent emails
-      setRecentEmails(
-        emails
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .slice(0, 5)
-      );
-    }
+  const stats = data?.stats || {
+    cargoAgent: 0, ownersAgent: 0, outOfScope: 0, incomplete: 0, totalReady: 0,
+    pdaSent: 0, fdaSent: 0, fdaCwSent: 0, rejected: 0,
+    vessels: 0, contacts: 0, fdaCreatorCount: 0, fdaCuracaoCount: 0,
+  };
+  const recentEmails = data?.recentEmails || [];
 
-    setLoading(false);
-  }
-
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = useCallback((status: string) => {
     switch (status) {
       case 'draft': return <Clock className="w-4 h-4" />;
       case 'approved': return <Send className="w-4 h-4" />;
@@ -163,9 +131,9 @@ export default function Overview() {
       case 'rejected': return <XCircle className="w-4 h-4" />;
       default: return <Mail className="w-4 h-4" />;
     }
-  };
+  }, []);
 
-  const getStatusBadgeClass = (status: string) => {
+  const getStatusBadgeClass = useCallback((status: string) => {
     switch (status) {
       case 'draft': return 'bg-muted text-muted-foreground';
       case 'approved': return 'bg-info/10 text-info';
@@ -173,9 +141,11 @@ export default function Overview() {
       case 'rejected': return 'bg-destructive/10 text-destructive';
       default: return 'bg-muted text-muted-foreground';
     }
-  };
+  }, []);
 
-  if (loading) {
+  const navigateTo = useCallback((path: string) => () => navigate(path), [navigate]);
+
+  if (isLoading) {
     return (
       <DashboardLayout title={t('overview.title')}>
         <div className="flex items-center justify-center h-96">
@@ -190,10 +160,10 @@ export default function Overview() {
       <div className="space-y-8">
         {/* Hero Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Nieuwe Aanvragen - Clickable */}
+          {/* Nieuwe Aanvragen */}
           <Card 
             className="card-premium bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 hover:shadow-lg transition-all cursor-pointer group"
-            onClick={() => navigate('/inquiries')}
+            onClick={navigateTo('/inquiries')}
           >
             <CardContent className="pt-6">
               <div className="flex items-start justify-between mb-4">
@@ -207,20 +177,10 @@ export default function Overview() {
                 </div>
               </div>
               
-              {/* Breakdown by type */}
               <div className="space-y-2 mb-4">
-                <div className="flex items-center justify-between p-2 rounded-lg bg-background/50">
-                  <span className="text-sm">Cargo Agent</span>
-                  <Badge variant="secondary" className="font-semibold">{stats.cargoAgent}</Badge>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-background/50">
-                  <span className="text-sm">Owners Agent</span>
-                  <Badge variant="secondary" className="font-semibold">{stats.ownersAgent}</Badge>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-background/50">
-                  <span className="text-sm">Out of Scope</span>
-                  <Badge variant="secondary" className="font-semibold">{stats.outOfScope}</Badge>
-                </div>
+                <StatRow label="Cargo Agent" value={stats.cargoAgent} className="bg-background/50" />
+                <StatRow label="Owners Agent" value={stats.ownersAgent} className="bg-background/50" />
+                <StatRow label="Out of Scope" value={stats.outOfScope} className="bg-background/50" />
               </div>
               
               <div className="pt-3 border-t border-primary/10">
@@ -245,22 +205,30 @@ export default function Overview() {
                 </div>
               </div>
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-2 rounded-lg bg-success/5 hover:bg-success/10 transition-colors cursor-pointer" onClick={() => navigate('/inquiries/sent')}>
-                  <span className="text-sm font-medium">PDA's Sent</span>
-                  <Badge variant="secondary" className="bg-success/10 text-success font-semibold">{stats.pdaSent}</Badge>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer" onClick={() => navigate('/fda/history')}>
-                  <span className="text-sm font-medium">FDA's Sent</span>
-                  <Badge variant="secondary" className="bg-primary/10 text-primary font-semibold">{stats.fdaSent}</Badge>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-info/5 hover:bg-info/10 transition-colors cursor-pointer" onClick={() => navigate('/fda-curacao/history')}>
-                  <span className="text-sm font-medium">FDA CW Sent</span>
-                  <Badge variant="secondary" className="bg-info/10 text-info font-semibold">{stats.fdaCwSent}</Badge>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-destructive/5 hover:bg-destructive/10 transition-colors cursor-pointer" onClick={() => navigate('/inquiries')}>
-                  <span className="text-sm font-medium">Rejected</span>
-                  <Badge variant="secondary" className="bg-destructive/10 text-destructive font-semibold">{stats.rejected}</Badge>
-                </div>
+                <StatRow 
+                  label="PDA's Sent" 
+                  value={stats.pdaSent} 
+                  className="bg-success/5 hover:bg-success/10" 
+                  onClick={navigateTo('/inquiries/sent')} 
+                />
+                <StatRow 
+                  label="FDA's Sent" 
+                  value={stats.fdaSent} 
+                  className="bg-primary/5 hover:bg-primary/10" 
+                  onClick={navigateTo('/fda/history')} 
+                />
+                <StatRow 
+                  label="FDA CW Sent" 
+                  value={stats.fdaCwSent} 
+                  className="bg-info/5 hover:bg-info/10" 
+                  onClick={navigateTo('/fda-curacao/history')} 
+                />
+                <StatRow 
+                  label="Rejected" 
+                  value={stats.rejected} 
+                  className="bg-destructive/5 hover:bg-destructive/10" 
+                  onClick={navigateTo('/inquiries')} 
+                />
               </div>
             </CardContent>
           </Card>
@@ -268,10 +236,9 @@ export default function Overview() {
 
         {/* FDA Overview Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* FDA Creator */}
           <Card 
             className="card-premium bg-gradient-to-br from-background to-muted/30 hover:shadow-lg transition-all cursor-pointer group"
-            onClick={() => navigate('/fda')}
+            onClick={navigateTo('/fda')}
           >
             <CardContent className="pt-6">
               <div className="flex items-center gap-6">
@@ -288,10 +255,9 @@ export default function Overview() {
             </CardContent>
           </Card>
 
-          {/* FDA Curacao */}
           <Card 
             className="card-premium bg-gradient-to-br from-background to-muted/30 hover:shadow-lg transition-all cursor-pointer group"
-            onClick={() => navigate('/fda-curacao')}
+            onClick={navigateTo('/fda-curacao')}
           >
             <CardContent className="pt-6">
               <div className="flex items-center gap-6">
@@ -316,7 +282,7 @@ export default function Overview() {
               <CardTitle className="text-lg font-semibold">Recente Aanvragen</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">Laatste activiteit in AI Aanvragen</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/inquiries')} className="gap-2">
+            <Button variant="outline" size="sm" onClick={navigateTo('/inquiries')} className="gap-2">
               Bekijk alles <ArrowRight className="w-4 h-4" />
             </Button>
           </CardHeader>
@@ -332,7 +298,7 @@ export default function Overview() {
                   <div
                     key={email.id}
                     className="flex items-center justify-between p-4 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer border border-transparent hover:border-border/50"
-                    onClick={() => navigate('/inquiries')}
+                    onClick={navigateTo('/inquiries')}
                   >
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div className={`p-2.5 rounded-xl ${getStatusBadgeClass(email.status)}`}>
