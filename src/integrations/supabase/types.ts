@@ -1030,6 +1030,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       vessel_pda_data: {
         Row: {
           cargo_quantity: number | null
@@ -1183,6 +1210,14 @@ export type Database = {
     Functions: {
       get_lbh_invoice_count: { Args: { p_lbh_number: string }; Returns: number }
       get_project_total: { Args: { p_project_id: string }; Returns: number }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_approved: { Args: { _user_id: string }; Returns: boolean }
       search_by_keyword: {
         Args: { keyword_text: string }
         Returns: {
@@ -1204,6 +1239,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "user" | "pending"
       email_status: "draft" | "sent" | "rejected" | "approved"
     }
     CompositeTypes: {
@@ -1332,6 +1368,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "user", "pending"],
       email_status: ["draft", "sent", "rejected", "approved"],
     },
   },
