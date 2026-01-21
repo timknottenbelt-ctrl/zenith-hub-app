@@ -88,10 +88,31 @@ export default function FDAEmailHistory() {
   async function fetchEmails() {
     setLoading(true);
     
-    // Fetch all email drafts
+    // First fetch all FDA projects (not Curacao) to get their project_ids
+    const { data: fdaProjects } = await supabase
+      .from("fda_projects")
+      .select("project_id, ship_name, lbh_number");
+
+    if (!fdaProjects || fdaProjects.length === 0) {
+      setEmails([]);
+      setProjects({});
+      setLoading(false);
+      return;
+    }
+
+    // Create project map and list of valid project IDs
+    const projectMap: Record<string, FDAProject> = {};
+    const validProjectIds = fdaProjects.map((p) => {
+      projectMap[p.project_id] = p;
+      return p.project_id;
+    });
+    setProjects(projectMap);
+
+    // Fetch only email drafts that belong to FDA projects (not Curacao)
     const { data: emailData, error: emailError } = await supabase
       .from("fda_email_drafts")
       .select("*")
+      .in("project_id", validProjectIds)
       .order("created_at", { ascending: false });
 
     if (emailError) {
@@ -101,24 +122,6 @@ export default function FDAEmailHistory() {
     }
 
     setEmails(emailData || []);
-
-    // Fetch related projects
-    const projectIds = [...new Set((emailData || []).map((e) => e.project_id))];
-    if (projectIds.length > 0) {
-      const { data: projectData } = await supabase
-        .from("fda_projects")
-        .select("project_id, ship_name, lbh_number")
-        .in("project_id", projectIds);
-
-      if (projectData) {
-        const projectMap: Record<string, FDAProject> = {};
-        projectData.forEach((p) => {
-          projectMap[p.project_id] = p;
-        });
-        setProjects(projectMap);
-      }
-    }
-
     setLoading(false);
   }
 
