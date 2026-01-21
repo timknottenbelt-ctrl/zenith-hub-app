@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  MessageSquare,
   FileText,
   ArrowRight,
   Mail,
@@ -18,6 +17,11 @@ import {
   Ship,
   Users,
   Loader2,
+  Inbox,
+  AlertCircle,
+  FileStack,
+  Globe,
+  TrendingUp,
 } from 'lucide-react';
 
 export default function Overview() {
@@ -25,15 +29,20 @@ export default function Overview() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    cargoAgent: 0,
-    ownersAgent: 0,
-    outOfScope: 0,
-    draft: 0,
-    approved: 0,
-    sent: 0,
+    // New Inquiries
+    totalReady: 0,
+    incomplete: 0,
+    // Sent stats
+    pdaSent: 0,
+    fdaSent: 0,
+    fdaCwSent: 0,
     rejected: 0,
+    // General
     vessels: 0,
     contacts: 0,
+    // FDA counts
+    fdaCreatorCount: 0,
+    fdaCuracaoCount: 0,
   });
   const [recentEmails, setRecentEmails] = useState<any[]>([]);
 
@@ -44,10 +53,10 @@ export default function Overview() {
   async function fetchDashboardData() {
     setLoading(true);
     
-    // Fetch email counts by type
+    // Fetch email counts
     const { data: emails } = await supabase
       .from('email')
-      .select('id, subject, email_to_person, created_at, status, "Email Type", vessel_name');
+      .select('id, subject, email_to_person, created_at, status, "Email Type", vessel_name, missing_information');
 
     // Fetch vessel count
     const { count: vesselCount } = await supabase
@@ -59,25 +68,59 @@ export default function Overview() {
       .from('contacts')
       .select('*', { count: 'exact', head: true });
 
+    // Fetch FDA Creator project count
+    const { count: fdaCreatorCount } = await supabase
+      .from('fda_projects')
+      .select('*', { count: 'exact', head: true });
+
+    // Fetch FDA Curacao project count
+    const { count: fdaCuracaoCount } = await supabase
+      .from('fda_curacao_projects')
+      .select('*', { count: 'exact', head: true });
+
+    // Fetch FDA email drafts that have been sent
+    const { data: fdaDrafts } = await supabase
+      .from('fda_email_drafts')
+      .select('id, project_id, status');
+
+    // Check which FDA drafts are for FDA Creator vs FDA Curacao
+    const fdaSentDrafts = fdaDrafts?.filter(d => d.status === 'sent') || [];
+    
+    // Count FDA Curacao sent emails
+    const { data: curacaoProjects } = await supabase
+      .from('fda_curacao_projects')
+      .select('project_id');
+    const curacaoProjectIds = new Set(curacaoProjects?.map(p => p.project_id) || []);
+    
+    const fdaCwSentCount = fdaSentDrafts.filter(d => curacaoProjectIds.has(d.project_id)).length;
+    const fdaSentCount = fdaSentDrafts.filter(d => !curacaoProjectIds.has(d.project_id)).length;
+
     if (emails) {
-      const cargoAgent = emails.filter(e => e['Email Type'] === 'Cargo Agent').length;
-      const ownersAgent = emails.filter(e => e['Email Type'] === 'Owners Agent').length;
-      const outOfScope = emails.filter(e => e['Email Type'] === 'Out of Scope').length;
-      const draft = emails.filter(e => e.status === 'draft').length;
-      const approved = emails.filter(e => e.status === 'approved').length;
-      const sent = emails.filter(e => e.status === 'sent').length;
+      // Total ready = all draft emails (ready for review)
+      const totalReady = emails.filter(e => e.status === 'draft').length;
+      
+      // Incomplete = has missing_information or Email Type is INCOMPLETE
+      const incomplete = emails.filter(e => 
+        e.missing_information || e['Email Type'] === 'INCOMPLETE'
+      ).length;
+      
+      // PDA sent
+      const pdaSent = emails.filter(e => e.status === 'sent').length;
+      
+      // Rejected
       const rejected = emails.filter(e => e.status === 'rejected').length;
 
       setStats({
-        cargoAgent,
-        ownersAgent,
-        outOfScope,
-        draft,
-        approved,
-        sent,
+        totalReady,
+        incomplete,
+        pdaSent,
+        fdaSent: fdaSentCount,
+        fdaCwSent: fdaCwSentCount,
         rejected,
         vessels: vesselCount || 0,
         contacts: contactCount || 0,
+        fdaCreatorCount: fdaCreatorCount || 0,
+        fdaCuracaoCount: fdaCuracaoCount || 0,
       });
 
       // Get 5 most recent emails
@@ -123,106 +166,156 @@ export default function Overview() {
 
   return (
     <DashboardLayout title={t('overview.title')}>
-      <div className="space-y-6">
-        {/* Quick Actions */}
-        <div className="flex gap-3">
-          <Button onClick={() => navigate('/inquiries')} className="gap-2">
-            <MessageSquare className="w-4 h-4" />
-            {t('overview.openAiInquiries')}
-          </Button>
-          <Button onClick={() => navigate('/vessels')} variant="outline" className="gap-2">
-            <Ship className="w-4 h-4" />
-            View Vessels
-          </Button>
+      <div className="space-y-8">
+        {/* Hero Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Nieuwe Aanvragen - Clickable */}
+          <Card 
+            className="card-premium bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 hover:shadow-lg transition-all cursor-pointer group"
+            onClick={() => navigate('/inquiries')}
+          >
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Nieuwe Aanvragen</p>
+                  <p className="text-4xl font-bold text-primary">{stats.totalReady}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Klaar voor review</p>
+                </div>
+                <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <Inbox className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-primary/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-warning">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">{stats.incomplete} Incompleet</span>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Verzonden Status */}
+          <Card className="card-premium">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between mb-4">
+                <p className="text-sm font-medium text-muted-foreground">Verzonden Status</p>
+                <div className="p-2 rounded-lg bg-success/10">
+                  <TrendingUp className="w-5 h-5 text-success" />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-2 rounded-lg bg-success/5 hover:bg-success/10 transition-colors cursor-pointer" onClick={() => navigate('/inquiries/sent')}>
+                  <span className="text-sm font-medium">PDA's Sent</span>
+                  <Badge variant="secondary" className="bg-success/10 text-success font-semibold">{stats.pdaSent}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer" onClick={() => navigate('/fda/history')}>
+                  <span className="text-sm font-medium">FDA's Sent</span>
+                  <Badge variant="secondary" className="bg-primary/10 text-primary font-semibold">{stats.fdaSent}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg bg-info/5 hover:bg-info/10 transition-colors cursor-pointer" onClick={() => navigate('/fda-curacao/history')}>
+                  <span className="text-sm font-medium">FDA CW Sent</span>
+                  <Badge variant="secondary" className="bg-info/10 text-info font-semibold">{stats.fdaCwSent}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg bg-destructive/5 hover:bg-destructive/10 transition-colors cursor-pointer" onClick={() => navigate('/inquiries')}>
+                  <span className="text-sm font-medium">Rejected</span>
+                  <Badge variant="secondary" className="bg-destructive/10 text-destructive font-semibold">{stats.rejected}</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Vessels */}
+          <Card 
+            className="card-premium hover:shadow-lg transition-all cursor-pointer group"
+            onClick={() => navigate('/vessels')}
+          >
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Schepen</p>
+                  <p className="text-4xl font-bold">{stats.vessels}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Geregistreerd</p>
+                </div>
+                <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <Ship className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-border/50">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Bekijk alle schepen</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Contacts */}
+          <Card 
+            className="card-premium hover:shadow-lg transition-all cursor-pointer group"
+            onClick={() => navigate('/contacts')}
+          >
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Contacten</p>
+                  <p className="text-4xl font-bold">{stats.contacts}</p>
+                  <p className="text-xs text-muted-foreground mt-1">In database</p>
+                </div>
+                <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <Users className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-border/50">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Bekijk contacten</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Inquiries by Category */}
-          <Card className="card-premium">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {t('overview.newInquiries')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Cargo Agent</span>
-                  <span className="font-semibold">{stats.cargoAgent}</span>
+        {/* FDA Overview Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* FDA Creator */}
+          <Card 
+            className="card-premium bg-gradient-to-br from-background to-muted/30 hover:shadow-lg transition-all cursor-pointer group"
+            onClick={() => navigate('/fda')}
+          >
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-6">
+                <div className="p-4 rounded-2xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <FileText className="w-8 h-8 text-primary" />
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Owners Agent</span>
-                  <span className="font-semibold">{stats.ownersAgent}</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-muted-foreground">FDA Creator</p>
+                  <p className="text-3xl font-bold mt-1">{stats.fdaCreatorCount}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Totaal projecten</p>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Out of Scope</span>
-                  <span className="font-semibold">{stats.outOfScope}</span>
-                </div>
+                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
               </div>
             </CardContent>
           </Card>
 
-          {/* Status Overview */}
-          <Card className="card-premium">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {t('overview.inquiryStatus')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="text-center p-2 rounded-lg bg-muted/50">
-                  <p className="text-2xl font-semibold">{stats.draft}</p>
-                  <p className="text-xs text-muted-foreground">{t('overview.draft')}</p>
+          {/* FDA Curacao */}
+          <Card 
+            className="card-premium bg-gradient-to-br from-background to-muted/30 hover:shadow-lg transition-all cursor-pointer group"
+            onClick={() => navigate('/fda-curacao')}
+          >
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-6">
+                <div className="p-4 rounded-2xl bg-info/10 group-hover:bg-info/20 transition-colors">
+                  <Globe className="w-8 h-8 text-info" />
                 </div>
-                <div className="text-center p-2 rounded-lg bg-info/10">
-                  <p className="text-2xl font-semibold text-info">{stats.approved}</p>
-                  <p className="text-xs text-muted-foreground">Approved</p>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-muted-foreground">FDA Curaçao</p>
+                  <p className="text-3xl font-bold mt-1">{stats.fdaCuracaoCount}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Totaal projecten</p>
                 </div>
-                <div className="text-center p-2 rounded-lg bg-success/10">
-                  <p className="text-2xl font-semibold text-success">{stats.sent}</p>
-                  <p className="text-xs text-muted-foreground">{t('overview.sent')}</p>
-                </div>
-                <div className="text-center p-2 rounded-lg bg-destructive/10">
-                  <p className="text-2xl font-semibold text-destructive">{stats.rejected}</p>
-                  <p className="text-xs text-muted-foreground">Rejected</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Stats */}
-          <Card className="card-premium">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Vessels
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <Ship className="w-10 h-10 text-primary" />
-                <div>
-                  <p className="text-3xl font-semibold">{stats.vessels}</p>
-                  <p className="text-xs text-muted-foreground">Total vessels</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-premium">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Contacts
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <Users className="w-10 h-10 text-primary" />
-                <div>
-                  <p className="text-3xl font-semibold">{stats.contacts}</p>
-                  <p className="text-xs text-muted-foreground">Total contacts</p>
-                </div>
+                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
               </div>
             </CardContent>
           </Card>
@@ -230,42 +323,44 @@ export default function Overview() {
 
         {/* Recent Emails */}
         <Card className="card-premium">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t('overview.recentInquiries')}
-            </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/inquiries')} className="gap-1 text-xs">
-              View all <ArrowRight className="w-3 h-3" />
+          <CardHeader className="flex flex-row items-center justify-between pb-4">
+            <div>
+              <CardTitle className="text-lg font-semibold">Recente Aanvragen</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Laatste activiteit in AI Aanvragen</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate('/inquiries')} className="gap-2">
+              Bekijk alles <ArrowRight className="w-4 h-4" />
             </Button>
           </CardHeader>
           <CardContent>
             {recentEmails.length === 0 ? (
-              <div className="text-center p-8 text-muted-foreground">
-                No emails yet
+              <div className="text-center py-12 text-muted-foreground">
+                <Mail className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>Nog geen emails</p>
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {recentEmails.map((email) => (
                   <div
                     key={email.id}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    className="flex items-center justify-between p-4 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer border border-transparent hover:border-border/50"
                     onClick={() => navigate('/inquiries')}
                   >
                     <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className={`p-2 rounded-lg ${getStatusBadgeClass(email.status)}`}>
+                      <div className={`p-2.5 rounded-xl ${getStatusBadgeClass(email.status)}`}>
                         {getStatusIcon(email.status)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{email.subject || 'No subject'}</p>
-                        <p className="text-xs text-muted-foreground">{email.email_to_person}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{email.email_to_person}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge className={getStatusBadgeClass(email.status)} variant="secondary">
+                    <div className="text-right flex items-center gap-4">
+                      <Badge className={`${getStatusBadgeClass(email.status)} font-medium`} variant="secondary">
                         {email.status}
                       </Badge>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(email.created_at).toLocaleDateString()}
+                      <p className="text-xs text-muted-foreground min-w-[80px]">
+                        {new Date(email.created_at).toLocaleDateString('nl-NL')}
                       </p>
                     </div>
                   </div>
