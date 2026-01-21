@@ -94,9 +94,6 @@ export default function Settings() {
         if (data.language) {
           setLanguage(data.language as Language);
         }
-        if (data.office) {
-          setOffice(data.office);
-        }
       }
     }
     setLoading(false);
@@ -121,7 +118,6 @@ export default function Settings() {
       company: profile.company,
       avatar_url: profile.avatar_url,
       language,
-      office,
     });
 
     if (error) {
