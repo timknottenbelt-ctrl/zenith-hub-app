@@ -303,13 +303,14 @@ export default function FDACuracao() {
   }
 
   async function fetchProjectInvoices(projectId: string) {
-    // Use project_id (UUID string from fda_curacao_projects)
+    console.log("Fetching invoices for project_id:", projectId);
     const { data, error } = await supabase
       .from("fda_curacao_processed_invoices")
       .select("*")
       .eq("project_id", projectId)
       .order("created_at", { ascending: true });
 
+    console.log("Fetched invoices:", data, "Error:", error);
     if (error) {
       console.error("Error fetching invoices:", error);
     }
