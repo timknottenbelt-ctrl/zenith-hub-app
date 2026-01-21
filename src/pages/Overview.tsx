@@ -168,7 +168,7 @@ export default function Overview() {
     <DashboardLayout title={t('overview.title')}>
       <div className="space-y-8">
         {/* Hero Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Nieuwe Aanvragen - Clickable */}
           <Card 
             className="card-premium bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 hover:shadow-lg transition-all cursor-pointer group"
@@ -222,56 +222,6 @@ export default function Overview() {
                 <div className="flex items-center justify-between p-2 rounded-lg bg-destructive/5 hover:bg-destructive/10 transition-colors cursor-pointer" onClick={() => navigate('/inquiries')}>
                   <span className="text-sm font-medium">Rejected</span>
                   <Badge variant="secondary" className="bg-destructive/10 text-destructive font-semibold">{stats.rejected}</Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Vessels */}
-          <Card 
-            className="card-premium hover:shadow-lg transition-all cursor-pointer group"
-            onClick={() => navigate('/vessels')}
-          >
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Schepen</p>
-                  <p className="text-4xl font-bold">{stats.vessels}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Geregistreerd</p>
-                </div>
-                <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                  <Ship className="w-6 h-6 text-primary" />
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-border/50">
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>Bekijk alle schepen</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Contacts */}
-          <Card 
-            className="card-premium hover:shadow-lg transition-all cursor-pointer group"
-            onClick={() => navigate('/contacts')}
-          >
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Contacten</p>
-                  <p className="text-4xl font-bold">{stats.contacts}</p>
-                  <p className="text-xs text-muted-foreground mt-1">In database</p>
-                </div>
-                <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                  <Users className="w-6 h-6 text-primary" />
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-border/50">
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>Bekijk contacten</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
             </CardContent>
