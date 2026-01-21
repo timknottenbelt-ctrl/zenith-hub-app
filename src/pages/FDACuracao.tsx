@@ -140,6 +140,7 @@ interface CuracaoInvoiceRowProps {
 
 function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }: CuracaoInvoiceRowProps) {
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoice_number || String(index + 1).padStart(3, "0"));
+  const [showPdfDialog, setShowPdfDialog] = useState(false);
 
   const handleSaveNumber = () => {
     if (invoiceNumber !== invoice.invoice_number) {
@@ -147,69 +148,98 @@ function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNu
     }
   };
 
-  const handleViewPdf = () => {
-    if (invoice.file_url) {
-      window.open(invoice.file_url, "_blank");
-    }
-  };
-
   return (
-    <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
-      {/* File Name - First */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <CheckCircle className="w-4 h-4 text-success shrink-0" />
-        <span className="text-sm truncate">{invoice.file_name}</span>
-        {invoice.supplier_name && (
-          <span className="text-xs text-muted-foreground">({invoice.supplier_name})</span>
-        )}
-      </div>
-
-      {/* Amount */}
-      {invoice.total_amount && (
-        <div className="text-sm font-medium shrink-0">
-          {invoice.currency || 'USD'} {invoice.total_amount.toLocaleString()}
+    <>
+      <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+        {/* File Name - First */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <CheckCircle className="w-4 h-4 text-success shrink-0" />
+          <span className="text-sm truncate">{invoice.file_name}</span>
+          {invoice.supplier_name && (
+            <span className="text-xs text-muted-foreground">({invoice.supplier_name})</span>
+          )}
         </div>
-      )}
 
-      {/* Invoice Number - Always editable input */}
-      <div className="flex items-center gap-2 shrink-0">
-        <span className="text-xs text-muted-foreground">Nr:</span>
-        <Input
-          value={invoiceNumber}
-          onChange={(e) => setInvoiceNumber(e.target.value)}
-          onBlur={handleSaveNumber}
-          className="w-20 h-8 text-sm font-normal"
-          placeholder="001"
-          disabled={isSent}
-        />
+        {/* Amount */}
+        {invoice.total_amount && (
+          <div className="text-sm font-medium shrink-0">
+            {invoice.currency || 'USD'} {invoice.total_amount.toLocaleString()}
+          </div>
+        )}
+
+        {/* Invoice Number - Always editable input */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-muted-foreground">Nr:</span>
+          <Input
+            value={invoiceNumber}
+            onChange={(e) => setInvoiceNumber(e.target.value)}
+            onBlur={handleSaveNumber}
+            className="w-20 h-8 text-sm font-normal"
+            placeholder="001"
+            disabled={isSent}
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1 shrink-0">
+          {invoice.file_url && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowPdfDialog(true)}
+              title="View PDF"
+            >
+              <Eye className="w-4 h-4" />
+            </Button>
+          )}
+          {invoice.file_url && (
+            <a href={invoice.file_url} download={invoice.file_name} target="_blank" rel="noopener noreferrer">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                title="Download PDF"
+              >
+                <Download className="w-4 h-4" />
+              </Button>
+            </a>
+          )}
+          {!isSent && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={() => onDelete(invoice)}
+              title="Delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 shrink-0">
-        {invoice.file_url && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={handleViewPdf}
-            title="View PDF"
-          >
-            <Eye className="w-4 h-4" />
-          </Button>
-        )}
-        {!isSent && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            onClick={() => onDelete(invoice)}
-            title="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        )}
-      </div>
-    </div>
+      {/* PDF Preview Dialog */}
+      <Dialog open={showPdfDialog} onOpenChange={setShowPdfDialog}>
+        <DialogContent className="max-w-4xl h-[85vh] p-0">
+          <DialogHeader className="p-4 pb-2">
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              {invoice.file_name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 px-4 pb-4 h-full">
+            {invoice.file_url && (
+              <iframe
+                src={invoice.file_url}
+                className="w-full h-full rounded-lg border"
+                title={invoice.file_name}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
