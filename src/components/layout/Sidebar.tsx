@@ -68,10 +68,13 @@ export const Sidebar = memo(function Sidebar() {
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
+          // Use exact matching for routes that have child routes
+          const needsExactMatch = item.path === '/inquiries' || item.path === '/fda';
           return (
             <NavLink
               key={item.key}
               to={item.path}
+              end={needsExactMatch}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-75 ease-out',
