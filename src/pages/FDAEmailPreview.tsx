@@ -91,6 +91,7 @@ export default function FDAEmailPreview() {
   const [project, setProject] = useState<FDAProject | null>(null);
   const [emailDraft, setEmailDraft] = useState<FDAEmailDraft | null>(null);
   const [loading, setLoading] = useState(true);
+  const [waitingForDraft, setWaitingForDraft] = useState(true);
   const [sending, setSending] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -165,6 +166,7 @@ export default function FDAEmailPreview() {
     if (draftData && !draftError) {
       // Use draft data from n8n
       setEmailDraft(draftData);
+      setWaitingForDraft(false);
       
       // Parse TO emails (can be comma-separated)
       const toList = draftData.email_to.split(",").map(e => e.trim()).filter(e => e);
@@ -178,37 +180,8 @@ export default function FDAEmailPreview() {
       
       setSubject(draftData.email_subject);
       setBody(draftData.email_body);
-    } else {
-      // Fallback to project data if no draft exists
-      if (projectData.client_email) {
-        setToEmails([projectData.client_email]);
-      }
-      if (projectData.billing_email) {
-        setCcEmails([projectData.billing_email]);
-      }
-      if (projectData.email_subject) {
-        setSubject(projectData.email_subject);
-      } else {
-        setSubject(`FDA Invoices - ${projectData.lbh_number} - ${projectData.ship_name}`);
-      }
-      if (projectData.email_body) {
-        setBody(projectData.email_body);
-      } else {
-        const defaultBody = `Dear ${projectData.client_name || "Client"},
-
-Please find attached the invoices for project ${projectData.lbh_number} - ${projectData.ship_name}.
-
-Total number of invoices: ${projectData.total_invoices || "N/A"}
-Total amount: ${projectData.total_amount ? `USD ${projectData.total_amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "N/A"}
-
-You can download the complete FDA package via the attachment.
-
-Best regards,
-${projectData.fda_responsible || "LBH Team"}
-LBH Curaçao`;
-        setBody(defaultBody);
-      }
     }
+    // Don't set fallback data - wait for the real draft from n8n
   }, [projectId, navigate]);
 
   // Initial load and polling for PDF
@@ -248,6 +221,7 @@ LBH Curaçao`;
 
         if (draftData) {
           setEmailDraft(draftData);
+          setWaitingForDraft(false);
 
           const toList = (draftData.email_to || "")
             .split(",")
@@ -515,6 +489,55 @@ LBH Curaçao`;
     );
   }
 
+  // Show waiting screen while email draft is being generated
+  if (waitingForDraft && !emailDraft) {
+    return (
+      <DashboardLayout title="FDA Email">
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/fda-front-page/${projectId}`)}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <Mail className="w-6 h-6" />
+                FDA Email
+              </h1>
+              <p className="text-muted-foreground">
+                {project.lbh_number} - {project.ship_name}
+              </p>
+            </div>
+          </div>
+
+          {/* Loading Card */}
+          <Card className="border-primary/50 bg-primary/5">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center justify-center gap-4">
+                <div className="relative">
+                  <div className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
+                  <div className="relative bg-primary rounded-full p-4">
+                    <Sparkles className="w-8 h-8 text-primary-foreground animate-pulse" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold">Email wordt gegenereerd...</h3>
+                  <p className="text-muted-foreground text-sm mt-1">
+                    De PDF wordt samengevoegd en de email wordt voorbereid.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Bezig met verwerken...</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout title="FDA Email">
       <div className="space-y-6 pb-24">
@@ -534,13 +557,6 @@ LBH Curaçao`;
           </div>
         </div>
 
-        {!emailDraft && (
-          <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground animate-fade-in">
-            <Sparkles className="h-4 w-4" />
-            AI is de email aan het genereren… (je kunt alvast alles aanpassen)
-            <span className="ml-auto inline-flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-          </div>
-        )}
 
         {/* Recipients Section */}
         <Card className="card-premium">
