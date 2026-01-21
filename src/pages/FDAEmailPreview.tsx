@@ -172,11 +172,8 @@ export default function FDAEmailPreview() {
       const toList = draftData.email_to.split(",").map(e => e.trim()).filter(e => e);
       setToEmails(toList);
       
-      // Parse CC emails (can be comma-separated)
-      if (draftData.email_cc) {
-        const ccList = draftData.email_cc.split(",").map(e => e.trim()).filter(e => e);
-        setCcEmails(ccList);
-      }
+      // CC is intentionally left empty - user can add their own
+      setCcEmails([]);
       
       setSubject(draftData.email_subject);
       setBody(draftData.email_body);
@@ -229,11 +226,8 @@ export default function FDAEmailPreview() {
             .filter(Boolean);
           setToEmails(toList);
 
-          const ccList = (draftData.email_cc || "")
-            .split(",")
-            .map((e) => e.trim())
-            .filter(Boolean);
-          setCcEmails(ccList);
+          // CC is intentionally left empty - user can add their own
+          setCcEmails([]);
 
           setSubject(draftData.email_subject || "");
           setBody(draftData.email_body || "");
