@@ -29,9 +29,12 @@ export default function Overview() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    // New Inquiries
-    totalReady: 0,
+    // New Inquiries by type
+    cargoAgent: 0,
+    ownersAgent: 0,
+    outOfScope: 0,
     incomplete: 0,
+    totalReady: 0,
     // Sent stats
     pdaSent: 0,
     fdaSent: 0,
@@ -96,13 +99,19 @@ export default function Overview() {
     const fdaSentCount = fdaSentDrafts.filter(d => !curacaoProjectIds.has(d.project_id)).length;
 
     if (emails) {
-      // Total ready = all draft emails (ready for review)
-      const totalReady = emails.filter(e => e.status === 'draft').length;
+      // Filter draft emails by type
+      const draftEmails = emails.filter(e => e.status === 'draft');
+      const cargoAgent = draftEmails.filter(e => e['Email Type'] === 'Cargo Agent').length;
+      const ownersAgent = draftEmails.filter(e => e['Email Type'] === 'Owners Agent').length;
+      const outOfScope = draftEmails.filter(e => e['Email Type'] === 'Out of Scope').length;
       
       // Incomplete = has missing_information or Email Type is INCOMPLETE
       const incomplete = emails.filter(e => 
         e.missing_information || e['Email Type'] === 'INCOMPLETE'
       ).length;
+      
+      // Total ready = all draft emails (ready for review)
+      const totalReady = draftEmails.length;
       
       // PDA sent
       const pdaSent = emails.filter(e => e.status === 'sent').length;
@@ -111,8 +120,11 @@ export default function Overview() {
       const rejected = emails.filter(e => e.status === 'rejected').length;
 
       setStats({
-        totalReady,
+        cargoAgent,
+        ownersAgent,
+        outOfScope,
         incomplete,
+        totalReady,
         pdaSent,
         fdaSent: fdaSentCount,
         fdaCwSent: fdaCwSentCount,
@@ -175,7 +187,7 @@ export default function Overview() {
             onClick={() => navigate('/inquiries')}
           >
             <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between mb-4">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Nieuwe Aanvragen</p>
                   <p className="text-4xl font-bold text-primary">{stats.totalReady}</p>
@@ -185,7 +197,24 @@ export default function Overview() {
                   <Inbox className="w-6 h-6 text-primary" />
                 </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-primary/10">
+              
+              {/* Breakdown by type */}
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center justify-between p-2 rounded-lg bg-background/50">
+                  <span className="text-sm">Cargo Agent</span>
+                  <Badge variant="secondary" className="font-semibold">{stats.cargoAgent}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg bg-background/50">
+                  <span className="text-sm">Owners Agent</span>
+                  <Badge variant="secondary" className="font-semibold">{stats.ownersAgent}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg bg-background/50">
+                  <span className="text-sm">Out of Scope</span>
+                  <Badge variant="secondary" className="font-semibold">{stats.outOfScope}</Badge>
+                </div>
+              </div>
+              
+              <div className="pt-3 border-t border-primary/10">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-warning">
                     <AlertCircle className="w-4 h-4" />
