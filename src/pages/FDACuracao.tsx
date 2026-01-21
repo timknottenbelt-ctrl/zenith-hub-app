@@ -76,14 +76,24 @@ interface FDAProject {
   final_pdf_url?: string | null;
 }
 
-interface FDAInvoice {
+interface FDACuracaoInvoice {
   id: string;
-  fda_project_id: string;
-  file_path: string;
+  project_id: string;
+  lbh_number: string;
+  ship_name: string;
+  invoice_number: string;
   file_name: string;
-  file_size: number | null;
-  created_at: string;
-  invoice_number: string | null;
+  file_url: string | null;
+  supplier_name: string | null;
+  description: string | null;
+  total_amount: number | null;
+  currency: string | null;
+  invoice_date: string | null;
+  due_date: string | null;
+  remark: string | null;
+  processed_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 interface FDAFormData {
@@ -111,18 +121,17 @@ interface FDAFormData {
   advanced_payment_remark: string;
 }
 
-// Invoice Row Component
-interface InvoiceRowProps {
-  invoice: FDAInvoice;
+// Invoice Row Component for Curacao
+interface CuracaoInvoiceRowProps {
+  invoice: FDACuracaoInvoice;
   index: number;
   isSent: boolean;
-  onDelete: (invoice: FDAInvoice) => void;
+  onDelete: (invoice: FDACuracaoInvoice) => void;
   onUpdateInvoiceNumber: (invoiceId: string, invoiceNumber: string) => void;
 }
 
-function InvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }: InvoiceRowProps) {
+function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }: CuracaoInvoiceRowProps) {
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoice_number || String(index + 1).padStart(3, "0"));
-  const [loadingUrl, setLoadingUrl] = useState(false);
 
   const handleSaveNumber = () => {
     if (invoiceNumber !== invoice.invoice_number) {
@@ -130,24 +139,9 @@ function InvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }:
     }
   };
 
-  const handleViewPdf = async () => {
-    setLoadingUrl(true);
-    const { data } = await supabase.storage.from("fda-invoices").createSignedUrl(invoice.file_path, 3600);
-    setLoadingUrl(false);
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, "_blank");
-    }
-  };
-
-  const handleDownloadPdf = async () => {
-    setLoadingUrl(true);
-    const { data } = await supabase.storage.from("fda-invoices").createSignedUrl(invoice.file_path, 3600);
-    setLoadingUrl(false);
-    if (data?.signedUrl) {
-      const link = document.createElement("a");
-      link.href = data.signedUrl;
-      link.download = invoice.file_name;
-      link.click();
+  const handleViewPdf = () => {
+    if (invoice.file_url) {
+      window.open(invoice.file_url, "_blank");
     }
   };
 
@@ -157,7 +151,17 @@ function InvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }:
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <CheckCircle className="w-4 h-4 text-success shrink-0" />
         <span className="text-sm truncate">{invoice.file_name}</span>
+        {invoice.supplier_name && (
+          <span className="text-xs text-muted-foreground">({invoice.supplier_name})</span>
+        )}
       </div>
+
+      {/* Amount */}
+      {invoice.total_amount && (
+        <div className="text-sm font-medium shrink-0">
+          {invoice.currency || 'USD'} {invoice.total_amount.toLocaleString()}
+        </div>
+      )}
 
       {/* Invoice Number - Always editable input */}
       <div className="flex items-center gap-2 shrink-0">
@@ -174,26 +178,17 @@ function InvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }:
 
       {/* Actions */}
       <div className="flex items-center gap-1 shrink-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={handleViewPdf}
-          disabled={loadingUrl}
-          title="View PDF"
-        >
-          {loadingUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={handleDownloadPdf}
-          disabled={loadingUrl}
-          title="Download PDF"
-        >
-          <Download className="w-4 h-4" />
-        </Button>
+        {invoice.file_url && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleViewPdf}
+            title="View PDF"
+          >
+            <Eye className="w-4 h-4" />
+          </Button>
+        )}
         {!isSent && (
           <Button
             variant="ghost"
@@ -218,7 +213,7 @@ export default function FDACuracao() {
   const [projects, setProjects] = useState<FDAProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<FDAProject | null>(null);
-  const [projectInvoices, setProjectInvoices] = useState<FDAInvoice[]>([]);
+  const [projectInvoices, setProjectInvoices] = useState<FDACuracaoInvoice[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
@@ -281,7 +276,7 @@ export default function FDACuracao() {
 
   async function fetchProjects() {
     setLoading(true);
-    const { data, error } = await supabase.from("fda_projects").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("fda_curacao_projects").select("*").order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching projects:", error);
@@ -293,9 +288,9 @@ export default function FDACuracao() {
 
   async function fetchProjectInvoices(projectId: string) {
     const { data } = await supabase
-      .from("fda_invoices")
+      .from("fda_curacao_processed_invoices")
       .select("*")
-      .eq("fda_project_id", projectId)
+      .eq("project_id", projectId)
       .order("created_at", { ascending: true });
 
     setProjectInvoices(data || []);
@@ -313,7 +308,7 @@ export default function FDACuracao() {
 
     setSaving(true);
     const { data, error } = await supabase
-      .from("fda_projects")
+      .from("fda_curacao_projects")
       .insert({
         project_id: crypto.randomUUID(),
         lbh_number: formData.lbh_number,
@@ -359,7 +354,7 @@ export default function FDACuracao() {
 
     setSaving(true);
     const { error } = await supabase
-      .from("fda_projects")
+      .from("fda_curacao_projects")
       .update({
         lbh_number: formData.lbh_number,
         ship_name: formData.ship_name,
@@ -394,7 +389,7 @@ export default function FDACuracao() {
   }
 
   async function handleDeleteProject(id: string) {
-    const { error } = await supabase.from("fda_projects").delete().eq("id", id);
+    const { error } = await supabase.from("fda_curacao_projects").delete().eq("id", id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
@@ -449,17 +444,16 @@ export default function FDACuracao() {
     e.target.value = "";
   }
 
-  async function handleDeleteInvoice(invoice: FDAInvoice) {
-    await supabase.storage.from("fda-invoices").remove([invoice.file_path]);
-    await supabase.from("fda_invoices").delete().eq("id", invoice.id);
+  async function handleDeleteInvoice(invoice: FDACuracaoInvoice) {
+    await supabase.from("fda_curacao_processed_invoices").delete().eq("id", invoice.id);
     if (selectedProject) {
       await fetchProjectInvoices(selectedProject.id);
     }
-    toast({ title: "Success", description: "File deleted" });
+    toast({ title: "Success", description: "Invoice deleted" });
   }
 
   async function handleUpdateInvoiceNumber(invoiceId: string, invoiceNumber: string) {
-    const { error } = await supabase.from("fda_invoices").update({ invoice_number: invoiceNumber }).eq("id", invoiceId);
+    const { error } = await supabase.from("fda_curacao_processed_invoices").update({ invoice_number: invoiceNumber }).eq("id", invoiceId);
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -482,9 +476,8 @@ export default function FDACuracao() {
     try {
       const fileUrls: string[] = [];
       for (const invoice of projectInvoices) {
-        const { data } = await supabase.storage.from("fda-invoices").createSignedUrl(invoice.file_path, 86400);
-        if (data?.signedUrl) {
-          fileUrls.push(data.signedUrl);
+        if (invoice.file_url) {
+          fileUrls.push(invoice.file_url);
         }
       }
 
@@ -1014,7 +1007,7 @@ export default function FDACuracao() {
               ) : (
                 <div className="space-y-2">
                   {projectInvoices.map((invoice, index) => (
-                    <InvoiceRow
+                    <CuracaoInvoiceRow
                       key={invoice.id}
                       invoice={invoice}
                       index={index}

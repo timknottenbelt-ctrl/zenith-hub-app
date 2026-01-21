@@ -315,6 +315,191 @@ export type Database = {
         }
         Relationships: []
       }
+      fda_curacao_processed_invoices: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          due_date: string | null
+          file_name: string
+          file_url: string | null
+          id: string
+          invoice_date: string | null
+          invoice_number: string
+          lbh_number: string
+          processed_at: string | null
+          project_id: string
+          remark: string | null
+          ship_name: string
+          supplier_name: string | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          due_date?: string | null
+          file_name: string
+          file_url?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number: string
+          lbh_number: string
+          processed_at?: string | null
+          project_id: string
+          remark?: string | null
+          ship_name: string
+          supplier_name?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          due_date?: string | null
+          file_name?: string
+          file_url?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string
+          lbh_number?: string
+          processed_at?: string | null
+          project_id?: string
+          remark?: string | null
+          ship_name?: string
+          supplier_name?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fda_curacao_processed_invoices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "fda_curacao_projects"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      fda_curacao_projects: {
+        Row: {
+          advanced_payment_amount: number | null
+          advanced_payment_currency: string | null
+          advanced_payment_reference: string | null
+          advanced_payment_remark: string | null
+          advanced_payment_status: string | null
+          agency_cost_url: string | null
+          billing_address: string | null
+          billing_company: string | null
+          billing_email: string | null
+          billing_phone: string | null
+          client_email: string | null
+          client_name: string | null
+          client_phone: string | null
+          client_reference: string | null
+          commodity: string | null
+          created_at: string | null
+          email_body: string | null
+          email_sent_at: string | null
+          email_subject: string | null
+          fda_responsible: string | null
+          final_pdf_url: string | null
+          front_page_url: string | null
+          google_sheet_id: string | null
+          google_sheet_url: string | null
+          id: string
+          lbh_number: string
+          operation: string | null
+          processed_at: string | null
+          project_id: string
+          ship_name: string
+          status: string | null
+          total_amount: number | null
+          total_invoices: number | null
+          updated_at: string | null
+          vessel_arrived: string | null
+          vessel_sailed: string | null
+        }
+        Insert: {
+          advanced_payment_amount?: number | null
+          advanced_payment_currency?: string | null
+          advanced_payment_reference?: string | null
+          advanced_payment_remark?: string | null
+          advanced_payment_status?: string | null
+          agency_cost_url?: string | null
+          billing_address?: string | null
+          billing_company?: string | null
+          billing_email?: string | null
+          billing_phone?: string | null
+          client_email?: string | null
+          client_name?: string | null
+          client_phone?: string | null
+          client_reference?: string | null
+          commodity?: string | null
+          created_at?: string | null
+          email_body?: string | null
+          email_sent_at?: string | null
+          email_subject?: string | null
+          fda_responsible?: string | null
+          final_pdf_url?: string | null
+          front_page_url?: string | null
+          google_sheet_id?: string | null
+          google_sheet_url?: string | null
+          id?: string
+          lbh_number: string
+          operation?: string | null
+          processed_at?: string | null
+          project_id: string
+          ship_name: string
+          status?: string | null
+          total_amount?: number | null
+          total_invoices?: number | null
+          updated_at?: string | null
+          vessel_arrived?: string | null
+          vessel_sailed?: string | null
+        }
+        Update: {
+          advanced_payment_amount?: number | null
+          advanced_payment_currency?: string | null
+          advanced_payment_reference?: string | null
+          advanced_payment_remark?: string | null
+          advanced_payment_status?: string | null
+          agency_cost_url?: string | null
+          billing_address?: string | null
+          billing_company?: string | null
+          billing_email?: string | null
+          billing_phone?: string | null
+          client_email?: string | null
+          client_name?: string | null
+          client_phone?: string | null
+          client_reference?: string | null
+          commodity?: string | null
+          created_at?: string | null
+          email_body?: string | null
+          email_sent_at?: string | null
+          email_subject?: string | null
+          fda_responsible?: string | null
+          final_pdf_url?: string | null
+          front_page_url?: string | null
+          google_sheet_id?: string | null
+          google_sheet_url?: string | null
+          id?: string
+          lbh_number?: string
+          operation?: string | null
+          processed_at?: string | null
+          project_id?: string
+          ship_name?: string
+          status?: string | null
+          total_amount?: number | null
+          total_invoices?: number | null
+          updated_at?: string | null
+          vessel_arrived?: string | null
+          vessel_sailed?: string | null
+        }
+        Relationships: []
+      }
       fda_email_drafts: {
         Row: {
           attachment_name: string
