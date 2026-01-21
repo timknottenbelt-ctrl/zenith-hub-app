@@ -1338,16 +1338,21 @@ export default function FDACuracao() {
               {/* Uploaded invoices list */}
               {projectInvoices.length > 0 && (
                 <div className="space-y-2">
-                  {projectInvoices.map((invoice, index) => (
-                    <CuracaoInvoiceRow
-                      key={invoice.id}
-                      invoice={invoice}
-                      index={index}
-                      isSent={selectedProject.status === "sent"}
-                      onDelete={handleDeleteInvoice}
-                      onUpdateInvoiceNumber={handleUpdateInvoiceNumber}
-                    />
-                  ))}
+                  {/* Filter out duplicates by file_name - only show unique files */}
+                  {projectInvoices
+                    .filter((invoice, index, self) => 
+                      index === self.findIndex(i => i.file_name === invoice.file_name)
+                    )
+                    .map((invoice, index) => (
+                      <CuracaoInvoiceRow
+                        key={invoice.id}
+                        invoice={invoice}
+                        index={index}
+                        isSent={selectedProject.status === "sent"}
+                        onDelete={handleDeleteInvoice}
+                        onUpdateInvoiceNumber={handleUpdateInvoiceNumber}
+                      />
+                    ))}
                 </div>
               )}
             </CardContent>
@@ -1400,7 +1405,7 @@ export default function FDACuracao() {
             <p className="text-muted-foreground">Manage your FDA Curacao projects</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="lg" className="gap-2" onClick={() => navigate("/fda/history")}>
+            <Button variant="outline" size="lg" className="gap-2" onClick={() => navigate("/fda-curacao/history")}>
               <History className="w-4 h-4" />
               Email History
             </Button>

@@ -15,6 +15,7 @@ const SentPDAs = lazy(() => import("./pages/SentPDAs"));
 const FDACreator = lazy(() => import("./pages/FDACreator"));
 const FDACuracao = lazy(() => import("./pages/FDACuracao"));
 const FDAEmailHistory = lazy(() => import("./pages/FDAEmailHistory"));
+const FDACuracaoHistory = lazy(() => import("./pages/FDACuracaoHistory"));
 const FDAPreview = lazy(() => import("./pages/FDAPreview"));
 const FDAFrontPage = lazy(() => import("./pages/FDAFrontPage"));
 const FDAEmailPreview = lazy(() => import("./pages/FDAEmailPreview"));
@@ -61,11 +62,12 @@ const App = () => {
                   <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
                   <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
                   <Route path="/fda-curacao" element={<ProtectedRoute><FDACuracao /></ProtectedRoute>} />
+                  <Route path="/fda-curacao/history" element={<ProtectedRoute><FDACuracaoHistory /></ProtectedRoute>} />
+                  <Route path="/fda-curacao/email/:projectId" element={<ProtectedRoute><FDACuracaoEmail /></ProtectedRoute>} />
                   <Route path="/fda/history" element={<ProtectedRoute><FDAEmailHistory /></ProtectedRoute>} />
                   <Route path="/fda-preview/:projectId" element={<ProtectedRoute><FDAPreview /></ProtectedRoute>} />
                   <Route path="/fda-front-page/:projectId" element={<ProtectedRoute><FDAFrontPage /></ProtectedRoute>} />
                   <Route path="/fda/email/:projectId" element={<ProtectedRoute><FDAEmailPreview /></ProtectedRoute>} />
-                  <Route path="/fda-curacao/email/:projectId" element={<ProtectedRoute><FDACuracaoEmail /></ProtectedRoute>} />
                   <Route path="/knowledge" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
                   <Route path="/vessels" element={<ProtectedRoute><Vessels /></ProtectedRoute>} />
                   <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
