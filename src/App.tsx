@@ -13,6 +13,7 @@ const AIInquiries = lazy(() => import("./pages/AIInquiries"));
 const ManualEmails = lazy(() => import("./pages/ManualEmails"));
 const SentPDAs = lazy(() => import("./pages/SentPDAs"));
 const FDACreator = lazy(() => import("./pages/FDACreator"));
+const FDACuracao = lazy(() => import("./pages/FDACuracao"));
 const FDAEmailHistory = lazy(() => import("./pages/FDAEmailHistory"));
 const FDAPreview = lazy(() => import("./pages/FDAPreview"));
 const FDAFrontPage = lazy(() => import("./pages/FDAFrontPage"));
@@ -58,6 +59,7 @@ const App = () => {
                   <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
                   <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
                   <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
+                  <Route path="/fda-curacao" element={<ProtectedRoute><FDACuracao /></ProtectedRoute>} />
                   <Route path="/fda/history" element={<ProtectedRoute><FDAEmailHistory /></ProtectedRoute>} />
                   <Route path="/fda-preview/:projectId" element={<ProtectedRoute><FDAPreview /></ProtectedRoute>} />
                   <Route path="/fda-front-page/:projectId" element={<ProtectedRoute><FDAFrontPage /></ProtectedRoute>} />
