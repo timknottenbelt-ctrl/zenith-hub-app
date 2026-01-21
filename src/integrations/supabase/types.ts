@@ -401,6 +401,7 @@ export type Database = {
           client_reference: string | null
           commodity: string | null
           created_at: string | null
+          drive_folder_url: string | null
           email_body: string | null
           email_sent_at: string | null
           email_subject: string | null
@@ -414,6 +415,7 @@ export type Database = {
           operation: string | null
           processed_at: string | null
           project_id: string
+          sent_at: string | null
           ship_name: string
           status: string | null
           total_amount: number | null
@@ -439,6 +441,7 @@ export type Database = {
           client_reference?: string | null
           commodity?: string | null
           created_at?: string | null
+          drive_folder_url?: string | null
           email_body?: string | null
           email_sent_at?: string | null
           email_subject?: string | null
@@ -452,6 +455,7 @@ export type Database = {
           operation?: string | null
           processed_at?: string | null
           project_id: string
+          sent_at?: string | null
           ship_name: string
           status?: string | null
           total_amount?: number | null
@@ -477,6 +481,7 @@ export type Database = {
           client_reference?: string | null
           commodity?: string | null
           created_at?: string | null
+          drive_folder_url?: string | null
           email_body?: string | null
           email_sent_at?: string | null
           email_subject?: string | null
@@ -490,6 +495,7 @@ export type Database = {
           operation?: string | null
           processed_at?: string | null
           project_id?: string
+          sent_at?: string | null
           ship_name?: string
           status?: string | null
           total_amount?: number | null
