@@ -99,15 +99,24 @@ export default function Overview() {
     const fdaSentCount = fdaSentDrafts.filter(d => !curacaoProjectIds.has(d.project_id)).length;
 
     if (emails) {
-      // Filter draft emails by type
+      // Filter draft emails by type (case-insensitive matching)
       const draftEmails = emails.filter(e => e.status === 'draft');
-      const cargoAgent = draftEmails.filter(e => e['Email Type'] === 'Cargo Agent').length;
-      const ownersAgent = draftEmails.filter(e => e['Email Type'] === 'Owners Agent').length;
-      const outOfScope = draftEmails.filter(e => e['Email Type'] === 'Out of Scope').length;
+      const cargoAgent = draftEmails.filter(e => 
+        e['Email Type']?.toUpperCase().includes('CARGO')
+      ).length;
+      const ownersAgent = draftEmails.filter(e => 
+        e['Email Type']?.toUpperCase().includes('OWNER')
+      ).length;
+      const outOfScope = draftEmails.filter(e => 
+        e['Email Type']?.toUpperCase().includes('OUT OF SCOPE') || 
+        e['Email Type']?.toUpperCase().includes('OUT_OF_SCOPE')
+      ).length;
       
-      // Incomplete = has missing_information or Email Type is INCOMPLETE
+      // Incomplete = has missing_information or Email Type contains INCOMPLETE or pending_info
       const incomplete = emails.filter(e => 
-        e.missing_information || e['Email Type'] === 'INCOMPLETE'
+        e.missing_information || 
+        e['Email Type']?.toUpperCase().includes('INCOMPLETE') ||
+        e['Email Type']?.toLowerCase().includes('pending_info')
       ).length;
       
       // Total ready = all draft emails (ready for review)
