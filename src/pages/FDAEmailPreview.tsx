@@ -402,13 +402,17 @@ export default function FDAEmailPreview() {
     setSending(true);
 
     try {
+      const mainPdfUrl = emailDraft?.attachment_url || project?.final_pdf_url || "";
+      const mainPdfName = emailDraft?.attachment_name || getFilenameFromUrl(mainPdfUrl);
+      
       const payload = {
         project_id: projectId,
         email_to: toEmails.join(","),
         email_cc: ccEmails.join(","),
         email_subject: subject,
         email_body: body,
-        attachment_url: emailDraft?.attachment_url || project?.final_pdf_url || "",
+        attachment_url: mainPdfUrl,
+        attachment_name: mainPdfName,
         extra_attachments: extraAttachments.map((a) => a.url),
       };
 
