@@ -5,6 +5,7 @@ export const translations: Record<Language, Record<string, string>> = {
     // Navigation
     'nav.overview': 'Overview',
     'nav.aiInquiries': 'AI Inquiries',
+    'nav.sentPDAs': 'Sent PDAs',
     'nav.fdaCreator': 'FDA Creator',
     'nav.knowledgeBase': 'Knowledge Base',
     'nav.vessels': 'Vessels',
@@ -137,6 +138,7 @@ export const translations: Record<Language, Record<string, string>> = {
     // Navigation
     'nav.overview': 'Overzicht',
     'nav.aiInquiries': 'AI Aanvragen',
+    'nav.sentPDAs': 'Sent PDAs',
     'nav.fdaCreator': 'FDA Creator',
     'nav.knowledgeBase': 'Kennisbank',
     'nav.vessels': 'Schepen',
@@ -269,6 +271,7 @@ export const translations: Record<Language, Record<string, string>> = {
     // Navigation
     'nav.overview': 'Resumen',
     'nav.aiInquiries': 'Consultas AI',
+    'nav.sentPDAs': 'PDAs Enviados',
     'nav.fdaCreator': 'FDA Creator',
     'nav.knowledgeBase': 'Base de Conocimiento',
     'nav.vessels': 'Buques',
@@ -401,6 +404,7 @@ export const translations: Record<Language, Record<string, string>> = {
     // Navigation
     'nav.overview': 'Visão Geral',
     'nav.aiInquiries': 'Consultas AI',
+    'nav.sentPDAs': 'PDAs Enviados',
     'nav.fdaCreator': 'FDA Creator',
     'nav.knowledgeBase': 'Base de Conhecimento',
     'nav.vessels': 'Navios',

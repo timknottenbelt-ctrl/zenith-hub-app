@@ -65,10 +65,8 @@ export default function AIInquiries() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<string>('CARGO_AGENT');
   const [emails, setEmails] = useState<Email[]>([]);
-  const [sentEmails, setSentEmails] = useState<Email[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingSent, setLoadingSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [emailAttachments, setEmailAttachments] = useState<EmailAttachment[]>([]);
@@ -94,11 +92,7 @@ export default function AIInquiries() {
   }
 
   useEffect(() => {
-    if (activeTab === 'SENT_PDAS') {
-      fetchSentEmails();
-    } else {
-      fetchEmails();
-    }
+    fetchEmails();
   }, [activeTab]);
 
   useEffect(() => {
@@ -133,23 +127,6 @@ export default function AIInquiries() {
       setEmails(data || []);
     }
     setLoading(false);
-  }
-
-  async function fetchSentEmails() {
-    setLoadingSent(true);
-    
-    const { data, error } = await supabase
-      .from('email')
-      .select('*')
-      .in('status', ['approved', 'sent'])
-      .order('sent_at', { ascending: false });
-
-    if (error) {
-      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
-    } else {
-      setSentEmails(data || []);
-    }
-    setLoadingSent(false);
   }
 
   async function fetchEmailAttachments(emailId: number) {
@@ -329,196 +306,11 @@ export default function AIInquiries() {
           <TabsTrigger value="OWNERS_AGENT">{t('inquiries.ownersAgent')}</TabsTrigger>
           <TabsTrigger value="OUT_OF_SCOPE">{t('inquiries.outOfScope')}</TabsTrigger>
           <TabsTrigger value="INCOMPLETE">Incomplete</TabsTrigger>
-          <TabsTrigger value="SENT_PDAS" className="text-success">Sent PDA's</TabsTrigger>
         </TabsList>
 
 
-        {/* Sent PDA's Tab Content */}
-        <TabsContent value="SENT_PDAS" className="mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-            {/* Sent Email List */}
-            <Card className="card-premium lg:col-span-1 flex flex-col min-h-0">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-success" />
-                    Sent PDA's ({sentEmails.length})
-                  </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={fetchSentEmails}>
-                    <RefreshCw className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 min-h-0">
-                <ScrollArea className="h-[calc(100dvh-200px)]">
-                  {loadingSent ? (
-                    <div className="flex items-center justify-center p-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : sentEmails.length === 0 ? (
-                    <div className="text-center p-8 text-muted-foreground">
-                      Geen verzonden PDA's gevonden
-                    </div>
-                  ) : (
-                    <div className="divide-y">
-                      {sentEmails.map((email) => (
-                        <div
-                          key={email.id}
-                          onClick={() => setSelectedEmail(email)}
-                          className={`p-3 cursor-pointer transition-colors hover:bg-muted/50 ${
-                            selectedEmail?.id === email.id ? 'bg-success/5 border-l-2 border-success' : ''
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="text-sm font-medium line-clamp-2">{email.subject || 'No subject'}</p>
-                            <Badge className="bg-success/10 text-success text-xs shrink-0" variant="secondary">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Sent
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">{email.email_to_person}</p>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                            {email.vessel_name && (
-                              <span className="flex items-center gap-1">
-                                <Ship className="w-3 h-3" />
-                                {email.vessel_name}
-                              </span>
-                            )}
-                            {email.sent_at && (
-                              <span>Sent: {new Date(email.sent_at).toLocaleDateString()}</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
-
-            {/* Selected Email Detail - Read Only */}
-            <div className="lg:col-span-2 space-y-4">
-              {selectedEmail ? (
-                <>
-                  <Card className="card-premium">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <CardTitle className="text-lg font-semibold">{selectedEmail.subject || 'No subject'}</CardTitle>
-                          <p className="text-sm text-muted-foreground">To: {selectedEmail.email_to_person}</p>
-                        </div>
-                        <Badge className="bg-success/10 text-success" variant="secondary">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Verzonden
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {/* Quick Info Grid */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg mb-4">
-                        {selectedEmail.vessel_name && (
-                          <div className="flex items-center gap-2">
-                            <Ship className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">Vessel</p>
-                              <p className="text-sm font-medium">{selectedEmail.vessel_name}</p>
-                            </div>
-                          </div>
-                        )}
-                        {selectedEmail.port && (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">Port</p>
-                              <p className="text-sm font-medium">{selectedEmail.port}</p>
-                            </div>
-                          </div>
-                        )}
-                        {selectedEmail.eta && (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">ETA</p>
-                              <p className="text-sm font-medium">{selectedEmail.eta}</p>
-                            </div>
-                          </div>
-                        )}
-                        {selectedEmail.sent_at && (
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-success" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">Verzonden op</p>
-                              <p className="text-sm font-medium">{new Date(selectedEmail.sent_at).toLocaleString()}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Links */}
-                      <div className="flex flex-wrap gap-3 mb-4">
-                        {selectedEmail.doc_link && (
-                          <a href={selectedEmail.doc_link} target="_blank" rel="noopener noreferrer" 
-                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
-                            <ExternalLink className="w-3.5 h-3.5" /> Doc Link 1
-                          </a>
-                        )}
-                        {selectedEmail.dock_link_2 && (
-                          <a href={selectedEmail.dock_link_2} target="_blank" rel="noopener noreferrer" 
-                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
-                            <ExternalLink className="w-3.5 h-3.5" /> Doc Link 2
-                          </a>
-                        )}
-                        {selectedEmail['Google sheet url'] && (
-                          <a href={selectedEmail['Google sheet url']} target="_blank" rel="noopener noreferrer"
-                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-success/10 text-success rounded-lg hover:bg-success/20 transition-colors">
-                            <ExternalLink className="w-3.5 h-3.5" /> Google Sheet
-                          </a>
-                        )}
-                        {selectedEmail.pdf_url && (
-                          <a href={selectedEmail.pdf_url} target="_blank" rel="noopener noreferrer"
-                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-warning/10 text-warning rounded-lg hover:bg-warning/20 transition-colors">
-                            <ExternalLink className="w-3.5 h-3.5" /> PDF
-                          </a>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Email Content - Read Only */}
-                  <Card className="card-premium">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium">Email Content</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-muted-foreground">Subject</Label>
-                        <div className="p-3 bg-muted/30 rounded-lg text-sm">
-                          {selectedEmail.subject || 'No subject'}
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-muted-foreground">Body</Label>
-                        <div className="p-4 bg-muted/30 rounded-lg text-sm font-sans leading-relaxed whitespace-pre-wrap min-h-[200px]">
-                          {selectedEmail.body || 'No body'}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              ) : (
-                <Card className="card-premium h-[calc(100vh-280px)] flex items-center justify-center">
-                  <CardContent className="text-center text-muted-foreground">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50 text-success" />
-                    <p>Selecteer een verzonden PDA om details te bekijken</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-
         {/* Tab Content */}
-        <TabsContent value={activeTab === 'SENT_PDAS' ? '' : activeTab} className="mt-4">
+        <TabsContent value={activeTab} className="mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
               {/* Email List - Smaller */}
               <Card className="card-premium lg:col-span-1 flex flex-col min-h-0">

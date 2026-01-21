@@ -11,6 +11,7 @@ import { Suspense, lazy } from "react";
 const Overview = lazy(() => import("./pages/Overview"));
 const AIInquiries = lazy(() => import("./pages/AIInquiries"));
 const ManualEmails = lazy(() => import("./pages/ManualEmails"));
+const SentPDAs = lazy(() => import("./pages/SentPDAs"));
 const FDACreator = lazy(() => import("./pages/FDACreator"));
 const FDAEmailHistory = lazy(() => import("./pages/FDAEmailHistory"));
 const FDAPreview = lazy(() => import("./pages/FDAPreview"));
@@ -55,6 +56,7 @@ const App = () => {
                   <Route path="/" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
                   <Route path="/inquiries" element={<ProtectedRoute><AIInquiries /></ProtectedRoute>} />
                   <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
+                  <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
                   <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
                   <Route path="/fda/history" element={<ProtectedRoute><FDAEmailHistory /></ProtectedRoute>} />
                   <Route path="/fda-preview/:projectId" element={<ProtectedRoute><FDAPreview /></ProtectedRoute>} />
