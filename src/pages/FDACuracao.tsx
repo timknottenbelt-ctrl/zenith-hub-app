@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -148,7 +148,7 @@ function getPublicPdfUrl(fileUrl: string | null): string | null {
   }
   
   // Construct full Supabase storage URL
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://vgbgjwhnkwsxxdiibapw.supabase.co';
+  const supabaseUrl = "https://oxkshjaombffbdemqrqb.supabase.co";
   
   // Check if path already includes bucket name
   if (fileUrl.startsWith('fda-invoices/') || fileUrl.startsWith('pdfs/')) {
@@ -156,15 +156,67 @@ function getPublicPdfUrl(fileUrl: string | null): string | null {
   }
   
   // Default to fda-invoices bucket
-  return `${supabaseUrl}/storage/v1/object/public/fda-invoices/${fileUrl}`;
+  return `${supabaseUrl}/storage/v1/object/public/fda-invoices/${fileUrl.replace(/^\//, "")}`;
 }
 
 function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }: CuracaoInvoiceRowProps) {
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoice_number || String(index + 1).padStart(3, "0"));
   const [showPdfDialog, setShowPdfDialog] = useState(false);
+  const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   
   // Get the full public URL for the PDF
   const pdfUrl = getPublicPdfUrl(invoice.file_url);
+
+  const loadPdfIntoObjectUrl = useCallback(async (): Promise<string | null> => {
+    if (!pdfUrl) return null;
+
+    setPdfLoading(true);
+    setPdfError(null);
+    try {
+      const res = await fetch(pdfUrl, { cache: "no-store" });
+      if (!res.ok) throw new Error(`PDF fetch failed: HTTP ${res.status}`);
+      const blob = await res.blob();
+      const nextUrl = URL.createObjectURL(blob);
+
+      setPdfObjectUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return nextUrl;
+      });
+      return nextUrl;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "PDF laden mislukt";
+      setPdfError(message);
+      return null;
+    } finally {
+      setPdfLoading(false);
+    }
+  }, [pdfUrl]);
+
+  useEffect(() => {
+    if (!showPdfDialog) return;
+    void loadPdfIntoObjectUrl();
+  }, [showPdfDialog, loadPdfIntoObjectUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
+    };
+  }, [pdfObjectUrl]);
+
+  const handleDownload = async () => {
+    if (!pdfUrl) return;
+    const href = pdfObjectUrl ?? (await loadPdfIntoObjectUrl());
+    if (!href) return;
+
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = invoice.file_name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
 
   const handleSaveNumber = () => {
     if (invoiceNumber !== invoice.invoice_number) {
@@ -211,23 +263,30 @@ function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNu
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => setShowPdfDialog(true)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowPdfDialog(true);
+              }}
               title="View PDF"
             >
               <Eye className="w-4 h-4" />
             </Button>
           )}
           {pdfUrl && (
-            <a href={pdfUrl} download={invoice.file_name} target="_blank" rel="noopener noreferrer">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                title="Download PDF"
-              >
-                <Download className="w-4 h-4" />
-              </Button>
-            </a>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              title="Download PDF"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void handleDownload();
+              }}
+            >
+              <Download className="w-4 h-4" />
+            </Button>
           )}
           {!isSent && (
             <Button
@@ -245,24 +304,43 @@ function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNu
 
       {/* PDF Preview Dialog */}
       <Dialog open={showPdfDialog} onOpenChange={setShowPdfDialog}>
-        <DialogContent className="max-w-4xl h-[85vh] p-0" aria-describedby={undefined}>
+        <DialogContent className="max-w-4xl h-[85vh] p-0">
           <DialogHeader className="p-4 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
               {invoice.file_name}
             </DialogTitle>
+            <DialogDescription>
+              PDF preview (wordt geladen in een popup, zonder je naar een Supabase URL te sturen).
+            </DialogDescription>
           </DialogHeader>
           <div className="flex-1 px-4 pb-4 h-[calc(85vh-80px)]">
-            {pdfUrl ? (
+            {!pdfUrl ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                PDF URL niet beschikbaar
+              </div>
+            ) : pdfLoading ? (
+              <div className="flex items-center justify-center h-full gap-2 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Laden...
+              </div>
+            ) : pdfError ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+                <p className="text-sm">{pdfError}</p>
+                <Button variant="outline" onClick={() => void loadPdfIntoObjectUrl()}>
+                  Opnieuw proberen
+                </Button>
+              </div>
+            ) : pdfObjectUrl ? (
               <iframe
-                src={`${pdfUrl}#toolbar=1&navpanes=0`}
+                src={pdfObjectUrl}
                 className="w-full h-full rounded-lg border"
                 title={invoice.file_name}
-                style={{ minHeight: '500px' }}
+                style={{ minHeight: "500px" }}
               />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                PDF URL niet beschikbaar
+                PDF is nog niet geladen
               </div>
             )}
           </div>
