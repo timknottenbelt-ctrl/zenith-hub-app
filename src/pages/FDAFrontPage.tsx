@@ -142,34 +142,28 @@ export default function FDAFrontPage() {
     }
   }, [project, fdaFilename]);
 
-  // Poll for Google Sheet URL and invoices if not yet available
-  // NOTE: We intentionally avoid `.single()` here because PostgREST returns 406 when 0 rows are found,
-  // which would keep the UI stuck in "Checking status...".
+  // Poll for status, Google Sheet URL and invoices if not yet available
+  // Stop polling when status is "ready_to_send" (regardless of google_sheet_url)
   useEffect(() => {
     if (!project || loading) return;
 
-    // Determine if we need to keep polling:
-    // - If no Google Sheet URL yet, keep polling
-    // - If Google Sheet URL exists but no invoices, keep polling (AI might still be processing)
-    const hasGoogleSheet = !!project.google_sheet_url;
-    const hasInvoices = invoices.length > 0;
-
-    // If everything is ready, stop immediately
-    if (hasGoogleSheet && hasInvoices) {
+    // If status is already ready_to_send, stop polling immediately
+    if (project.status === "ready_to_send") {
       setCheckingGoogleSheet(false);
       return;
     }
 
-    // If we have the sheet, at least mark that part as done
-    if (hasGoogleSheet) {
+    // Also stop if we have invoices (processing is done)
+    if (invoices.length > 0) {
       setCheckingGoogleSheet(false);
+      return;
     }
 
     const interval = setInterval(async () => {
       const [projectResult, invoicesResult] = await Promise.all([
         supabase
           .from("fda_projects")
-          .select("google_sheet_url, final_pdf_url")
+          .select("google_sheet_url, final_pdf_url, status")
           .eq("project_id", projectId)
           .limit(1),
         supabase
@@ -186,24 +180,22 @@ export default function FDAFrontPage() {
 
       const polledProject = projectResult.data?.[0];
       if (polledProject) {
-        // Keep project in sync (we only need a couple fields here)
+        // Keep project in sync
         setProject((prev) =>
           prev
             ? {
                 ...prev,
                 google_sheet_url: polledProject.google_sheet_url ?? prev.google_sheet_url,
                 final_pdf_url: polledProject.final_pdf_url ?? prev.final_pdf_url,
+                status: polledProject.status ?? prev.status,
               }
             : prev
         );
 
-        if (polledProject.google_sheet_url) {
-          setCheckingGoogleSheet(false);
-        }
-
-        // Only stop polling when BOTH conditions are met
+        // Stop polling when status is ready_to_send OR we have invoices
         const invoiceCount = invoicesResult.data?.length ?? 0;
-        if (polledProject.google_sheet_url && invoiceCount > 0) {
+        if (polledProject.status === "ready_to_send" || invoiceCount > 0) {
+          setCheckingGoogleSheet(false);
           clearInterval(interval);
         }
       }
@@ -469,8 +461,8 @@ export default function FDAFrontPage() {
           </div>
         </div>
 
-        {/* AI Processing Status */}
-        {checkingGoogleSheet && !project.google_sheet_url && (
+        {/* AI Processing Status - Only show when status is still "processing" */}
+        {project.status === "processing" && checkingGoogleSheet && (
           <Card className="border-primary/50 bg-primary/5">
             <CardContent className="py-8">
               <div className="flex flex-col items-center justify-center gap-4">
@@ -481,14 +473,14 @@ export default function FDAFrontPage() {
                   </div>
                 </div>
                 <div className="text-center">
-                  <h3 className="text-lg font-semibold">AI is processing invoices...</h3>
+                  <h3 className="text-lg font-semibold">Facturen worden verwerkt...</h3>
                   <p className="text-muted-foreground text-sm mt-1">
-                    This usually takes 30-60 seconds. The Google Sheet link will appear automatically.
+                    Dit duurt meestal 30-60 seconden.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Checking status...</span>
+                  <span>Bezig met verwerken...</span>
                 </div>
               </div>
             </CardContent>
