@@ -502,56 +502,60 @@ export type Database = {
       }
       fda_email_drafts: {
         Row: {
-          attachment_name: string
-          attachment_url: string
+          attachment_name: string | null
+          attachment_url: string | null
           created_at: string | null
+          drive_folder_url: string | null
           email_body: string
           email_cc: string | null
           email_subject: string
           email_to: string
           error_message: string | null
+          google_sheet_url: string | null
           id: string
+          lbh_number: string | null
           project_id: string
           sent_at: string | null
+          ship_name: string | null
           status: string | null
         }
         Insert: {
-          attachment_name: string
-          attachment_url: string
+          attachment_name?: string | null
+          attachment_url?: string | null
           created_at?: string | null
+          drive_folder_url?: string | null
           email_body: string
           email_cc?: string | null
           email_subject: string
           email_to: string
           error_message?: string | null
+          google_sheet_url?: string | null
           id?: string
+          lbh_number?: string | null
           project_id: string
           sent_at?: string | null
+          ship_name?: string | null
           status?: string | null
         }
         Update: {
-          attachment_name?: string
-          attachment_url?: string
+          attachment_name?: string | null
+          attachment_url?: string | null
           created_at?: string | null
+          drive_folder_url?: string | null
           email_body?: string
           email_cc?: string | null
           email_subject?: string
           email_to?: string
           error_message?: string | null
+          google_sheet_url?: string | null
           id?: string
+          lbh_number?: string | null
           project_id?: string
           sent_at?: string | null
+          ship_name?: string | null
           status?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "fda_email_drafts_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "fda_projects"
-            referencedColumns: ["project_id"]
-          },
-        ]
+        Relationships: []
       }
       fda_invoices: {
         Row: {
