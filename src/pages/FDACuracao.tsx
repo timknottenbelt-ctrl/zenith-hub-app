@@ -1,0 +1,1279 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import {
+  FileText,
+  Upload,
+  Trash2,
+  Loader2,
+  Send,
+  Ship,
+  User,
+  Mail,
+  Phone,
+  Receipt,
+  Plus,
+  Edit,
+  Clock,
+  CheckCircle,
+  ArrowLeft,
+  FileUp,
+  Calendar,
+  Eye,
+  Download,
+  History,
+  Anchor,
+  Package,
+  DollarSign,
+  CreditCard,
+} from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format, parseISO, isValid } from "date-fns";
+
+interface FDAProject {
+  id: string;
+  project_id: string;
+  lbh_number: string;
+  ship_name: string;
+  fda_responsible: string | null;
+  client_name: string | null;
+  client_email: string | null;
+  client_phone: string | null;
+  billing_company: string | null;
+  billing_address: string | null;
+  billing_email: string | null;
+  billing_phone: string | null;
+  status: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  email_sent_at: string | null;
+  front_page_url: string | null;
+  agency_cost_url: string | null;
+  google_sheet_url: string | null;
+  final_pdf_url?: string | null;
+}
+
+interface FDAInvoice {
+  id: string;
+  fda_project_id: string;
+  file_path: string;
+  file_name: string;
+  file_size: number | null;
+  created_at: string;
+  invoice_number: string | null;
+}
+
+interface FDAFormData {
+  lbh_number: string;
+  ship_name: string;
+  fda_responsible: string;
+  client_name: string;
+  client_email: string;
+  client_phone: string;
+  billing_company: string;
+  billing_address: string;
+  billing_email: string;
+  billing_phone: string;
+  // Port Call Information
+  vessel_arrived: string;
+  vessel_sailed: string;
+  operation: string;
+  commodity: string;
+  client_reference: string;
+  // Advanced Payment
+  advanced_payment_amount: string;
+  advanced_payment_currency: string;
+  advanced_payment_reference: string;
+  advanced_payment_status: string;
+  advanced_payment_remark: string;
+}
+
+// Invoice Row Component
+interface InvoiceRowProps {
+  invoice: FDAInvoice;
+  index: number;
+  isSent: boolean;
+  onDelete: (invoice: FDAInvoice) => void;
+  onUpdateInvoiceNumber: (invoiceId: string, invoiceNumber: string) => void;
+}
+
+function InvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }: InvoiceRowProps) {
+  const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoice_number || String(index + 1).padStart(3, "0"));
+  const [loadingUrl, setLoadingUrl] = useState(false);
+
+  const handleSaveNumber = () => {
+    if (invoiceNumber !== invoice.invoice_number) {
+      onUpdateInvoiceNumber(invoice.id, invoiceNumber);
+    }
+  };
+
+  const handleViewPdf = async () => {
+    setLoadingUrl(true);
+    const { data } = await supabase.storage.from("fda-invoices").createSignedUrl(invoice.file_path, 3600);
+    setLoadingUrl(false);
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, "_blank");
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setLoadingUrl(true);
+    const { data } = await supabase.storage.from("fda-invoices").createSignedUrl(invoice.file_path, 3600);
+    setLoadingUrl(false);
+    if (data?.signedUrl) {
+      const link = document.createElement("a");
+      link.href = data.signedUrl;
+      link.download = invoice.file_name;
+      link.click();
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+      {/* File Name - First */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <CheckCircle className="w-4 h-4 text-success shrink-0" />
+        <span className="text-sm truncate">{invoice.file_name}</span>
+      </div>
+
+      {/* Invoice Number - Always editable input */}
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-xs text-muted-foreground">Nr:</span>
+        <Input
+          value={invoiceNumber}
+          onChange={(e) => setInvoiceNumber(e.target.value)}
+          onBlur={handleSaveNumber}
+          className="w-20 h-8 text-sm font-normal"
+          placeholder="001"
+          disabled={isSent}
+        />
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleViewPdf}
+          disabled={loadingUrl}
+          title="View PDF"
+        >
+          {loadingUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleDownloadPdf}
+          disabled={loadingUrl}
+          title="Download PDF"
+        >
+          <Download className="w-4 h-4" />
+        </Button>
+        {!isSent && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={() => onDelete(invoice)}
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/invoice-upload-curacao";
+
+export default function FDACuracao() {
+  const { t } = useLanguage();
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState<FDAProject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<FDAProject | null>(null);
+  const [projectInvoices, setProjectInvoices] = useState<FDAInvoice[]>([]);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+
+  const [formData, setFormData] = useState<FDAFormData>({
+    lbh_number: "",
+    ship_name: "",
+    fda_responsible: "",
+    client_name: "",
+    client_email: "",
+    client_phone: "",
+    billing_company: "",
+    billing_address: "",
+    billing_email: "",
+    billing_phone: "",
+    vessel_arrived: "",
+    vessel_sailed: "",
+    operation: "",
+    commodity: "",
+    client_reference: "",
+    advanced_payment_amount: "",
+    advanced_payment_currency: "USD",
+    advanced_payment_reference: "",
+    advanced_payment_status: "unpaid",
+    advanced_payment_remark: "",
+  });
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  useEffect(() => {
+    if (selectedProject) {
+      setFormData({
+        lbh_number: selectedProject.lbh_number,
+        ship_name: selectedProject.ship_name,
+        fda_responsible: selectedProject.fda_responsible || "",
+        client_name: selectedProject.client_name || "",
+        client_email: selectedProject.client_email || "",
+        client_phone: selectedProject.client_phone || "",
+        billing_company: selectedProject.billing_company || "",
+        billing_address: selectedProject.billing_address || "",
+        billing_email: selectedProject.billing_phone || "",
+        billing_phone: selectedProject.billing_phone || "",
+        vessel_arrived: (selectedProject as any).vessel_arrived || "",
+        vessel_sailed: (selectedProject as any).vessel_sailed || "",
+        operation: (selectedProject as any).operation || "",
+        commodity: (selectedProject as any).commodity || "",
+        client_reference: (selectedProject as any).client_reference || "",
+        advanced_payment_amount: (selectedProject as any).advanced_payment_amount?.toString() || "",
+        advanced_payment_currency: (selectedProject as any).advanced_payment_currency || "USD",
+        advanced_payment_reference: (selectedProject as any).advanced_payment_reference || "",
+        advanced_payment_status: (selectedProject as any).advanced_payment_status || "unpaid",
+        advanced_payment_remark: (selectedProject as any).advanced_payment_remark || "",
+      });
+      fetchProjectInvoices(selectedProject.id);
+    }
+  }, [selectedProject]);
+
+  async function fetchProjects() {
+    setLoading(true);
+    const { data, error } = await supabase.from("fda_projects").select("*").order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching projects:", error);
+    } else {
+      setProjects(data || []);
+    }
+    setLoading(false);
+  }
+
+  async function fetchProjectInvoices(projectId: string) {
+    const { data } = await supabase
+      .from("fda_invoices")
+      .select("*")
+      .eq("fda_project_id", projectId)
+      .order("created_at", { ascending: true });
+
+    setProjectInvoices(data || []);
+  }
+
+  const handleInputChange = (field: keyof FDAFormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  async function handleCreateProject() {
+    if (!formData.lbh_number || !formData.ship_name) {
+      toast({ title: "Error", description: "LBH Number and Ship Name are required", variant: "destructive" });
+      return;
+    }
+
+    setSaving(true);
+    const { data, error } = await supabase
+      .from("fda_projects")
+      .insert({
+        project_id: crypto.randomUUID(),
+        lbh_number: formData.lbh_number,
+        ship_name: formData.ship_name,
+        fda_responsible: formData.fda_responsible || null,
+        client_name: formData.client_name || null,
+        client_email: formData.client_email || null,
+        client_phone: formData.client_phone || null,
+        billing_company: formData.billing_company || null,
+        billing_address: formData.billing_address || null,
+        billing_email: formData.billing_email || null,
+        billing_phone: formData.billing_phone || null,
+        vessel_arrived: formData.vessel_arrived || null,
+        vessel_sailed: formData.vessel_sailed || null,
+        operation: formData.operation || null,
+        commodity: formData.commodity || null,
+        client_reference: formData.client_reference || null,
+        advanced_payment_amount: formData.advanced_payment_amount ? parseFloat(formData.advanced_payment_amount) : null,
+        advanced_payment_currency: formData.advanced_payment_currency || "USD",
+        advanced_payment_reference: formData.advanced_payment_reference || null,
+        advanced_payment_status: formData.advanced_payment_status || "unpaid",
+        advanced_payment_remark: formData.advanced_payment_remark || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: "FDA Curacao project created" });
+      setShowCreateDialog(false);
+      resetForm();
+      await fetchProjects();
+      if (data) {
+        setSelectedProject(data);
+      }
+    }
+    setSaving(false);
+  }
+
+  async function handleUpdateProject() {
+    if (!selectedProject) return;
+
+    setSaving(true);
+    const { error } = await supabase
+      .from("fda_projects")
+      .update({
+        lbh_number: formData.lbh_number,
+        ship_name: formData.ship_name,
+        fda_responsible: formData.fda_responsible || null,
+        client_name: formData.client_name || null,
+        client_email: formData.client_email || null,
+        client_phone: formData.client_phone || null,
+        billing_company: formData.billing_company || null,
+        billing_address: formData.billing_address || null,
+        billing_email: formData.billing_email || null,
+        billing_phone: formData.billing_phone || null,
+        vessel_arrived: formData.vessel_arrived || null,
+        vessel_sailed: formData.vessel_sailed || null,
+        operation: formData.operation || null,
+        commodity: formData.commodity || null,
+        client_reference: formData.client_reference || null,
+        advanced_payment_amount: formData.advanced_payment_amount ? parseFloat(formData.advanced_payment_amount) : null,
+        advanced_payment_currency: formData.advanced_payment_currency || "USD",
+        advanced_payment_reference: formData.advanced_payment_reference || null,
+        advanced_payment_status: formData.advanced_payment_status || "unpaid",
+        advanced_payment_remark: formData.advanced_payment_remark || null,
+      })
+      .eq("id", selectedProject.id);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: "Project saved" });
+      await fetchProjects();
+    }
+    setSaving(false);
+  }
+
+  async function handleDeleteProject(id: string) {
+    const { error } = await supabase.from("fda_projects").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: "Project deleted" });
+      setSelectedProject(null);
+      await fetchProjects();
+    }
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || !selectedProject) return;
+
+    setUploadingFiles(true);
+
+    let currentCount = projectInvoices.length;
+
+    for (const file of Array.from(files)) {
+      if (file.type !== "application/pdf") {
+        toast({ title: "Error", description: "Only PDF files are allowed", variant: "destructive" });
+        continue;
+      }
+
+      const filePath = `${selectedProject.id}/${Date.now()}-${file.name}`;
+
+      const { error: uploadError } = await supabase.storage.from("fda-invoices").upload(filePath, file);
+
+      if (uploadError) {
+        toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
+        continue;
+      }
+
+      currentCount += 1;
+      const invoiceNumber = String(currentCount).padStart(3, "0");
+
+      const { error: insertError } = await supabase.from("fda_invoices").insert({
+        fda_project_id: selectedProject.id,
+        file_path: filePath,
+        file_name: file.name,
+        file_size: file.size,
+        invoice_number: invoiceNumber,
+      });
+
+      if (insertError) {
+        toast({ title: "Error", description: insertError.message, variant: "destructive" });
+      }
+    }
+
+    await fetchProjectInvoices(selectedProject.id);
+    setUploadingFiles(false);
+    toast({ title: "Success", description: "Files uploaded" });
+    e.target.value = "";
+  }
+
+  async function handleDeleteInvoice(invoice: FDAInvoice) {
+    await supabase.storage.from("fda-invoices").remove([invoice.file_path]);
+    await supabase.from("fda_invoices").delete().eq("id", invoice.id);
+    if (selectedProject) {
+      await fetchProjectInvoices(selectedProject.id);
+    }
+    toast({ title: "Success", description: "File deleted" });
+  }
+
+  async function handleUpdateInvoiceNumber(invoiceId: string, invoiceNumber: string) {
+    const { error } = await supabase.from("fda_invoices").update({ invoice_number: invoiceNumber }).eq("id", invoiceId);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Saved", description: "Invoice number updated" });
+      if (selectedProject) {
+        await fetchProjectInvoices(selectedProject.id);
+      }
+    }
+  }
+
+  async function handleSendToWebhook() {
+    if (!selectedProject || projectInvoices.length === 0) {
+      toast({ title: "Error", description: "Upload at least one invoice before sending", variant: "destructive" });
+      return;
+    }
+
+    setSending(true);
+
+    try {
+      const fileUrls: string[] = [];
+      for (const invoice of projectInvoices) {
+        const { data } = await supabase.storage.from("fda-invoices").createSignedUrl(invoice.file_path, 86400);
+        if (data?.signedUrl) {
+          fileUrls.push(data.signedUrl);
+        }
+      }
+
+      const payload = {
+        project_id: selectedProject.project_id,
+        lbh_number: formData.lbh_number,
+        ship_name: formData.ship_name,
+        fda_responsible: formData.fda_responsible,
+        client_name: formData.client_name,
+        client_email: formData.client_email,
+        client_phone: formData.client_phone,
+        billing_company: formData.billing_company,
+        billing_address: formData.billing_address,
+        billing_email: formData.billing_email,
+        billing_phone: formData.billing_phone,
+        vessel_arrived: formData.vessel_arrived,
+        vessel_sailed: formData.vessel_sailed,
+        operation: formData.operation,
+        commodity: formData.commodity,
+        client_reference: formData.client_reference,
+        advanced_payment_amount: formData.advanced_payment_amount ? parseFloat(formData.advanced_payment_amount) : null,
+        invoice_files: fileUrls,
+        invoice_count: projectInvoices.length,
+        sent_at: new Date().toISOString(),
+      };
+
+      await supabase
+        .from("fda_projects")
+        .update({ status: "processing" })
+        .eq("project_id", selectedProject.project_id);
+
+      navigate(`/fda-front-page/${selectedProject.project_id}`);
+
+      fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).catch(err => console.error("Webhook error (background):", err));
+
+    } catch (error) {
+      console.error("Send error:", error);
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to prepare data", 
+        variant: "destructive" 
+      });
+      setSending(false);
+    }
+  }
+
+  function resetForm() {
+    setFormData({
+      lbh_number: "",
+      ship_name: "",
+      fda_responsible: "",
+      client_name: "",
+      client_email: "",
+      client_phone: "",
+      billing_company: "",
+      billing_address: "",
+      billing_email: "",
+      billing_phone: "",
+      vessel_arrived: "",
+      vessel_sailed: "",
+      operation: "",
+      commodity: "",
+      client_reference: "",
+      advanced_payment_amount: "",
+      advanced_payment_currency: "USD",
+      advanced_payment_reference: "",
+      advanced_payment_status: "unpaid",
+      advanced_payment_remark: "",
+    });
+  }
+
+  const getStatusBadge = (status: string | null) => {
+    if (status === "sent" || status === "email_sent") {
+      return (
+        <Badge className="bg-success/10 text-success border-success/20" variant="outline">
+          <CheckCircle className="w-3 h-3 mr-1" /> Sent
+        </Badge>
+      );
+    }
+    if (status === "processing" || status === "ready_to_send") {
+      return (
+        <Badge className="bg-warning/10 text-warning border-warning/20" variant="outline">
+          <Clock className="w-3 h-3 mr-1" /> Processing
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="bg-muted text-muted-foreground" variant="outline">
+        <Clock className="w-3 h-3 mr-1" /> Draft
+      </Badge>
+    );
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout title="FDA Curacao">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Detail View
+  if (selectedProject) {
+    return (
+      <DashboardLayout title="FDA Curacao">
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => setSelectedProject(null)}>
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold">{formData.ship_name}</h1>
+                <p className="text-muted-foreground">{formData.lbh_number}</p>
+              </div>
+              {getStatusBadge(selectedProject.status)}
+            </div>
+            <div className="flex gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="icon">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete FDA Project</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete the FDA project for "{selectedProject.ship_name}" ({selectedProject.lbh_number})? 
+                      This will permanently delete all associated invoices and data. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => handleDeleteProject(selectedProject.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete Project
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <Button variant="outline" onClick={handleUpdateProject} disabled={saving}>
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit className="w-4 h-4" />}
+                <span className="ml-2">Save</span>
+              </Button>
+              {selectedProject.status === "sent" ? (
+                <>
+                  <Button variant="outline" onClick={() => navigate(`/fda-front-page/${selectedProject.project_id}`)}>
+                    <Eye className="w-4 h-4" />
+                    <span className="ml-2">View FDA</span>
+                  </Button>
+                  <Button onClick={() => navigate(`/fda/email/${selectedProject.project_id}`)}>
+                    <Mail className="w-4 h-4" />
+                    <span className="ml-2">Send Email</span>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {selectedProject.final_pdf_url && (
+                    <Button onClick={() => navigate(`/fda/email/${selectedProject.project_id}`)}>
+                      <Mail className="w-4 h-4" />
+                      <span className="ml-2">Ga naar Email</span>
+                    </Button>
+                  )}
+                  <Button onClick={handleSendToWebhook} disabled={sending || projectInvoices.length === 0}>
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    <span className="ml-2">Send FDA</span>
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Form Sections */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Ship Information */}
+            <Card className="card-premium">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Ship className="w-4 h-4 text-primary" />
+                  Ship Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">LBH Number *</Label>
+                    <Input
+                      value={formData.lbh_number}
+                      onChange={(e) => handleInputChange("lbh_number", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Ship Name *</Label>
+                    <Input
+                      value={formData.ship_name}
+                      onChange={(e) => handleInputChange("ship_name", e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">FDA Responsible</Label>
+                  <Input
+                    value={formData.fda_responsible}
+                    onChange={(e) => handleInputChange("fda_responsible", e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Client Information */}
+            <Card className="card-premium">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <User className="w-4 h-4 text-primary" />
+                  Client Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Client Name</Label>
+                  <Input
+                    value={formData.client_name}
+                    onChange={(e) => handleInputChange("client_name", e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <Input
+                      type="email"
+                      value={formData.client_email}
+                      onChange={(e) => handleInputChange("client_email", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <Input
+                      value={formData.client_phone}
+                      onChange={(e) => handleInputChange("client_phone", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Billing Information - Spans full width */}
+            <Card className="card-premium lg:col-span-2">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-primary" />
+                  Billing Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Company</Label>
+                    <Input
+                      value={formData.billing_company}
+                      onChange={(e) => handleInputChange("billing_company", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <Input
+                      type="email"
+                      value={formData.billing_email}
+                      onChange={(e) => handleInputChange("billing_email", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Address</Label>
+                    <Input
+                      value={formData.billing_address}
+                      onChange={(e) => handleInputChange("billing_address", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <Input
+                      value={formData.billing_phone}
+                      onChange={(e) => handleInputChange("billing_phone", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Port Call Information - Full Width */}
+            <Card className="card-premium lg:col-span-2">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Anchor className="w-4 h-4 text-primary" />
+                  Port Call Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {/* Vessel Arrived */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Vessel Arrived</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal h-10"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {formData.vessel_arrived && isValid(parseISO(formData.vessel_arrived))
+                            ? format(parseISO(formData.vessel_arrived), "dd MMM yyyy")
+                            : <span className="text-muted-foreground">Select date</span>
+                          }
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={formData.vessel_arrived ? parseISO(formData.vessel_arrived) : undefined}
+                          onSelect={(date) => handleInputChange("vessel_arrived", date ? format(date, "yyyy-MM-dd") : "")}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Vessel Sailed */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Vessel Sailed</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal h-10"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {formData.vessel_sailed && isValid(parseISO(formData.vessel_sailed))
+                            ? format(parseISO(formData.vessel_sailed), "dd MMM yyyy")
+                            : <span className="text-muted-foreground">Select date</span>
+                          }
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={formData.vessel_sailed ? parseISO(formData.vessel_sailed) : undefined}
+                          onSelect={(date) => handleInputChange("vessel_sailed", date ? format(date, "yyyy-MM-dd") : "")}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Operation */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Operation</Label>
+                    <Input
+                      value={formData.operation}
+                      onChange={(e) => handleInputChange("operation", e.target.value)}
+                      placeholder="Loading / Discharge"
+                    />
+                  </div>
+
+                  {/* Commodity */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Commodity</Label>
+                    <Input
+                      value={formData.commodity}
+                      onChange={(e) => handleInputChange("commodity", e.target.value)}
+                      placeholder="Cargo type"
+                    />
+                  </div>
+
+                  {/* Client Reference */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Client Reference</Label>
+                    <Input
+                      value={formData.client_reference}
+                      onChange={(e) => handleInputChange("client_reference", e.target.value)}
+                      placeholder="Optional"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Advanced Payment - Full Width */}
+            <Card className="card-premium lg:col-span-2">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-primary" />
+                  Advanced Payment
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {/* Amount */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Amount</Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        value={formData.advanced_payment_amount}
+                        onChange={(e) => handleInputChange("advanced_payment_amount", e.target.value)}
+                        placeholder="0.00"
+                        className="pl-9"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Currency */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Currency</Label>
+                    <Select
+                      value={formData.advanced_payment_currency}
+                      onValueChange={(value) => handleInputChange("advanced_payment_currency", value)}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="ANG">ANG</SelectItem>
+                        <SelectItem value="GBP">GBP</SelectItem>
+                        <SelectItem value="CHF">CHF</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Reference Number */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Reference</Label>
+                    <Input
+                      value={formData.advanced_payment_reference}
+                      onChange={(e) => handleInputChange("advanced_payment_reference", e.target.value)}
+                      placeholder="Payment ref"
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Status</Label>
+                    <Select
+                      value={formData.advanced_payment_status}
+                      onValueChange={(value) => handleInputChange("advanced_payment_status", value)}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="unpaid">Not Paid</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="partial">Partial</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Remark */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Remark</Label>
+                    <Input
+                      value={formData.advanced_payment_remark}
+                      onChange={(e) => handleInputChange("advanced_payment_remark", e.target.value)}
+                      placeholder="Notes"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Invoice PDFs Section - Full Width Below */}
+          <Card className="card-premium">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  Invoice PDFs ({projectInvoices.length})
+                </CardTitle>
+                {selectedProject.status !== "sent" && (
+                  <label className="cursor-pointer">
+                    <Button variant="outline" size="sm" asChild>
+                      <span>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload PDF
+                      </span>
+                    </Button>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      disabled={uploadingFiles}
+                    />
+                  </label>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {uploadingFiles && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Uploading...
+                </div>
+              )}
+
+              {projectInvoices.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                  <FileUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No files uploaded yet</p>
+                  <p className="text-xs">Upload invoice PDFs using the button above</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {projectInvoices.map((invoice, index) => (
+                    <InvoiceRow
+                      key={invoice.id}
+                      invoice={invoice}
+                      index={index}
+                      isSent={selectedProject.status === "sent"}
+                      onDelete={handleDeleteInvoice}
+                      onUpdateInvoiceNumber={handleUpdateInvoiceNumber}
+                    />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Danger Zone */}
+          {selectedProject.status !== "sent" && (
+            <div className="flex justify-end">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Project
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Weet u het zeker?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      U staat op het punt om het FDA project voor "{selectedProject.ship_name}" ({selectedProject.lbh_number}) te verwijderen. 
+                      Alle bijbehorende facturen en data worden permanent verwijderd. Deze actie kan niet ongedaan worden gemaakt.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => handleDeleteProject(selectedProject.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Verwijderen
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          )}
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Overview View
+  return (
+    <DashboardLayout title="FDA Curacao">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">FDA Curacao</h1>
+            <p className="text-muted-foreground">Manage your FDA Curacao projects</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="lg" className="gap-2" onClick={() => navigate("/fda/history")}>
+              <History className="w-4 h-4" />
+              Email History
+            </Button>
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <DialogTrigger asChild>
+                <Button size="lg" className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Create FDA
+                </Button>
+              </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New FDA Curacao Project</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6 pt-4">
+                {/* Vessel Info */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Ship className="w-4 h-4 text-primary" /> Vessel Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>LBH Number *</Label>
+                      <Input
+                        value={formData.lbh_number}
+                        onChange={(e) => handleInputChange("lbh_number", e.target.value)}
+                        placeholder="LBH-2024-001"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ship Name *</Label>
+                      <Input
+                        value={formData.ship_name}
+                        onChange={(e) => handleInputChange("ship_name", e.target.value)}
+                        placeholder="MV Ocean King"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>FDA Responsible</Label>
+                    <Input
+                      value={formData.fda_responsible}
+                      onChange={(e) => handleInputChange("fda_responsible", e.target.value)}
+                      placeholder="John Doe"
+                    />
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Client Info */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" /> Client Details
+                  </h3>
+                  <div className="space-y-2">
+                    <Label>Client Name</Label>
+                    <Input
+                      value={formData.client_name}
+                      onChange={(e) => handleInputChange("client_name", e.target.value)}
+                      placeholder="Client Name"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1">
+                        <Mail className="w-3 h-3" /> Email
+                      </Label>
+                      <Input
+                        type="email"
+                        value={formData.client_email}
+                        onChange={(e) => handleInputChange("client_email", e.target.value)}
+                        placeholder="client@company.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1">
+                        <Phone className="w-3 h-3" /> Phone
+                      </Label>
+                      <Input
+                        value={formData.client_phone}
+                        onChange={(e) => handleInputChange("client_phone", e.target.value)}
+                        placeholder="+1 234 567 890"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Billing Info */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-primary" /> Billing Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Company Name</Label>
+                      <Input
+                        value={formData.billing_company}
+                        onChange={(e) => handleInputChange("billing_company", e.target.value)}
+                        placeholder="Billing Company"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1">
+                        <Mail className="w-3 h-3" /> Email
+                      </Label>
+                      <Input
+                        type="email"
+                        value={formData.billing_email}
+                        onChange={(e) => handleInputChange("billing_email", e.target.value)}
+                        placeholder="billing@company.com"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Billing Address</Label>
+                    <Input
+                      value={formData.billing_address}
+                      onChange={(e) => handleInputChange("billing_address", e.target.value)}
+                      placeholder="123 Business Street, City"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1">
+                      <Phone className="w-3 h-3" /> Phone
+                    </Label>
+                    <Input
+                      value={formData.billing_phone}
+                      onChange={(e) => handleInputChange("billing_phone", e.target.value)}
+                      placeholder="+1 234 567 890"
+                    />
+                  </div>
+                </div>
+
+                <Button onClick={handleCreateProject} disabled={saving} className="w-full" size="lg">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                  Create Project
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          </div>
+        </div>
+
+        {/* Projects Grid */}
+        {projects.length === 0 ? (
+          <Card className="card-premium">
+            <CardContent className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-6">
+                <FileText className="w-10 h-10 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">No FDA Curacao Projects</h3>
+              <p className="text-muted-foreground max-w-md mb-6">
+                Create your first FDA Curacao project to get started with document management.
+              </p>
+              <Button onClick={() => setShowCreateDialog(true)} size="lg" className="gap-2">
+                <Plus className="w-4 h-4" />
+                Create FDA
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {projects.map((project) => (
+              <Card
+                key={project.id}
+                className="card-premium cursor-pointer transition-all hover:shadow-lg hover:border-primary/30"
+                onClick={() => setSelectedProject(project)}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                      <Ship className="w-6 h-6 text-primary" />
+                    </div>
+                    {getStatusBadge(project.status)}
+                  </div>
+                  <h3 className="font-semibold text-lg mb-1">{project.ship_name}</h3>
+                  <p className="text-sm text-muted-foreground mb-4">{project.lbh_number}</p>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(project.created_at).toLocaleDateString()}
+                    </span>
+                    {project.fda_responsible && (
+                      <span className="flex items-center gap-1">
+                        <User className="w-3 h-3" />
+                        {project.fda_responsible}
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+}

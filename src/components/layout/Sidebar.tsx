@@ -21,6 +21,7 @@ const navItems = [
   { key: 'aiInquiries', icon: MessageSquare, path: '/inquiries' },
   { key: 'sentPDAs', icon: Send, path: '/inquiries/sent' },
   { key: 'fdaCreator', icon: FileText, path: '/fda' },
+  { key: 'fdaCuracao', icon: FileText, path: '/fda-curacao' },
   { key: 'knowledgeBase', icon: BookOpen, path: '/knowledge' },
   { key: 'vessels', icon: Ship, path: '/vessels' },
   { key: 'contacts', icon: Users, path: '/contacts' },
@@ -69,7 +70,7 @@ export const Sidebar = memo(function Sidebar() {
         {navItems.map((item) => {
           const Icon = item.icon;
           // Use exact matching for routes that have child routes
-          const needsExactMatch = item.path === '/inquiries' || item.path === '/fda';
+          const needsExactMatch = item.path === '/inquiries' || item.path === '/fda' || item.path === '/fda-curacao';
           return (
             <NavLink
               key={item.key}

@@ -482,6 +482,7 @@ export type Database = {
           client_name: string | null
           client_phone: string | null
           client_reference: string | null
+          client_sheet_url: string | null
           commodity: string | null
           created_at: string | null
           email_body: string | null
@@ -520,6 +521,7 @@ export type Database = {
           client_name?: string | null
           client_phone?: string | null
           client_reference?: string | null
+          client_sheet_url?: string | null
           commodity?: string | null
           created_at?: string | null
           email_body?: string | null
@@ -558,6 +560,7 @@ export type Database = {
           client_name?: string | null
           client_phone?: string | null
           client_reference?: string | null
+          client_sheet_url?: string | null
           commodity?: string | null
           created_at?: string | null
           email_body?: string | null
