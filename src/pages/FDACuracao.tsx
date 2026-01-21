@@ -286,7 +286,7 @@ export default function FDACuracao() {
       });
       // Reset agency cost rows when project changes
       setAgencyCostRows([{ id: crypto.randomUUID(), description: "", number: "", remark: "", amount: "" }]);
-      fetchProjectInvoices(selectedProject.id);
+      fetchProjectInvoices(selectedProject.project_id);
     }
   }, [selectedProject]);
 
@@ -303,12 +303,16 @@ export default function FDACuracao() {
   }
 
   async function fetchProjectInvoices(projectId: string) {
-    const { data } = await supabase
+    // Use project_id (UUID string from fda_curacao_projects)
+    const { data, error } = await supabase
       .from("fda_curacao_processed_invoices")
       .select("*")
       .eq("project_id", projectId)
       .order("created_at", { ascending: true });
 
+    if (error) {
+      console.error("Error fetching invoices:", error);
+    }
     setProjectInvoices(data || []);
   }
 
@@ -481,7 +485,7 @@ export default function FDACuracao() {
       }
     }
 
-    await fetchProjectInvoices(selectedProject.id);
+    await fetchProjectInvoices(selectedProject.project_id);
     setUploadingFiles(false);
     toast({ title: "Success", description: "Files uploaded" });
   }
@@ -520,7 +524,7 @@ export default function FDACuracao() {
   async function handleDeleteInvoice(invoice: FDACuracaoInvoice) {
     await supabase.from("fda_curacao_processed_invoices").delete().eq("id", invoice.id);
     if (selectedProject) {
-      await fetchProjectInvoices(selectedProject.id);
+      await fetchProjectInvoices(selectedProject.project_id);
     }
     toast({ title: "Success", description: "Invoice deleted" });
   }
@@ -533,7 +537,7 @@ export default function FDACuracao() {
     } else {
       toast({ title: "Saved", description: "Invoice number updated" });
       if (selectedProject) {
-        await fetchProjectInvoices(selectedProject.id);
+        await fetchProjectInvoices(selectedProject.project_id);
       }
     }
   }
