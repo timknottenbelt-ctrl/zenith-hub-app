@@ -775,7 +775,7 @@ export default function FDACreator() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Company</Label>
                     <Input

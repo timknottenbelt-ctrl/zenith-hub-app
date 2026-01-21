@@ -546,7 +546,34 @@ export default function FDAFrontPage() {
                 </div>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+              <label 
+                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.add('border-primary', 'bg-primary/5');
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove('border-primary', 'bg-primary/5');
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove('border-primary', 'bg-primary/5');
+                  const files = e.dataTransfer.files;
+                  if (files.length > 0) {
+                    const input = e.currentTarget.querySelector('input[type="file"]') as HTMLInputElement;
+                    if (input) {
+                      const dataTransfer = new DataTransfer();
+                      dataTransfer.items.add(files[0]);
+                      input.files = dataTransfer.files;
+                      input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                  }
+                }}
+              >
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   {uploadingFrontPage ? (
                     <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -554,7 +581,7 @@ export default function FDAFrontPage() {
                     <>
                       <Upload className="w-8 h-8 text-muted-foreground mb-2" />
                       <p className="text-sm text-muted-foreground">
-                        Click to upload <span className="font-medium">Front Page PDF</span>
+                        Drop PDF here or <span className="font-medium text-primary">click to upload</span>
                       </p>
                       <p className="text-xs text-muted-foreground">PDF, max 10MB</p>
                     </>
@@ -743,7 +770,34 @@ export default function FDAFrontPage() {
                 </div>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+              <label 
+                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.add('border-primary', 'bg-primary/5');
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove('border-primary', 'bg-primary/5');
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove('border-primary', 'bg-primary/5');
+                  const files = e.dataTransfer.files;
+                  if (files.length > 0) {
+                    const input = e.currentTarget.querySelector('input[type="file"]') as HTMLInputElement;
+                    if (input) {
+                      const dataTransfer = new DataTransfer();
+                      dataTransfer.items.add(files[0]);
+                      input.files = dataTransfer.files;
+                      input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                  }
+                }}
+              >
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   {uploadingAgencyCost ? (
                     <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -751,7 +805,7 @@ export default function FDAFrontPage() {
                     <>
                       <Upload className="w-8 h-8 text-muted-foreground mb-2" />
                       <p className="text-sm text-muted-foreground">
-                        Click to upload <span className="font-medium">Agency Cost</span>
+                        Drop PDF here or <span className="font-medium text-primary">click to upload</span>
                       </p>
                       <p className="text-xs text-muted-foreground">PDF, max 10MB</p>
                     </>
