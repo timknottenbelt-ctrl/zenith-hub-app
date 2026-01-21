@@ -753,8 +753,10 @@ export default function FDACuracao() {
         throw new Error(`Webhook error: ${response.status}`);
       }
 
-      toast({ title: "Success", description: "FDA sent successfully" });
-      await fetchProjects();
+      toast({ title: "Success", description: "FDA sent successfully, redirecting..." });
+      
+      // Navigate to the email page to show AI generating status
+      navigate(`/fda-curacao/email/${selectedProject.project_id}`);
 
     } catch (error) {
       console.error("Send error:", error);

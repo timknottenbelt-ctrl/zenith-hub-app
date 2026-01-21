@@ -18,6 +18,7 @@ const FDAEmailHistory = lazy(() => import("./pages/FDAEmailHistory"));
 const FDAPreview = lazy(() => import("./pages/FDAPreview"));
 const FDAFrontPage = lazy(() => import("./pages/FDAFrontPage"));
 const FDAEmailPreview = lazy(() => import("./pages/FDAEmailPreview"));
+const FDACuracaoEmail = lazy(() => import("./pages/FDACuracaoEmail"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const Vessels = lazy(() => import("./pages/Vessels"));
 const Contacts = lazy(() => import("./pages/Contacts"));
@@ -64,6 +65,7 @@ const App = () => {
                   <Route path="/fda-preview/:projectId" element={<ProtectedRoute><FDAPreview /></ProtectedRoute>} />
                   <Route path="/fda-front-page/:projectId" element={<ProtectedRoute><FDAFrontPage /></ProtectedRoute>} />
                   <Route path="/fda/email/:projectId" element={<ProtectedRoute><FDAEmailPreview /></ProtectedRoute>} />
+                  <Route path="/fda-curacao/email/:projectId" element={<ProtectedRoute><FDACuracaoEmail /></ProtectedRoute>} />
                   <Route path="/knowledge" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
                   <Route path="/vessels" element={<ProtectedRoute><Vessels /></ProtectedRoute>} />
                   <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
