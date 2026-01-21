@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -94,6 +94,14 @@ interface FDACuracaoInvoice {
   processed_at: string | null;
   created_at: string | null;
   updated_at: string | null;
+}
+
+interface AgencyCostRow {
+  id: string;
+  description: string;
+  number: string;
+  remark: string;
+  amount: string;
 }
 
 interface FDAFormData {
@@ -218,6 +226,12 @@ export default function FDACuracao() {
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Agency Cost rows
+  const [agencyCostRows, setAgencyCostRows] = useState<AgencyCostRow[]>([
+    { id: crypto.randomUUID(), description: "", number: "", remark: "", amount: "" }
+  ]);
 
   const [formData, setFormData] = useState<FDAFormData>({
     lbh_number: "",
@@ -270,6 +284,8 @@ export default function FDACuracao() {
         advanced_payment_status: (selectedProject as any).advanced_payment_status || "unpaid",
         advanced_payment_remark: (selectedProject as any).advanced_payment_remark || "",
       });
+      // Reset agency cost rows when project changes
+      setAgencyCostRows([{ id: crypto.randomUUID(), description: "", number: "", remark: "", amount: "" }]);
       fetchProjectInvoices(selectedProject.id);
     }
   }, [selectedProject]);
@@ -298,6 +314,29 @@ export default function FDACuracao() {
 
   const handleInputChange = (field: keyof FDAFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Agency Cost Row handlers
+  const handleAgencyCostChange = (id: string, field: keyof AgencyCostRow, value: string) => {
+    setAgencyCostRows(rows => rows.map(row => 
+      row.id === id ? { ...row, [field]: value } : row
+    ));
+  };
+
+  const addAgencyCostRow = () => {
+    setAgencyCostRows(rows => [...rows, { 
+      id: crypto.randomUUID(), 
+      description: "", 
+      number: "", 
+      remark: "", 
+      amount: "" 
+    }]);
+  };
+
+  const removeAgencyCostRow = (id: string) => {
+    if (agencyCostRows.length > 1) {
+      setAgencyCostRows(rows => rows.filter(row => row.id !== id));
+    }
   };
 
   async function handleCreateProject() {
@@ -399,12 +438,11 @@ export default function FDACuracao() {
     }
   }
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (!files || !selectedProject) return;
+  // File upload handler - stores in fda_curacao_processed_invoices
+  async function uploadFiles(files: FileList | File[]) {
+    if (!selectedProject) return;
 
     setUploadingFiles(true);
-
     let currentCount = projectInvoices.length;
 
     for (const file of Array.from(files)) {
@@ -413,7 +451,7 @@ export default function FDACuracao() {
         continue;
       }
 
-      const filePath = `${selectedProject.id}/${Date.now()}-${file.name}`;
+      const filePath = `curacao/${selectedProject.project_id}/${Date.now()}-${file.name}`;
 
       const { error: uploadError } = await supabase.storage.from("fda-invoices").upload(filePath, file);
 
@@ -422,14 +460,19 @@ export default function FDACuracao() {
         continue;
       }
 
+      // Get signed URL
+      const { data: signedData } = await supabase.storage.from("fda-invoices").createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year
+
       currentCount += 1;
       const invoiceNumber = String(currentCount).padStart(3, "0");
 
-      const { error: insertError } = await supabase.from("fda_invoices").insert({
-        fda_project_id: selectedProject.id,
-        file_path: filePath,
+      // Insert into fda_curacao_processed_invoices
+      const { error: insertError } = await supabase.from("fda_curacao_processed_invoices").insert({
+        project_id: selectedProject.project_id,
+        lbh_number: selectedProject.lbh_number,
+        ship_name: selectedProject.ship_name,
         file_name: file.name,
-        file_size: file.size,
+        file_url: signedData?.signedUrl || null,
         invoice_number: invoiceNumber,
       });
 
@@ -441,8 +484,38 @@ export default function FDACuracao() {
     await fetchProjectInvoices(selectedProject.id);
     setUploadingFiles(false);
     toast({ title: "Success", description: "Files uploaded" });
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+    await uploadFiles(files);
     e.target.value = "";
   }
+
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      await uploadFiles(files);
+    }
+  }, [selectedProject, projectInvoices]);
 
   async function handleDeleteInvoice(invoice: FDACuracaoInvoice) {
     await supabase.from("fda_curacao_processed_invoices").delete().eq("id", invoice.id);
@@ -466,20 +539,30 @@ export default function FDACuracao() {
   }
 
   async function handleSendToWebhook() {
-    if (!selectedProject || projectInvoices.length === 0) {
-      toast({ title: "Error", description: "Upload at least one invoice before sending", variant: "destructive" });
+    if (!selectedProject) {
+      toast({ title: "Error", description: "No project selected", variant: "destructive" });
       return;
     }
 
     setSending(true);
 
     try {
-      const fileUrls: string[] = [];
-      for (const invoice of projectInvoices) {
-        if (invoice.file_url) {
-          fileUrls.push(invoice.file_url);
-        }
-      }
+      // Collect invoice file URLs
+      const invoiceFiles = projectInvoices.map(inv => ({
+        file_name: inv.file_name,
+        file_url: inv.file_url,
+        invoice_number: inv.invoice_number,
+      }));
+
+      // Collect agency cost data (filter out empty rows)
+      const agencyCosts = agencyCostRows
+        .filter(row => row.description || row.number || row.remark || row.amount)
+        .map(row => ({
+          description: row.description,
+          number: row.number,
+          remark: row.remark,
+          amount: row.amount ? parseFloat(row.amount) : null,
+        }));
 
       const payload = {
         project_id: selectedProject.project_id,
@@ -499,31 +582,46 @@ export default function FDACuracao() {
         commodity: formData.commodity,
         client_reference: formData.client_reference,
         advanced_payment_amount: formData.advanced_payment_amount ? parseFloat(formData.advanced_payment_amount) : null,
-        invoice_files: fileUrls,
+        advanced_payment_currency: formData.advanced_payment_currency,
+        advanced_payment_reference: formData.advanced_payment_reference,
+        advanced_payment_status: formData.advanced_payment_status,
+        advanced_payment_remark: formData.advanced_payment_remark,
+        // Agency Costs
+        agency_costs: agencyCosts,
+        // Invoice files
+        invoice_files: invoiceFiles,
         invoice_count: projectInvoices.length,
         sent_at: new Date().toISOString(),
       };
 
+      // Update project status
       await supabase
-        .from("fda_projects")
+        .from("fda_curacao_projects")
         .update({ status: "processing" })
         .eq("project_id", selectedProject.project_id);
 
-      navigate(`/fda-front-page/${selectedProject.project_id}`);
-
-      fetch(WEBHOOK_URL, {
+      // Send to webhook
+      const response = await fetch(WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }).catch(err => console.error("Webhook error (background):", err));
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook error: ${response.status}`);
+      }
+
+      toast({ title: "Success", description: "FDA sent successfully" });
+      await fetchProjects();
 
     } catch (error) {
       console.error("Send error:", error);
       toast({ 
         title: "Error", 
-        description: error instanceof Error ? error.message : "Failed to prepare data", 
+        description: error instanceof Error ? error.message : "Failed to send FDA", 
         variant: "destructive" 
       });
+    } finally {
       setSending(false);
     }
   }
@@ -551,6 +649,7 @@ export default function FDACuracao() {
       advanced_payment_status: "unpaid",
       advanced_payment_remark: "",
     });
+    setAgencyCostRows([{ id: crypto.randomUUID(), description: "", number: "", remark: "", amount: "" }]);
   }
 
   const getStatusBadge = (status: string | null) => {
@@ -632,31 +731,10 @@ export default function FDACuracao() {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit className="w-4 h-4" />}
                 <span className="ml-2">Save</span>
               </Button>
-              {selectedProject.status === "sent" ? (
-                <>
-                  <Button variant="outline" onClick={() => navigate(`/fda-front-page/${selectedProject.project_id}`)}>
-                    <Eye className="w-4 h-4" />
-                    <span className="ml-2">View FDA</span>
-                  </Button>
-                  <Button onClick={() => navigate(`/fda/email/${selectedProject.project_id}`)}>
-                    <Mail className="w-4 h-4" />
-                    <span className="ml-2">Send Email</span>
-                  </Button>
-                </>
-              ) : (
-                <>
-                  {selectedProject.final_pdf_url && (
-                    <Button onClick={() => navigate(`/fda/email/${selectedProject.project_id}`)}>
-                      <Mail className="w-4 h-4" />
-                      <span className="ml-2">Ga naar Email</span>
-                    </Button>
-                  )}
-                  <Button onClick={handleSendToWebhook} disabled={sending || projectInvoices.length === 0}>
-                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    <span className="ml-2">Send FDA</span>
-                  </Button>
-                </>
-              )}
+              <Button onClick={handleSendToWebhook} disabled={sending}>
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                <span className="ml-2">Send FDA</span>
+              </Button>
             </div>
           </div>
 
@@ -906,20 +984,18 @@ export default function FDACuracao() {
                       value={formData.advanced_payment_currency}
                       onValueChange={(value) => handleInputChange("advanced_payment_currency", value)}
                     >
-                      <SelectTrigger className="bg-background">
+                      <SelectTrigger>
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
-                      <SelectContent className="bg-background z-50">
+                      <SelectContent>
                         <SelectItem value="USD">USD</SelectItem>
                         <SelectItem value="EUR">EUR</SelectItem>
                         <SelectItem value="ANG">ANG</SelectItem>
-                        <SelectItem value="GBP">GBP</SelectItem>
-                        <SelectItem value="CHF">CHF</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {/* Reference Number */}
+                  {/* Reference */}
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Reference</Label>
                     <Input
@@ -936,14 +1012,13 @@ export default function FDACuracao() {
                       value={formData.advanced_payment_status}
                       onValueChange={(value) => handleInputChange("advanced_payment_status", value)}
                     >
-                      <SelectTrigger className="bg-background">
+                      <SelectTrigger>
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
-                      <SelectContent className="bg-background z-50">
-                        <SelectItem value="unpaid">Not Paid</SelectItem>
-                        <SelectItem value="paid">Paid</SelectItem>
+                      <SelectContent>
+                        <SelectItem value="unpaid">Unpaid</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="partial">Partial</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -954,57 +1029,169 @@ export default function FDACuracao() {
                     <Input
                       value={formData.advanced_payment_remark}
                       onChange={(e) => handleInputChange("advanced_payment_remark", e.target.value)}
-                      placeholder="Notes"
+                      placeholder="Optional"
                     />
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Agency Cost - Full Width with Multiple Rows */}
+            <Card className="card-premium lg:col-span-2">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-primary" />
+                    Agency Cost
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addAgencyCostRow}
+                    className="h-8"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Row
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Header row */}
+                <div className="grid grid-cols-12 gap-3 text-xs text-muted-foreground font-medium px-1">
+                  <div className="col-span-4">Description</div>
+                  <div className="col-span-2">Number</div>
+                  <div className="col-span-3">Remark</div>
+                  <div className="col-span-2">Amount</div>
+                  <div className="col-span-1"></div>
+                </div>
+                
+                {agencyCostRows.map((row, index) => (
+                  <div key={row.id} className="grid grid-cols-12 gap-3 items-center">
+                    <div className="col-span-4">
+                      <Input
+                        value={row.description}
+                        onChange={(e) => handleAgencyCostChange(row.id, "description", e.target.value)}
+                        placeholder="Description"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input
+                        value={row.number}
+                        onChange={(e) => handleAgencyCostChange(row.id, "number", e.target.value)}
+                        placeholder="Number"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <Input
+                        value={row.remark}
+                        onChange={(e) => handleAgencyCostChange(row.id, "remark", e.target.value)}
+                        placeholder="Remark"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <div className="relative">
+                        <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          value={row.amount}
+                          onChange={(e) => handleAgencyCostChange(row.id, "amount", e.target.value)}
+                          placeholder="0.00"
+                          className="h-9 pl-6"
+                          step="0.01"
+                        />
+                      </div>
+                    </div>
+                    <div className="col-span-1 flex justify-center">
+                      {agencyCostRows.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => removeAgencyCostRow(row.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Invoice PDFs Section - Full Width Below */}
-          <Card className="card-premium">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary" />
-                  Invoice PDFs ({projectInvoices.length})
-                </CardTitle>
-                {selectedProject.status !== "sent" && (
-                  <label className="cursor-pointer">
-                    <Button variant="outline" size="sm" asChild>
-                      <span>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload PDF
-                      </span>
-                    </Button>
-                    <input
-                      type="file"
-                      multiple
-                      accept=".pdf"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                      disabled={uploadingFiles}
-                    />
-                  </label>
-                )}
+          {/* Invoice PDF Upload Card with Drag & Drop */}
+          <Card className="card-premium lg:col-span-2">
+            <CardHeader className="pb-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
+                Invoice PDFs ({projectInvoices.length})
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  id="invoice-upload"
+                  multiple
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById("invoice-upload")?.click()}
+                  disabled={uploadingFiles}
+                >
+                  {uploadingFiles ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  Upload PDF
+                </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              {uploadingFiles && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Uploading...
-                </div>
-              )}
+            <CardContent className="space-y-4">
+              {/* Drag & Drop Zone */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`
+                  border-2 border-dashed rounded-lg p-6 transition-all text-center
+                  ${isDragging 
+                    ? "border-primary bg-primary/5" 
+                    : "border-muted-foreground/30 hover:border-muted-foreground/50"
+                  }
+                  ${projectInvoices.length === 0 ? "py-12" : "py-4"}
+                `}
+              >
+                {uploadingFiles ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Uploading...</p>
+                  </div>
+                ) : isDragging ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <FileUp className="w-8 h-8 text-primary" />
+                    <p className="text-sm font-medium">Drop PDF files here</p>
+                  </div>
+                ) : projectInvoices.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <FileUp className="w-8 h-8 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">Drag & drop PDF files here or use the Upload button</p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Drag & drop more PDFs here</p>
+                )}
+              </div>
 
-              {projectInvoices.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                  <FileUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No files uploaded yet</p>
-                  <p className="text-xs">Upload invoice PDFs using the button above</p>
-                </div>
-              ) : (
+              {/* Uploaded invoices list */}
+              {projectInvoices.length > 0 && (
                 <div className="space-y-2">
                   {projectInvoices.map((invoice, index) => (
                     <CuracaoInvoiceRow
