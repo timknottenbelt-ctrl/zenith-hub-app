@@ -17,23 +17,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
+    let isMounted = true;
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    // Never block the whole app forever if Supabase hangs/errors.
+    const safetyTimeout = window.setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 4000);
+
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!isMounted) return;
+      window.clearTimeout(safetyTimeout);
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // THEN check for existing session
+    (async () => {
+      try {
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+        window.clearTimeout(safetyTimeout);
+        setSession(existingSession);
+        setUser(existingSession?.user ?? null);
+      } catch (err) {
+        // If session retrieval fails (network, storage), don't freeze the UI.
+        console.error('supabase.auth.getSession failed:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+      window.clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function signOut() {
