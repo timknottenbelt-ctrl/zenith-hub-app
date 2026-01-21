@@ -631,7 +631,7 @@ LBH Curaçao`;
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Enter email body..."
-              className="min-h-[300px] font-mono text-sm resize-y"
+              className="min-h-[300px] font-sans text-sm leading-relaxed resize-y"
             />
           </CardContent>
         </Card>
