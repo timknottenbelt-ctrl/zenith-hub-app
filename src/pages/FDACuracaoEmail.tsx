@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ArrowLeft,
   Mail,
@@ -19,11 +19,12 @@ import {
   Eye,
   Loader2,
   Send,
-  Upload,
   Trash2,
   Paperclip,
   Sparkles,
   ExternalLink,
+  CheckCircle,
+  FileCheck,
 } from "lucide-react";
 
 interface FDACuracaoProject {
@@ -67,7 +68,6 @@ const SEND_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/send-fda-cura
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
 
-// Convert storage path to downloadable URL
 function getPublicPdfUrl(url: string | null): string | null {
   if (!url) return null;
   if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -119,7 +119,6 @@ export default function FDACuracaoEmail() {
   const fetchProjectAndDraft = useCallback(async () => {
     if (!projectId) return;
 
-    // Fetch project data from fda_curacao_projects
     const { data: projectData, error: projectError } = await supabase
       .from("fda_curacao_projects")
       .select("*")
@@ -135,7 +134,6 @@ export default function FDACuracaoEmail() {
 
     setProject(projectData);
 
-    // Fetch email draft from fda_email_drafts (created by n8n)
     const { data: draftData, error: draftError } = await supabase
       .from("fda_email_drafts")
       .select("*")
@@ -145,17 +143,14 @@ export default function FDACuracaoEmail() {
       .maybeSingle();
 
     if (draftData && !draftError && draftData.status === "draft") {
-      // Use draft data from n8n
       setEmailDraft(draftData);
 
-      // Parse TO emails
       const toList = draftData.email_to
         .split(",")
         .map((e: string) => e.trim())
         .filter((e: string) => e);
       setToEmails(toList);
 
-      // Parse CC emails
       if (draftData.email_cc) {
         const ccList = draftData.email_cc
           .split(",")
@@ -169,7 +164,6 @@ export default function FDACuracaoEmail() {
     }
   }, [projectId, navigate]);
 
-  // Initial load and polling
   useEffect(() => {
     let cancelled = false;
 
@@ -186,15 +180,13 @@ export default function FDACuracaoEmail() {
 
     loadData();
 
-    // Poll for draft (status = "draft") + Google Sheet URL
     let tries = 0;
-    const maxTries = 60; // ~3 min
+    const maxTries = 60;
 
     const interval = setInterval(async () => {
       if (!projectId) return;
       tries += 1;
 
-      // 1) Poll email draft until status = "draft"
       if (!emailDraftRef.current || emailDraftRef.current.status !== "draft") {
         const { data: draftData } = await supabase
           .from("fda_email_drafts")
@@ -224,7 +216,6 @@ export default function FDACuracaoEmail() {
         }
       }
 
-      // 2) Poll project for google_sheet_url
       const currentProject = projectRef.current;
       if (!currentProject?.google_sheet_url) {
         const { data } = await supabase
@@ -247,7 +238,6 @@ export default function FDACuracaoEmail() {
         }
       }
 
-      // Stop polling when we have draft with status "draft"
       const nowHasDraft = emailDraftRef.current?.status === "draft";
       if (nowHasDraft || tries > maxTries) {
         clearInterval(interval);
@@ -260,7 +250,6 @@ export default function FDACuracaoEmail() {
     };
   }, [fetchProjectAndDraft, projectId]);
 
-  // Email validation
   function isValidEmail(email: string): boolean {
     return EMAIL_REGEX.test(email.trim());
   }
@@ -432,7 +421,6 @@ export default function FDACuracaoEmail() {
     }
   }
 
-  // Loading state - show AI generating message until draft status = "draft"
   if (loading) {
     return (
       <DashboardLayout title="FDA Curacao Email">
@@ -443,7 +431,7 @@ export default function FDACuracaoEmail() {
     );
   }
 
-  // AI Generating state - waiting for draft with status "draft"
+  // AI Generating state
   const isAiGenerating = !emailDraft || emailDraft.status !== "draft";
 
   if (isAiGenerating) {
@@ -462,20 +450,20 @@ export default function FDACuracaoEmail() {
           </div>
 
           {/* AI Generating Card */}
-          <Card className="card-premium">
-            <CardContent className="py-16">
+          <Card className="border-primary/50 bg-primary/5">
+            <CardContent className="py-12">
               <div className="flex flex-col items-center justify-center gap-6 text-center">
                 <div className="relative">
                   <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
-                  <div className="relative p-4 rounded-full bg-primary/10">
-                    <Sparkles className="w-12 h-12 text-primary animate-pulse" />
+                  <div className="relative p-4 rounded-full bg-primary">
+                    <Sparkles className="w-8 h-8 text-primary-foreground animate-pulse" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-xl font-semibold">AI is generating your email...</h2>
+                  <h2 className="text-xl font-semibold">AI is processing your FDA...</h2>
                   <p className="text-muted-foreground max-w-md">
                     We're preparing your FDA package and generating the email content. 
-                    This usually takes about 30-60 seconds.
+                    This usually takes 30-60 seconds.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -508,7 +496,7 @@ export default function FDACuracaoEmail() {
 
   return (
     <DashboardLayout title="FDA Curacao Email">
-      <div className="space-y-6">
+      <div className="space-y-6 pb-24">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -520,6 +508,7 @@ export default function FDACuracaoEmail() {
               <p className="text-muted-foreground">{project?.lbh_number}</p>
             </div>
             <Badge className="bg-success/10 text-success border-success/20" variant="outline">
+              <CheckCircle className="w-3 h-3 mr-1" />
               Ready to Send
             </Badge>
           </div>
@@ -529,188 +518,201 @@ export default function FDACuracaoEmail() {
           </Button>
         </div>
 
-        {/* Links Row */}
-        {(project?.google_sheet_url || emailDraft?.drive_folder_url) && (
-          <div className="flex gap-3">
-            {project?.google_sheet_url && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(project.google_sheet_url!, "_blank")}
-              >
-                <FileText className="w-4 h-4 mr-2" />
+        {/* Google Sheet Link */}
+        {project?.google_sheet_url && (
+          <Card className="card-premium border-green-500/50 bg-green-500/5">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
                 Google Sheet
-                <ExternalLink className="w-3 h-3 ml-2" />
-              </Button>
-            )}
-            {emailDraft?.drive_folder_url && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(emailDraft.drive_folder_url!, "_blank")}
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Drive Folder
-                <ExternalLink className="w-3 h-3 ml-2" />
-              </Button>
-            )}
-          </div>
+                <Badge variant="outline" className="text-green-600 border-green-200 ml-2">
+                  Ready
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground truncate flex-1">
+                  Invoice data has been processed successfully
+                </span>
+                <Button size="sm" onClick={() => window.open(project.google_sheet_url!, "_blank")}>
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open Google Sheet
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Email Form */}
+        {/* FDA Package Attachment */}
+        <Card className="card-premium">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
+              FDA Package
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {mainPdfUrl ? (
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <FileCheck className="w-5 h-5 text-green-500" />
+                  <span className="font-medium">{mainPdfFilename}</span>
+                  <Badge variant="outline" className="text-green-600 border-green-200">
+                    Ready
+                  </Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const url = getPublicPdfUrl(mainPdfUrl);
+                      if (url) window.open(url, "_blank");
+                    }}
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center p-8 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                Generating PDF...
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Extra Attachments */}
+        {extraAttachments.length > 0 && (
           <Card className="card-premium">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5" />
-                Email Compose
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Paperclip className="w-4 h-4 text-primary" />
+                Extra Attachments
+                <Badge variant="secondary" className="ml-2">
+                  {extraAttachments.length}
+                </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* TO Field */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">To</label>
-                <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
-                  {toEmails.map((email, i) => (
-                    <Badge key={i} variant="secondary" className="gap-1">
-                      {email}
-                      <button onClick={() => removeToEmail(i)} className="ml-1 hover:text-destructive">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                  <Input
-                    value={newToEmail}
-                    onChange={(e) => setNewToEmail(e.target.value)}
-                    onKeyDown={handleToKeyDown}
-                    onBlur={addToEmail}
-                    placeholder="Add email..."
-                    className="flex-1 min-w-[150px] border-0 shadow-none focus-visible:ring-0 h-7 p-0"
-                  />
-                </div>
-              </div>
-
-              {/* CC Field */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">CC</label>
-                <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
-                  {ccEmails.map((email, i) => (
-                    <Badge key={i} variant="secondary" className="gap-1">
-                      {email}
-                      <button onClick={() => removeCcEmail(i)} className="ml-1 hover:text-destructive">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                  <Input
-                    value={newCcEmail}
-                    onChange={(e) => setNewCcEmail(e.target.value)}
-                    onKeyDown={handleCcKeyDown}
-                    onBlur={addCcEmail}
-                    placeholder="Add CC..."
-                    className="flex-1 min-w-[150px] border-0 shadow-none focus-visible:ring-0 h-7 p-0"
-                  />
-                </div>
-              </div>
-
-              {/* Subject */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Subject</label>
-                <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Email subject" />
-              </div>
-
-              {/* Body */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Message</label>
-                <Textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  placeholder="Email body..."
-                  className="min-h-[200px]"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Attachments */}
-          <Card className="card-premium">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Paperclip className="w-5 h-5" />
-                Attachments
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Main FDA Package */}
-              {mainPdfUrl && (
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-5 h-5 text-primary" />
-                      <div>
-                        <p className="text-sm font-medium">{mainPdfFilename}</p>
-                        <p className="text-xs text-muted-foreground">FDA Package</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => setPreviewOpen(true)}>
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          const url = getPublicPdfUrl(mainPdfUrl);
-                          if (url) window.open(url, "_blank");
-                        }}
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Extra Attachments */}
+            <CardContent className="space-y-2">
               {extraAttachments.map((att) => (
-                <div key={att.id} className="p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-5 h-5 text-muted-foreground" />
-                      <p className="text-sm">{att.name}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => removeAttachment(att.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                <div key={att.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-sm">{att.name}</span>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                    onClick={() => removeAttachment(att.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               ))}
-
-              {/* Upload */}
-              <label className="flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                {uploadingAttachment ? (
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                ) : (
-                  <Upload className="w-6 h-6 text-muted-foreground" />
-                )}
-                <span className="text-sm text-muted-foreground">
-                  {uploadingAttachment ? "Uploading..." : "Add extra attachment"}
-                </span>
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={handleUploadAttachment}
-                  disabled={uploadingAttachment}
-                />
-              </label>
             </CardContent>
           </Card>
-        </div>
+        )}
+
+        {/* Add Extra Attachment Button */}
+        <label className="inline-flex">
+          <Button variant="outline" size="sm" disabled={uploadingAttachment} asChild>
+            <span className="cursor-pointer">
+              {uploadingAttachment ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4 mr-2" />
+              )}
+              Add Extra Attachment
+            </span>
+          </Button>
+          <input
+            type="file"
+            className="hidden"
+            onChange={handleUploadAttachment}
+            disabled={uploadingAttachment}
+          />
+        </label>
+
+        {/* Email Compose */}
+        <Card className="card-premium">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-primary" />
+              Email Compose
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* TO Field */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">To</label>
+              <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
+                {toEmails.map((email, i) => (
+                  <Badge key={i} variant="secondary" className="gap-1">
+                    {email}
+                    <button onClick={() => removeToEmail(i)} className="ml-1 hover:text-destructive">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+                <Input
+                  value={newToEmail}
+                  onChange={(e) => setNewToEmail(e.target.value)}
+                  onKeyDown={handleToKeyDown}
+                  onBlur={addToEmail}
+                  placeholder="Add email..."
+                  className="flex-1 min-w-[150px] border-0 shadow-none focus-visible:ring-0 h-7 p-0"
+                />
+              </div>
+            </div>
+
+            {/* CC Field */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">CC</label>
+              <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
+                {ccEmails.map((email, i) => (
+                  <Badge key={i} variant="secondary" className="gap-1">
+                    {email}
+                    <button onClick={() => removeCcEmail(i)} className="ml-1 hover:text-destructive">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+                <Input
+                  value={newCcEmail}
+                  onChange={(e) => setNewCcEmail(e.target.value)}
+                  onKeyDown={handleCcKeyDown}
+                  onBlur={addCcEmail}
+                  placeholder="Add CC..."
+                  className="flex-1 min-w-[150px] border-0 shadow-none focus-visible:ring-0 h-7 p-0"
+                />
+              </div>
+            </div>
+
+            {/* Subject */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Subject</label>
+              <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Email subject" />
+            </div>
+
+            {/* Body */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Message</label>
+              <Textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Email body..."
+                className="min-h-[200px]"
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* PDF Preview Dialog */}
