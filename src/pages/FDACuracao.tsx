@@ -134,6 +134,7 @@ interface CuracaoInvoiceRowProps {
   invoice: FDACuracaoInvoice;
   index: number;
   isSent: boolean;
+  showDetails?: boolean; // Show supplier/amount details (for email page, not main page)
   onDelete: (invoice: FDACuracaoInvoice) => void;
   onUpdateInvoiceNumber: (invoiceId: string, invoiceNumber: string) => void;
 }
@@ -159,7 +160,7 @@ function getPublicPdfUrl(fileUrl: string | null): string | null {
   return `${supabaseUrl}/storage/v1/object/public/fda-invoices/${fileUrl.replace(/^\//, "")}`;
 }
 
-function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }: CuracaoInvoiceRowProps) {
+function CuracaoInvoiceRow({ invoice, index, isSent, showDetails = false, onDelete, onUpdateInvoiceNumber }: CuracaoInvoiceRowProps) {
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoice_number || String(index + 1).padStart(3, "0"));
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
@@ -227,17 +228,17 @@ function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNu
   return (
     <>
       <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
-        {/* File Name - First */}
+        {/* File Name */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <CheckCircle className="w-4 h-4 text-success shrink-0" />
           <span className="text-sm truncate">{invoice.file_name}</span>
-          {invoice.supplier_name && (
+          {showDetails && invoice.supplier_name && (
             <span className="text-xs text-muted-foreground">({invoice.supplier_name})</span>
           )}
         </div>
 
-        {/* Amount */}
-        {invoice.total_amount && (
+        {/* Amount - only show on details view */}
+        {showDetails && invoice.total_amount && (
           <div className="text-sm font-medium shrink-0">
             {invoice.currency || 'USD'} {invoice.total_amount.toLocaleString()}
           </div>
