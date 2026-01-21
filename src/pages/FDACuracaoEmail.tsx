@@ -112,6 +112,7 @@ export default function FDACuracaoEmail() {
   const [body, setBody] = useState("");
   const [extraAttachments, setExtraAttachments] = useState<ExtraAttachment[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [uploadingInvoicePdf, setUploadingInvoicePdf] = useState(false);
 
   // Preview modal
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -455,6 +456,60 @@ export default function FDACuracaoEmail() {
     }
   }
 
+  // Upload extra invoice PDF
+  async function handleUploadInvoicePdf(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !projectId) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      toast({ title: "Error", description: "Only PDF files allowed", variant: "destructive" });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Error", description: "File must be less than 10MB", variant: "destructive" });
+      return;
+    }
+
+    setUploadingInvoicePdf(true);
+
+    try {
+      const fileName = `${Date.now()}_${file.name}`;
+      const filePath = `${projectId}/invoices/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage.from("fda-invoices").upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = await supabase.storage
+        .from("fda-invoices")
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+
+      if (!urlData?.signedUrl) throw new Error("Failed to get URL");
+
+      // Add to local state as a new invoice row (user uploaded, no AI processing)
+      const newInvoice: ProcessedInvoice = {
+        id: `local-${Date.now()}`,
+        invoice_number: String(invoices.length + 1).padStart(3, "0"),
+        file_name: file.name,
+        description: "User uploaded",
+        total_amount: null,
+        currency: null,
+        file_url: urlData.signedUrl,
+        supplier_name: null,
+      };
+
+      setInvoices(prev => [...prev, newInvoice]);
+      toast({ title: "Success", description: "PDF uploaded" });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({ title: "Error", description: "Failed to upload PDF", variant: "destructive" });
+    } finally {
+      setUploadingInvoicePdf(false);
+      e.target.value = "";
+    }
+  }
+
   function removeAttachment(id: string) {
     setExtraAttachments(extraAttachments.filter((a) => a.id !== id));
   }
@@ -605,35 +660,51 @@ export default function FDACuracaoEmail() {
           </CardContent>
         </Card>
 
-        {/* Processed Invoices */}
+        {/* Processed Invoices - Only show invoices that have been processed by AI (have description/amount) */}
         <Card className="card-premium">
           <CardHeader className="pb-4">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Receipt className="w-4 h-4 text-primary" />
               Verwerkte Facturen
               <Badge variant="secondary" className="ml-2">
-                {invoices.length}
+                {invoices.filter(inv => inv.description || inv.total_amount || inv.supplier_name).length}
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {invoices.length === 0 ? (
+            {invoices.filter(inv => inv.description || inv.total_amount || inv.supplier_name).length === 0 ? (
               <div className="flex items-center justify-center p-8 text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 AI is processing invoices...
               </div>
             ) : (
               <div className="space-y-2">
-                {invoices.map((invoice, index) => (
-                  <InvoiceRow
-                    key={invoice.id}
-                    invoice={invoice}
-                    index={index}
-                    onView={() => loadPdfForPreview(invoice)}
-                    onDownload={() => handleDownloadInvoice(invoice)}
-                    onUpdateNumber={handleUpdateInvoiceNumber}
+                {invoices
+                  .filter(inv => inv.description || inv.total_amount || inv.supplier_name)
+                  .map((invoice, index) => (
+                    <InvoiceRow
+                      key={invoice.id}
+                      invoice={invoice}
+                      index={index}
+                      onView={() => loadPdfForPreview(invoice)}
+                      onDownload={() => handleDownloadInvoice(invoice)}
+                      onUpdateNumber={handleUpdateInvoiceNumber}
+                    />
+                  ))}
+
+                {/* Upload extra PDF */}
+                <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors mt-4">
+                  <Plus className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Upload extra PDF</span>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={handleUploadInvoicePdf}
+                    disabled={uploadingInvoicePdf}
                   />
-                ))}
+                  {uploadingInvoicePdf && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
+                </label>
               </div>
             )}
           </CardContent>
