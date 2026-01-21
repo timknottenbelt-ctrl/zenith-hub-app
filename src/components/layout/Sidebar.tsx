@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
   Send,
+  ShieldCheck,
 } from 'lucide-react';
 
 const navItems = [
@@ -28,6 +29,10 @@ const navItems = [
   { key: 'settings', icon: Settings, path: '/settings' },
 ];
 
+const adminItems = [
+  { key: 'userManagement', icon: ShieldCheck, path: '/admin/users', label: 'Gebruikersbeheer' },
+];
+
 const FLAGCDN_BASE = 'https://flagcdn.com';
 
 // Use w80 for crisp rendering at 2x+ displays
@@ -36,8 +41,7 @@ const getOfficeFlagUrl = (officeCode: string) =>
 
 export const Sidebar = memo(function Sidebar() {
   const { t, office } = useLanguage();
-  const { user, signOut } = useAuth();
-
+  const { user, signOut, isAdmin } = useAuth();
   const officeFlagUrl = office ? getOfficeFlagUrl(office) : null;
 
   return (
@@ -90,6 +94,37 @@ export const Sidebar = memo(function Sidebar() {
             </NavLink>
           );
         })}
+        
+        {/* Admin Section */}
+        {isAdmin && (
+          <>
+            <div className="pt-4 pb-2">
+              <span className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Admin
+              </span>
+            </div>
+            {adminItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.key}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-75 ease-out',
+                      isActive
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-[0.98]'
+                    )
+                  }
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* Footer with User Info */}
