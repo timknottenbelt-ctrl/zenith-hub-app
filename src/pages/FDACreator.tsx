@@ -485,6 +485,16 @@ export default function FDACreator() {
       return;
     }
 
+    // Validate required Port Call fields
+    if (!formData.vessel_arrived || !formData.vessel_sailed || !formData.operation) {
+      toast({ 
+        title: "Missing Required Fields", 
+        description: "Vessel Arrived, Vessel Sailed and Operation are required before sending", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     setSending(true);
 
     try {
