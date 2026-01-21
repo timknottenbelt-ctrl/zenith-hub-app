@@ -138,9 +138,33 @@ interface CuracaoInvoiceRowProps {
   onUpdateInvoiceNumber: (invoiceId: string, invoiceNumber: string) => void;
 }
 
+// Helper to get public PDF URL from storage path
+function getPublicPdfUrl(fileUrl: string | null): string | null {
+  if (!fileUrl) return null;
+  
+  // If it's already a full URL, return it
+  if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+    return fileUrl;
+  }
+  
+  // Construct full Supabase storage URL
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://vgbgjwhnkwsxxdiibapw.supabase.co';
+  
+  // Check if path already includes bucket name
+  if (fileUrl.startsWith('fda-invoices/') || fileUrl.startsWith('pdfs/')) {
+    return `${supabaseUrl}/storage/v1/object/public/${fileUrl}`;
+  }
+  
+  // Default to fda-invoices bucket
+  return `${supabaseUrl}/storage/v1/object/public/fda-invoices/${fileUrl}`;
+}
+
 function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNumber }: CuracaoInvoiceRowProps) {
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoice_number || String(index + 1).padStart(3, "0"));
   const [showPdfDialog, setShowPdfDialog] = useState(false);
+  
+  // Get the full public URL for the PDF
+  const pdfUrl = getPublicPdfUrl(invoice.file_url);
 
   const handleSaveNumber = () => {
     if (invoiceNumber !== invoice.invoice_number) {
@@ -182,7 +206,7 @@ function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNu
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
-          {invoice.file_url && (
+          {pdfUrl && (
             <Button
               variant="ghost"
               size="icon"
@@ -193,8 +217,8 @@ function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNu
               <Eye className="w-4 h-4" />
             </Button>
           )}
-          {invoice.file_url && (
-            <a href={invoice.file_url} download={invoice.file_name} target="_blank" rel="noopener noreferrer">
+          {pdfUrl && (
+            <a href={pdfUrl} download={invoice.file_name} target="_blank" rel="noopener noreferrer">
               <Button
                 variant="ghost"
                 size="icon"
@@ -221,20 +245,25 @@ function CuracaoInvoiceRow({ invoice, index, isSent, onDelete, onUpdateInvoiceNu
 
       {/* PDF Preview Dialog */}
       <Dialog open={showPdfDialog} onOpenChange={setShowPdfDialog}>
-        <DialogContent className="max-w-4xl h-[85vh] p-0">
+        <DialogContent className="max-w-4xl h-[85vh] p-0" aria-describedby={undefined}>
           <DialogHeader className="p-4 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
               {invoice.file_name}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 px-4 pb-4 h-full">
-            {invoice.file_url && (
+          <div className="flex-1 px-4 pb-4 h-[calc(85vh-80px)]">
+            {pdfUrl ? (
               <iframe
-                src={invoice.file_url}
+                src={`${pdfUrl}#toolbar=1&navpanes=0`}
                 className="w-full h-full rounded-lg border"
                 title={invoice.file_name}
+                style={{ minHeight: '500px' }}
               />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                PDF URL niet beschikbaar
+              </div>
             )}
           </div>
         </DialogContent>
