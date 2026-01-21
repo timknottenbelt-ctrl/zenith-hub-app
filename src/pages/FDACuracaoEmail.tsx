@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   ArrowLeft,
   Mail,
@@ -24,7 +24,7 @@ import {
   Sparkles,
   ExternalLink,
   CheckCircle,
-  FileCheck,
+  Receipt,
 } from "lucide-react";
 
 interface FDACuracaoProject {
@@ -58,13 +58,24 @@ interface FDAEmailDraft {
   drive_folder_url: string | null;
 }
 
+interface ProcessedInvoice {
+  id: string;
+  invoice_number: string;
+  file_name: string;
+  description: string | null;
+  total_amount: number | null;
+  currency: string | null;
+  file_url: string | null;
+  supplier_name: string | null;
+}
+
 interface ExtraAttachment {
   id: string;
   name: string;
   url: string;
 }
 
-const SEND_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/send-fda-curacao";
+const SEND_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/send-to-uruguay";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
 
@@ -76,7 +87,7 @@ function getPublicPdfUrl(url: string | null): string | null {
   if (url.startsWith("/object/sign/")) {
     return encodeURI(`${SUPABASE_URL}/storage/v1${url}`);
   }
-  if (url.includes("fda-final-packages/") || url.includes("fda-curacao/")) {
+  if (url.includes("fda-final-packages/") || url.includes("fda-curacao/") || url.includes("fda-invoices/")) {
     return encodeURI(`${SUPABASE_URL}/storage/v1/object/public/${url}`);
   }
   return url;
@@ -88,6 +99,7 @@ export default function FDACuracaoEmail() {
 
   const [project, setProject] = useState<FDACuracaoProject | null>(null);
   const [emailDraft, setEmailDraft] = useState<FDAEmailDraft | null>(null);
+  const [invoices, setInvoices] = useState<ProcessedInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
@@ -103,6 +115,9 @@ export default function FDACuracaoEmail() {
 
   // Preview modal
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewInvoice, setPreviewInvoice] = useState<ProcessedInvoice | null>(null);
+  const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // Polling refs
   const emailDraftRef = useRef<FDAEmailDraft | null>(null);
@@ -134,6 +149,18 @@ export default function FDACuracaoEmail() {
 
     setProject(projectData);
 
+    // Fetch invoices
+    const { data: invoiceData } = await supabase
+      .from("fda_curacao_processed_invoices")
+      .select("id, invoice_number, file_name, description, total_amount, currency, file_url, supplier_name")
+      .eq("project_id", projectId)
+      .order("invoice_number", { ascending: true });
+
+    if (invoiceData) {
+      setInvoices(invoiceData);
+    }
+
+    // Fetch email draft
     const { data: draftData, error: draftError } = await supabase
       .from("fda_email_drafts")
       .select("*")
@@ -187,6 +214,7 @@ export default function FDACuracaoEmail() {
       if (!projectId) return;
       tries += 1;
 
+      // Poll for draft with status "draft"
       if (!emailDraftRef.current || emailDraftRef.current.status !== "draft") {
         const { data: draftData } = await supabase
           .from("fda_email_drafts")
@@ -216,6 +244,7 @@ export default function FDACuracaoEmail() {
         }
       }
 
+      // Poll for google_sheet_url
       const currentProject = projectRef.current;
       if (!currentProject?.google_sheet_url) {
         const { data } = await supabase
@@ -238,6 +267,19 @@ export default function FDACuracaoEmail() {
         }
       }
 
+      // Poll for invoices if we don't have any yet
+      if (invoices.length === 0) {
+        const { data: invoiceData } = await supabase
+          .from("fda_curacao_processed_invoices")
+          .select("id, invoice_number, file_name, description, total_amount, currency, file_url, supplier_name")
+          .eq("project_id", projectId)
+          .order("invoice_number", { ascending: true });
+
+        if (invoiceData && invoiceData.length > 0) {
+          setInvoices(invoiceData);
+        }
+      }
+
       const nowHasDraft = emailDraftRef.current?.status === "draft";
       if (nowHasDraft || tries > maxTries) {
         clearInterval(interval);
@@ -248,7 +290,77 @@ export default function FDACuracaoEmail() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [fetchProjectAndDraft, projectId]);
+  }, [fetchProjectAndDraft, projectId, invoices.length]);
+
+  // PDF Preview helpers
+  const loadPdfForPreview = useCallback(async (invoice: ProcessedInvoice) => {
+    const url = getPublicPdfUrl(invoice.file_url);
+    if (!url) return;
+
+    setPreviewInvoice(invoice);
+    setPreviewOpen(true);
+    setPdfLoading(true);
+
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error(`PDF fetch failed: HTTP ${res.status}`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      setPdfObjectUrl(objectUrl);
+    } catch (e) {
+      console.error("PDF load error:", e);
+      toast({ title: "Error", description: "Failed to load PDF", variant: "destructive" });
+    } finally {
+      setPdfLoading(false);
+    }
+  }, []);
+
+  const closePreview = useCallback(() => {
+    setPreviewOpen(false);
+    setPreviewInvoice(null);
+    if (pdfObjectUrl) {
+      URL.revokeObjectURL(pdfObjectUrl);
+      setPdfObjectUrl(null);
+    }
+  }, [pdfObjectUrl]);
+
+  const handleDownloadInvoice = useCallback(async (invoice: ProcessedInvoice) => {
+    const url = getPublicPdfUrl(invoice.file_url);
+    if (!url) return;
+
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = invoice.file_name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e) {
+      console.error("Download error:", e);
+      toast({ title: "Error", description: "Failed to download", variant: "destructive" });
+    }
+  }, []);
+
+  // Update invoice number
+  async function handleUpdateInvoiceNumber(invoiceId: string, newNumber: string) {
+    const { error } = await supabase
+      .from("fda_curacao_processed_invoices")
+      .update({ invoice_number: newNumber })
+      .eq("id", invoiceId);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setInvoices((prev) =>
+        prev.map((inv) => (inv.id === invoiceId ? { ...inv, invoice_number: newNumber } : inv))
+      );
+      toast({ title: "Saved", description: "Invoice number updated" });
+    }
+  }
 
   function isValidEmail(email: string): boolean {
     return EMAIL_REGEX.test(email.trim());
@@ -368,12 +480,25 @@ export default function FDACuracaoEmail() {
     try {
       const payload = {
         project_id: projectId,
+        lbh_number: project?.lbh_number,
+        ship_name: project?.ship_name,
         email_to: toEmails.join(","),
         email_cc: ccEmails.join(","),
         email_subject: subject,
         email_body: body,
+        google_sheet_url: project?.google_sheet_url || emailDraft?.google_sheet_url || "",
         attachment_url: emailDraft?.attachment_url || project?.final_pdf_url || "",
         extra_attachments: extraAttachments.map((a) => a.url),
+        invoices: invoices.map((inv) => ({
+          id: inv.id,
+          invoice_number: inv.invoice_number,
+          file_name: inv.file_name,
+          file_url: inv.file_url,
+          description: inv.description,
+          total_amount: inv.total_amount,
+          currency: inv.currency,
+          supplier_name: inv.supplier_name,
+        })),
       };
 
       const response = await fetch(SEND_WEBHOOK_URL, {
@@ -385,6 +510,12 @@ export default function FDACuracaoEmail() {
       if (!response.ok) {
         throw new Error(`Send failed: ${response.status}`);
       }
+
+      // Update project status
+      await supabase
+        .from("fda_curacao_projects")
+        .update({ status: "sent", email_sent_at: new Date().toISOString() })
+        .eq("project_id", projectId);
 
       toast({ title: "Success!", description: "Email sent successfully!" });
       navigate("/fda-curacao");
@@ -400,27 +531,6 @@ export default function FDACuracaoEmail() {
     }
   }
 
-  function getMainPdfUrl(): string | null {
-    if (emailDraft?.attachment_url) {
-      return emailDraft.attachment_url;
-    }
-    return project?.final_pdf_url || null;
-  }
-
-  function getFilenameFromUrl(url: string | null): string {
-    if (emailDraft?.attachment_name) {
-      return emailDraft.attachment_name;
-    }
-    if (!url) return "FDA_Package.pdf";
-    try {
-      const urlParts = url.split("/");
-      const fileNameWithParams = urlParts[urlParts.length - 1];
-      return decodeURIComponent(fileNameWithParams.split("?")[0]) || "FDA_Package.pdf";
-    } catch {
-      return "FDA_Package.pdf";
-    }
-  }
-
   if (loading) {
     return (
       <DashboardLayout title="FDA Curacao Email">
@@ -431,68 +541,9 @@ export default function FDACuracaoEmail() {
     );
   }
 
-  // AI Generating state
-  const isAiGenerating = !emailDraft || emailDraft.status !== "draft";
-
-  if (isAiGenerating) {
-    return (
-      <DashboardLayout title="FDA Curacao Email">
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/fda-curacao")}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">{project?.ship_name || "Loading..."}</h1>
-              <p className="text-muted-foreground">{project?.lbh_number || ""}</p>
-            </div>
-          </div>
-
-          {/* AI Generating Card */}
-          <Card className="border-primary/50 bg-primary/5">
-            <CardContent className="py-12">
-              <div className="flex flex-col items-center justify-center gap-6 text-center">
-                <div className="relative">
-                  <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
-                  <div className="relative p-4 rounded-full bg-primary">
-                    <Sparkles className="w-8 h-8 text-primary-foreground animate-pulse" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-xl font-semibold">AI is processing your FDA...</h2>
-                  <p className="text-muted-foreground max-w-md">
-                    We're preparing your FDA package and generating the email content. 
-                    This usually takes 30-60 seconds.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Processing invoices and creating PDF...</span>
-                </div>
-
-                {/* Show Google Sheet link if available */}
-                {project?.google_sheet_url && (
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(project.google_sheet_url!, "_blank")}
-                    className="mt-4"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Open Google Sheet
-                    <ExternalLink className="w-3 h-3 ml-2" />
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  const mainPdfUrl = getMainPdfUrl();
-  const mainPdfFilename = getFilenameFromUrl(mainPdfUrl);
+  // Check what's still loading
+  const hasDraft = emailDraft?.status === "draft";
+  const hasGoogleSheet = !!project?.google_sheet_url;
 
   return (
     <DashboardLayout title="FDA Curacao Email">
@@ -507,140 +558,88 @@ export default function FDACuracaoEmail() {
               <h1 className="text-2xl font-bold">{project?.ship_name}</h1>
               <p className="text-muted-foreground">{project?.lbh_number}</p>
             </div>
-            <Badge className="bg-success/10 text-success border-success/20" variant="outline">
-              <CheckCircle className="w-3 h-3 mr-1" />
-              Ready to Send
-            </Badge>
+            {hasDraft ? (
+              <Badge className="bg-success/10 text-success border-success/20" variant="outline">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Ready to Send
+              </Badge>
+            ) : (
+              <Badge className="bg-warning/10 text-warning border-warning/20" variant="outline">
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                Processing
+              </Badge>
+            )}
           </div>
-          <Button onClick={handleSendEmail} disabled={sending} size="lg">
+          <Button onClick={handleSendEmail} disabled={sending || !hasDraft} size="lg">
             {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             Send Email
           </Button>
         </div>
 
         {/* Google Sheet Link */}
-        {project?.google_sheet_url && (
-          <Card className="card-premium border-green-500/50 bg-green-500/5">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                Google Sheet
-                <Badge variant="outline" className="text-green-600 border-green-200 ml-2">
-                  Ready
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground truncate flex-1">
-                  Invoice data has been processed successfully
-                </span>
-                <Button size="sm" onClick={() => window.open(project.google_sheet_url!, "_blank")}>
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Open Google Sheet
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* FDA Package Attachment */}
         <Card className="card-premium">
           <CardHeader className="pb-4">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" />
-              FDA Package
+              Google Sheet
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {mainPdfUrl ? (
+            {hasGoogleSheet ? (
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <FileCheck className="w-5 h-5 text-green-500" />
-                  <span className="font-medium">{mainPdfFilename}</span>
-                  <Badge variant="outline" className="text-green-600 border-green-200">
-                    Ready
-                  </Badge>
+                  <CheckCircle className="w-5 h-5 text-success" />
+                  <span className="text-sm">Invoice data has been processed successfully</span>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const url = getPublicPdfUrl(mainPdfUrl);
-                      if (url) window.open(url, "_blank");
-                    }}
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
-                </div>
+                <Button size="sm" onClick={() => window.open(project!.google_sheet_url!, "_blank")}>
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open Google Sheet
+                </Button>
               </div>
             ) : (
               <div className="flex items-center justify-center p-8 text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Generating PDF...
+                AI is generating...
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Extra Attachments */}
-        {extraAttachments.length > 0 && (
-          <Card className="card-premium">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Paperclip className="w-4 h-4 text-primary" />
-                Extra Attachments
-                <Badge variant="secondary" className="ml-2">
-                  {extraAttachments.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {extraAttachments.map((att) => (
-                <div key={att.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <FileText className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-sm">{att.name}</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive h-8 w-8 p-0"
-                    onClick={() => removeAttachment(att.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+        {/* Processed Invoices */}
+        <Card className="card-premium">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-primary" />
+              Verwerkte Facturen
+              <Badge variant="secondary" className="ml-2">
+                {invoices.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {invoices.length === 0 ? (
+              <div className="flex items-center justify-center p-8 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                AI is processing invoices...
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {invoices.map((invoice, index) => (
+                  <InvoiceRow
+                    key={invoice.id}
+                    invoice={invoice}
+                    index={index}
+                    onView={() => loadPdfForPreview(invoice)}
+                    onDownload={() => handleDownloadInvoice(invoice)}
+                    onUpdateNumber={handleUpdateInvoiceNumber}
+                  />
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Add Extra Attachment Button */}
-        <label className="inline-flex">
-          <Button variant="outline" size="sm" disabled={uploadingAttachment} asChild>
-            <span className="cursor-pointer">
-              {uploadingAttachment ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4 mr-2" />
-              )}
-              Add Extra Attachment
-            </span>
-          </Button>
-          <input
-            type="file"
-            className="hidden"
-            onChange={handleUploadAttachment}
-            disabled={uploadingAttachment}
-          />
-        </label>
-
-        {/* Email Compose */}
+        {/* Email Section */}
         <Card className="card-premium">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -648,88 +647,149 @@ export default function FDACuracaoEmail() {
               Email Compose
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* TO Field */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">To</label>
-              <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
-                {toEmails.map((email, i) => (
-                  <Badge key={i} variant="secondary" className="gap-1">
-                    {email}
-                    <button onClick={() => removeToEmail(i)} className="ml-1 hover:text-destructive">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-                <Input
-                  value={newToEmail}
-                  onChange={(e) => setNewToEmail(e.target.value)}
-                  onKeyDown={handleToKeyDown}
-                  onBlur={addToEmail}
-                  placeholder="Add email..."
-                  className="flex-1 min-w-[150px] border-0 shadow-none focus-visible:ring-0 h-7 p-0"
-                />
+          <CardContent>
+            {hasDraft ? (
+              <div className="space-y-4">
+                {/* TO Field */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">To</label>
+                  <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
+                    {toEmails.map((email, i) => (
+                      <Badge key={i} variant="secondary" className="gap-1">
+                        {email}
+                        <button onClick={() => removeToEmail(i)} className="ml-1 hover:text-destructive">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    <Input
+                      value={newToEmail}
+                      onChange={(e) => setNewToEmail(e.target.value)}
+                      onKeyDown={handleToKeyDown}
+                      onBlur={addToEmail}
+                      placeholder="Add email..."
+                      className="flex-1 min-w-[150px] border-0 shadow-none focus-visible:ring-0 h-7 p-0"
+                    />
+                  </div>
+                </div>
+
+                {/* CC Field */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">CC</label>
+                  <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
+                    {ccEmails.map((email, i) => (
+                      <Badge key={i} variant="secondary" className="gap-1">
+                        {email}
+                        <button onClick={() => removeCcEmail(i)} className="ml-1 hover:text-destructive">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    <Input
+                      value={newCcEmail}
+                      onChange={(e) => setNewCcEmail(e.target.value)}
+                      onKeyDown={handleCcKeyDown}
+                      onBlur={addCcEmail}
+                      placeholder="Add CC..."
+                      className="flex-1 min-w-[150px] border-0 shadow-none focus-visible:ring-0 h-7 p-0"
+                    />
+                  </div>
+                </div>
+
+                {/* Subject */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Subject</label>
+                  <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Email subject" />
+                </div>
+
+                {/* Body */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Message</label>
+                  <Textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder="Email body..."
+                    className="min-h-[200px]"
+                  />
+                </div>
+
+                {/* Extra Attachments */}
+                {extraAttachments.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Extra Attachments</label>
+                    {extraAttachments.map((att) => (
+                      <div key={att.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Paperclip className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm">{att.name}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                          onClick={() => removeAttachment(att.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add Attachment Button */}
+                <label className="inline-flex">
+                  <Button variant="outline" size="sm" disabled={uploadingAttachment} asChild>
+                    <span className="cursor-pointer">
+                      {uploadingAttachment ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4 mr-2" />
+                      )}
+                      Add Extra Attachment
+                    </span>
+                  </Button>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleUploadAttachment}
+                    disabled={uploadingAttachment}
+                  />
+                </label>
               </div>
-            </div>
-
-            {/* CC Field */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">CC</label>
-              <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
-                {ccEmails.map((email, i) => (
-                  <Badge key={i} variant="secondary" className="gap-1">
-                    {email}
-                    <button onClick={() => removeCcEmail(i)} className="ml-1 hover:text-destructive">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-                <Input
-                  value={newCcEmail}
-                  onChange={(e) => setNewCcEmail(e.target.value)}
-                  onKeyDown={handleCcKeyDown}
-                  onBlur={addCcEmail}
-                  placeholder="Add CC..."
-                  className="flex-1 min-w-[150px] border-0 shadow-none focus-visible:ring-0 h-7 p-0"
-                />
+            ) : (
+              <div className="flex items-center justify-center p-8 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                AI is generating email...
               </div>
-            </div>
-
-            {/* Subject */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Subject</label>
-              <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Email subject" />
-            </div>
-
-            {/* Body */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Message</label>
-              <Textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Email body..."
-                className="min-h-[200px]"
-              />
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
       {/* PDF Preview Dialog */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+      <Dialog open={previewOpen} onOpenChange={closePreview}>
         <DialogContent className="max-w-4xl h-[85vh] p-0" aria-describedby={undefined}>
           <DialogHeader className="p-4 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
-              {mainPdfFilename}
+              {previewInvoice?.file_name || "PDF Preview"}
             </DialogTitle>
+            <DialogDescription>
+              Invoice preview
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 px-4 pb-4 h-[calc(85vh-60px)]">
-            {mainPdfUrl ? (
+          <div className="flex-1 px-4 pb-4 h-[calc(85vh-80px)]">
+            {pdfLoading ? (
+              <div className="flex items-center justify-center h-full gap-2 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading...
+              </div>
+            ) : pdfObjectUrl ? (
               <iframe
-                src={`${getPublicPdfUrl(mainPdfUrl)}#toolbar=1&navpanes=0`}
+                src={pdfObjectUrl}
                 className="w-full h-full rounded-lg border"
-                title={mainPdfFilename}
+                title={previewInvoice?.file_name || "PDF"}
+                style={{ minHeight: "500px" }}
               />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -740,5 +800,71 @@ export default function FDACuracaoEmail() {
         </DialogContent>
       </Dialog>
     </DashboardLayout>
+  );
+}
+
+// Invoice Row Component
+interface InvoiceRowProps {
+  invoice: ProcessedInvoice;
+  index: number;
+  onView: () => void;
+  onDownload: () => void;
+  onUpdateNumber: (id: string, number: string) => void;
+}
+
+function InvoiceRow({ invoice, index, onView, onDownload, onUpdateNumber }: InvoiceRowProps) {
+  const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoice_number || String(index + 1).padStart(3, "0"));
+
+  const handleSaveNumber = () => {
+    if (invoiceNumber !== invoice.invoice_number) {
+      onUpdateNumber(invoice.id, invoiceNumber);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+      {/* File Name & Description */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <CheckCircle className="w-4 h-4 text-success shrink-0" />
+        <div className="min-w-0">
+          <span className="text-sm font-medium truncate block">{invoice.file_name}</span>
+          {invoice.description && (
+            <span className="text-xs text-muted-foreground truncate block">{invoice.description}</span>
+          )}
+          {invoice.supplier_name && (
+            <span className="text-xs text-primary truncate block">{invoice.supplier_name}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Amount */}
+      {invoice.total_amount && (
+        <div className="text-sm font-medium shrink-0">
+          {invoice.currency || "USD"} {invoice.total_amount.toLocaleString()}
+        </div>
+      )}
+
+      {/* Invoice Number */}
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-xs text-muted-foreground">Nr:</span>
+        <Input
+          value={invoiceNumber}
+          onChange={(e) => setInvoiceNumber(e.target.value)}
+          onBlur={handleSaveNumber}
+          className="w-20 h-8 text-sm"
+          placeholder="001"
+        />
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 shrink-0">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onView} title="View PDF">
+          <Eye className="w-4 h-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onDownload} title="Download PDF">
+          <Download className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
