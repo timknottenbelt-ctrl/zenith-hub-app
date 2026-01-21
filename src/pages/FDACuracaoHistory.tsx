@@ -286,17 +286,6 @@ export default function FDACuracaoHistory() {
                         <ExternalLink className="w-3 h-3" />
                       </Button>
                     )}
-                    {selectedEmail.google_sheet_url && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1"
-                        onClick={() => window.open(selectedEmail.google_sheet_url!, "_blank")}
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        Google Sheet
-                      </Button>
-                    )}
                     {selectedEmail.attachment_url && (
                       <>
                         <Button
