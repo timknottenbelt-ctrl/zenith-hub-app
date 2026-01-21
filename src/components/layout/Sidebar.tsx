@@ -13,11 +13,13 @@ import {
   Users,
   Settings,
   LogOut,
+  Send,
 } from 'lucide-react';
 
 const navItems = [
   { key: 'overview', icon: LayoutDashboard, path: '/' },
   { key: 'aiInquiries', icon: MessageSquare, path: '/inquiries' },
+  { key: 'sentPDAs', icon: Send, path: '/inquiries/sent' },
   { key: 'fdaCreator', icon: FileText, path: '/fda' },
   { key: 'knowledgeBase', icon: BookOpen, path: '/knowledge' },
   { key: 'vessels', icon: Ship, path: '/vessels' },
