@@ -243,6 +243,21 @@ export default function AIInquiries() {
         const webhookUrl = getWebhookUrl(selectedEmail['Email Type']);
         
         if (webhookUrl) {
+          // Get signed URLs for all attachments
+          const attachmentUrls: { file_name: string; url: string }[] = [];
+          for (const attachment of emailAttachments) {
+            const { data: signedUrlData } = await supabase.storage
+              .from('pdfs')
+              .createSignedUrl(attachment.file_path, 60 * 60 * 24 * 7); // 7 days expiry
+            
+            if (signedUrlData?.signedUrl) {
+              attachmentUrls.push({
+                file_name: attachment.file_name,
+                url: signedUrlData.signedUrl,
+              });
+            }
+          }
+
           const payload = {
             email_id: selectedEmail.id,
             to: selectedEmail.email_to_person,
@@ -257,6 +272,7 @@ export default function AIInquiries() {
             company_name: selectedEmail.company_name,
             contact_name: selectedEmail.contact_name,
             original_email: selectedEmail.original_email || selectedEmail.orignal_email,
+            attachments: attachmentUrls,
           };
 
           console.log('Calling webhook:', webhookUrl, payload);
