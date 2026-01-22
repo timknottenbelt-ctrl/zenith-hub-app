@@ -54,11 +54,11 @@ interface EmailAttachment {
   created_at: string;
 }
 
-const EMAIL_TYPE_MAP: Record<string, string> = {
-  'CARGO_AGENT': 'CARGO AGENT',
-  'OWNERS_AGENT': 'OWNERS_AGENT',
-  'OUT_OF_SCOPE': 'Out of Scope',
-  'INCOMPLETE': 'INCOMPLETE', // special: filters by status instead of Email Type
+const EMAIL_TYPE_MAP: Record<string, string[]> = {
+  'CARGO_AGENT': ['CARGO AGENT', 'CARGO_AGENT'],
+  'OWNERS_AGENT': ['OWNERS_AGENT', 'OWNERS AGENT'],
+  'OUT_OF_SCOPE': ['OUT_OF_SCOPE', 'Out of Scope', 'REFERRAL', 'OUT OF SCOPE'],
+  'INCOMPLETE': ['INCOMPLETE'], // special: filters by status instead of Email Type
 };
 
 export default function AIInquiries() {
@@ -117,9 +117,9 @@ export default function AIInquiries() {
       // Filter emails that have missing_information (incomplete emails)
       query = query.not('missing_information', 'is', null);
     } else {
-      // Filter by Email Type for other tabs
-      const emailType = EMAIL_TYPE_MAP[activeTab];
-      query = query.eq('Email Type', emailType);
+      // Filter by Email Type for other tabs - support multiple variations
+      const emailTypes = EMAIL_TYPE_MAP[activeTab];
+      query = query.in('Email Type', emailTypes);
     }
     
     const { data, error } = await query.order('created_at', { ascending: false });
