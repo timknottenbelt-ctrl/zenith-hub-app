@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import {
   CheckCircle,
   Receipt,
 } from "lucide-react";
+import { useTransitionNavigate } from "@/hooks/useTransitionNavigate";
 
 interface FDACuracaoProject {
   project_id: string;
@@ -95,7 +96,7 @@ function getPublicPdfUrl(url: string | null): string | null {
 
 export default function FDACuracaoEmail() {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
+  const navigate = useTransitionNavigate();
 
   const [project, setProject] = useState<FDACuracaoProject | null>(null);
   const [emailDraft, setEmailDraft] = useState<FDAEmailDraft | null>(null);

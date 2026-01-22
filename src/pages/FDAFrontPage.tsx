@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ import {
   GripVertical,
   Mail,
 } from "lucide-react";
+import { useTransitionNavigate } from "@/hooks/useTransitionNavigate";
 
 interface FDAProject {
   id: string;
@@ -65,7 +66,7 @@ const MERGE_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/Merge-PDF";
 
 export default function FDAFrontPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
+  const navigate = useTransitionNavigate();
 
   const [project, setProject] = useState<FDAProject | null>(null);
   const [invoices, setInvoices] = useState<ProcessedInvoice[]>([]);

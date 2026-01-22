@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useTransitionNavigate } from '@/hooks/useTransitionNavigate';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ const loginSchema = z.object({
 });
 
 export default function Auth() {
-  const navigate = useNavigate();
+  const navigate = useTransitionNavigate();
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   
