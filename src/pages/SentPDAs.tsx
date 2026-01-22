@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
@@ -18,19 +19,43 @@ import {
   Ship,
   MapPin,
   Calendar,
+  FileText,
+  Download,
+  Eye,
 } from 'lucide-react';
 
 type Email = Tables<'email'>;
+
+interface EmailAttachment {
+  id: string;
+  email_id: number;
+  file_name: string;
+  file_path: string;
+  file_size: number | null;
+  created_at: string;
+}
 
 export default function SentPDAs() {
   const { t } = useLanguage();
   const [sentEmails, setSentEmails] = useState<Email[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [loading, setLoading] = useState(true);
+  const [emailAttachments, setEmailAttachments] = useState<EmailAttachment[]>([]);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewName, setPdfPreviewName] = useState<string>('');
+  const [loadingPdf, setLoadingPdf] = useState(false);
 
   useEffect(() => {
     fetchSentEmails();
   }, []);
+
+  useEffect(() => {
+    if (selectedEmail) {
+      fetchEmailAttachments(selectedEmail.id);
+    } else {
+      setEmailAttachments([]);
+    }
+  }, [selectedEmail]);
 
   async function fetchSentEmails() {
     setLoading(true);
@@ -47,6 +72,65 @@ export default function SentPDAs() {
       setSentEmails(data || []);
     }
     setLoading(false);
+  }
+
+  async function fetchEmailAttachments(emailId: number) {
+    const { data } = await supabase
+      .from('email_attachments')
+      .select('*')
+      .eq('email_id', emailId)
+      .order('created_at', { ascending: false });
+    
+    setEmailAttachments((data as EmailAttachment[]) || []);
+  }
+
+  async function handleViewPdf(attachment: EmailAttachment) {
+    setLoadingPdf(true);
+    setPdfPreviewName(attachment.file_name);
+    
+    try {
+      const { data } = await supabase.storage
+        .from('pdfs')
+        .download(attachment.file_path);
+      
+      if (data) {
+        const blobUrl = URL.createObjectURL(data);
+        setPdfPreviewUrl(blobUrl);
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: 'Could not load PDF', variant: 'destructive' });
+    }
+    
+    setLoadingPdf(false);
+  }
+
+  async function handleDownloadPdf(attachment: EmailAttachment) {
+    try {
+      const { data } = await supabase.storage
+        .from('pdfs')
+        .download(attachment.file_path);
+      
+      if (data) {
+        const blobUrl = URL.createObjectURL(data);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = attachment.file_name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: 'Could not download PDF', variant: 'destructive' });
+    }
+  }
+
+  function closePdfPreview() {
+    if (pdfPreviewUrl) {
+      URL.revokeObjectURL(pdfPreviewUrl);
+    }
+    setPdfPreviewUrl(null);
+    setPdfPreviewName('');
   }
 
   return (
@@ -197,6 +281,45 @@ export default function SentPDAs() {
                       </a>
                     )}
                   </div>
+
+                  {/* PDF Attachments */}
+                  {emailAttachments.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-muted-foreground flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        PDF Bijlagen ({emailAttachments.length})
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        {emailAttachments.map((attachment) => (
+                          <div
+                            key={attachment.id}
+                            className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border"
+                          >
+                            <FileText className="w-4 h-4 text-destructive" />
+                            <span className="text-sm truncate max-w-[200px]">{attachment.file_name}</span>
+                            <div className="flex items-center gap-1 ml-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => handleViewPdf(attachment)}
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => handleDownloadPdf(attachment)}
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -231,6 +354,34 @@ export default function SentPDAs() {
           )}
         </div>
       </div>
+
+      {/* PDF Preview Dialog */}
+      <Dialog open={!!pdfPreviewUrl} onOpenChange={(open) => !open && closePdfPreview()}>
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
+          <DialogHeader className="p-4 border-b shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              {pdfPreviewName}
+            </DialogTitle>
+            <DialogDescription>
+              PDF bijlage bekijken
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 p-4">
+            {loadingPdf ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : pdfPreviewUrl ? (
+              <iframe
+                src={pdfPreviewUrl}
+                className="w-full h-full rounded-lg border"
+                title={pdfPreviewName}
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
