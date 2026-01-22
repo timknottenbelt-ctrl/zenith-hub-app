@@ -47,37 +47,29 @@ const App = () => {
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            {/* Minimal skeleton fallback - shows layout structure instantly */}
-            <Suspense fallback={
-              <div className="min-h-screen bg-background flex">
-                <div className="w-64 bg-card border-r border-border" />
-                <div className="flex-1" />
-              </div>
-            }>
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
-                  <Route path="/inquiries" element={<ProtectedRoute><AIInquiries /></ProtectedRoute>} />
-                  <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
-                  <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
-                  <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
-                  <Route path="/fda-curacao" element={<ProtectedRoute><FDACuracao /></ProtectedRoute>} />
-                  <Route path="/fda-curacao/history" element={<ProtectedRoute><FDACuracaoHistory /></ProtectedRoute>} />
-                  <Route path="/fda-curacao/email/:projectId" element={<ProtectedRoute><FDACuracaoEmail /></ProtectedRoute>} />
-                  <Route path="/fda/history" element={<ProtectedRoute><FDAEmailHistory /></ProtectedRoute>} />
-                  <Route path="/fda-preview/:projectId" element={<ProtectedRoute><FDAPreview /></ProtectedRoute>} />
-                  <Route path="/fda-front-page/:projectId" element={<ProtectedRoute><FDAFrontPage /></ProtectedRoute>} />
-                  <Route path="/fda/email/:projectId" element={<ProtectedRoute><FDAEmailPreview /></ProtectedRoute>} />
-                  <Route path="/knowledge" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
-                  <Route path="/vessels" element={<ProtectedRoute><Vessels /></ProtectedRoute>} />
-                  <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
-                  <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                  <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
-            </Suspense>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/auth" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><Auth /></Suspense>} />
+                <Route path="/" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
+                <Route path="/inquiries" element={<ProtectedRoute><AIInquiries /></ProtectedRoute>} />
+                <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
+                <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
+                <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
+                <Route path="/fda-curacao" element={<ProtectedRoute><FDACuracao /></ProtectedRoute>} />
+                <Route path="/fda-curacao/history" element={<ProtectedRoute><FDACuracaoHistory /></ProtectedRoute>} />
+                <Route path="/fda-curacao/email/:projectId" element={<ProtectedRoute><FDACuracaoEmail /></ProtectedRoute>} />
+                <Route path="/fda/history" element={<ProtectedRoute><FDAEmailHistory /></ProtectedRoute>} />
+                <Route path="/fda-preview/:projectId" element={<ProtectedRoute><FDAPreview /></ProtectedRoute>} />
+                <Route path="/fda-front-page/:projectId" element={<ProtectedRoute><FDAFrontPage /></ProtectedRoute>} />
+                <Route path="/fda/email/:projectId" element={<ProtectedRoute><FDAEmailPreview /></ProtectedRoute>} />
+                <Route path="/knowledge" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
+                <Route path="/vessels" element={<ProtectedRoute><Vessels /></ProtectedRoute>} />
+                <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+                <Route path="*" element={<Suspense fallback={null}><NotFound /></Suspense>} />
+              </Routes>
+            </BrowserRouter>
           </TooltipProvider>
         </AuthProvider>
       </LanguageProvider>

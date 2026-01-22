@@ -1,31 +1,31 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, Suspense } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { Loader2 } from 'lucide-react';
 
 interface DashboardLayoutProps {
   children: ReactNode;
   title: string;
 }
 
-export function DashboardLayout({ children, title }: DashboardLayoutProps) {
-  // Instant render without flash
-  const [mounted, setMounted] = useState(false);
-  
-  useEffect(() => {
-    // Trigger animation after paint
-    requestAnimationFrame(() => setMounted(true));
-  }, []);
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center h-[calc(100vh-120px)]">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
 
+export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
       <div className="pl-64">
         <Topbar title={title} />
-        <main 
-          className={`p-6 transition-opacity duration-100 ease-out ${mounted ? 'opacity-100' : 'opacity-0'}`}
-          style={{ willChange: 'opacity' }}
-        >
-          {children}
+        <main className="p-6">
+          <Suspense fallback={<PageLoader />}>
+            {children}
+          </Suspense>
         </main>
       </div>
     </div>
