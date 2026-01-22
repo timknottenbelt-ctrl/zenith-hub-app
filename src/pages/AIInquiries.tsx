@@ -220,27 +220,84 @@ export default function AIInquiries() {
     toast({ title: 'Success', description: 'Attachment deleted' });
   }
 
+  const getWebhookUrl = (emailType: string | null): string | null => {
+    switch (emailType) {
+      case 'CARGO AGENT':
+        return 'https://lbhcuracao.app.n8n.cloud/webhook/Send-Email-Loading-Discharge';
+      case 'OWNERS_AGENT':
+        return 'https://lbhcuracao.app.n8n.cloud/webhook/Send-Email-Owners-Agent';
+      case 'Out of Scope':
+        return 'https://lbhcuracao.app.n8n.cloud/webhook/SEND-REFERRAL-EMAIL';
+      default:
+        return null;
+    }
+  };
+
   async function handleUpdateStatus(status: 'approved' | 'rejected') {
     if (!selectedEmail) return;
     setSending(true);
 
-    const { error } = await supabase
-      .from('email')
-      .update({ 
-        status,
-        subject: editSubject,
-        body: editBody,
-        sent_at: status === 'approved' ? new Date().toISOString() : null,
-      })
-      .eq('id', selectedEmail.id);
+    try {
+      // If approving, call the appropriate webhook first
+      if (status === 'approved') {
+        const webhookUrl = getWebhookUrl(selectedEmail['Email Type']);
+        
+        if (webhookUrl) {
+          const payload = {
+            email_id: selectedEmail.id,
+            to: selectedEmail.email_to_person,
+            subject: editSubject,
+            body: editBody,
+            doc_link: selectedEmail.doc_link,
+            doc_link_2: selectedEmail.dock_link_2,
+            vessel_name: selectedEmail.vessel_name,
+            imo: selectedEmail.imo,
+            port: selectedEmail.port,
+            eta: selectedEmail.eta,
+            company_name: selectedEmail.company_name,
+            contact_name: selectedEmail.contact_name,
+            original_email: selectedEmail.original_email || selectedEmail.orignal_email,
+          };
 
-    if (error) {
-      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: t('common.success'), description: `Email ${status}` });
-      fetchEmails();
-      setSelectedEmail(null);
+          console.log('Calling webhook:', webhookUrl, payload);
+
+          const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Webhook failed: ${response.statusText}`);
+          }
+
+          console.log('Webhook response:', await response.text());
+        }
+      }
+
+      // Update the email status in database
+      const { error } = await supabase
+        .from('email')
+        .update({ 
+          status,
+          subject: editSubject,
+          body: editBody,
+          sent_at: status === 'approved' ? new Date().toISOString() : null,
+        })
+        .eq('id', selectedEmail.id);
+
+      if (error) {
+        toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: t('common.success'), description: status === 'approved' ? 'Email verzonden' : 'Email afgewezen' });
+        fetchEmails();
+        setSelectedEmail(null);
+      }
+    } catch (error: any) {
+      console.error('Error in handleUpdateStatus:', error);
+      toast({ title: t('common.error'), description: error.message || 'Er is iets misgegaan', variant: 'destructive' });
     }
+    
     setSending(false);
   }
 
