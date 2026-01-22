@@ -71,13 +71,13 @@ export default function AIInquiries() {
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [emailAttachments, setEmailAttachments] = useState<EmailAttachment[]>([]);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   
   // Form state for editing
   const [editSubject, setEditSubject] = useState('');
   const [editBody, setEditBody] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
 
   async function handlePreviewPdf(attachment: EmailAttachment) {
     const { data } = await supabase.storage
@@ -139,9 +139,8 @@ export default function AIInquiries() {
     setEmailAttachments((data as EmailAttachment[]) || []);
   }
 
-  async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (!files || !selectedEmail) return;
+  async function uploadFiles(files: FileList | File[]) {
+    if (!selectedEmail) return;
 
     setUploadingPdf(true);
 
@@ -177,7 +176,36 @@ export default function AIInquiries() {
     await fetchEmailAttachments(selectedEmail.id);
     setUploadingPdf(false);
     toast({ title: 'Success', description: 'PDF uploaded' });
+  }
+
+  function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+    uploadFiles(files);
     e.target.value = '';
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      uploadFiles(files);
+    }
   }
 
   async function handleDeleteAttachment(attachment: EmailAttachment) {
@@ -510,6 +538,7 @@ export default function AIInquiries() {
                               </span>
                             </Button>
                             <input
+                              id="pdf-upload-input"
                               type="file"
                               multiple
                               accept=".pdf"
@@ -522,29 +551,51 @@ export default function AIInquiries() {
                       </CardHeader>
                       <CardContent>
                         {emailAttachments.length === 0 ? (
-                          <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg">
-                            <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">No PDFs attached yet</p>
-                            <p className="text-xs">Click "Upload PDF" to add attachments</p>
+                          <div 
+                            className={`text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
+                              isDragging ? 'border-primary bg-primary/5' : 'hover:border-primary/50'
+                            }`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            onClick={() => document.getElementById('pdf-upload-input')?.click()}
+                          >
+                            <FileText className={`w-8 h-8 mx-auto mb-2 transition-opacity ${isDragging ? 'opacity-100 text-primary' : 'opacity-50'}`} />
+                            <p className="text-sm">{isDragging ? 'Drop PDF here' : 'No PDFs attached yet'}</p>
+                            <p className="text-xs">{isDragging ? '' : 'Drag & drop or click to upload'}</p>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {emailAttachments.map((attachment) => (
-                              <div key={attachment.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <FileText className="w-4 h-4 text-primary shrink-0" />
-                                  <span className="text-sm truncate">{attachment.file_name}</span>
+                          <div 
+                            className={`border-2 border-dashed rounded-lg transition-colors p-2 ${
+                              isDragging ? 'border-primary bg-primary/5' : 'border-transparent'
+                            }`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                          >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {emailAttachments.map((attachment) => (
+                                <div key={attachment.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <FileText className="w-4 h-4 text-primary shrink-0" />
+                                    <span className="text-sm truncate">{attachment.file_name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePreviewPdf(attachment)}>
+                                      <Eye className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteAttachment(attachment)}>
+                                      <X className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePreviewPdf(attachment)}>
-                                    <Eye className="w-3.5 h-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteAttachment(attachment)}>
-                                    <X className="w-3.5 h-3.5" />
-                                  </Button>
-                                </div>
+                              ))}
+                            </div>
+                            {isDragging && (
+                              <div className="text-center py-2 text-sm text-primary mt-2">
+                                Drop PDF here to add
                               </div>
-                            ))}
+                            )}
                           </div>
                         )}
                       </CardContent>
