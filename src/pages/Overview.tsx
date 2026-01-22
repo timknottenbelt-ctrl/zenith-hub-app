@@ -76,20 +76,29 @@ async function fetchDashboardData() {
 
   const draftEmails = emails.filter(e => e.status === 'draft');
   
+  // Count only drafts with a valid Email Type for the breakdown
+  const cargoAgent = draftEmails.filter(e => e['Email Type']?.toUpperCase().includes('CARGO')).length;
+  const ownersAgent = draftEmails.filter(e => e['Email Type']?.toUpperCase().includes('OWNER')).length;
+  const outOfScope = draftEmails.filter(e => 
+    e['Email Type']?.toUpperCase().includes('OUT OF SCOPE') || 
+    e['Email Type']?.toUpperCase().includes('OUT_OF_SCOPE')
+  ).length;
+  const incomplete = emails.filter(e => 
+    e.missing_information || 
+    e['Email Type']?.toUpperCase().includes('INCOMPLETE') ||
+    e['Email Type']?.toLowerCase().includes('pending_info')
+  ).length;
+  
+  // Total ready = only emails with a valid category (not null/empty Email Type)
+  const totalReady = cargoAgent + ownersAgent + outOfScope;
+  
   return {
     stats: {
-      cargoAgent: draftEmails.filter(e => e['Email Type']?.toUpperCase().includes('CARGO')).length,
-      ownersAgent: draftEmails.filter(e => e['Email Type']?.toUpperCase().includes('OWNER')).length,
-      outOfScope: draftEmails.filter(e => 
-        e['Email Type']?.toUpperCase().includes('OUT OF SCOPE') || 
-        e['Email Type']?.toUpperCase().includes('OUT_OF_SCOPE')
-      ).length,
-      incomplete: emails.filter(e => 
-        e.missing_information || 
-        e['Email Type']?.toUpperCase().includes('INCOMPLETE') ||
-        e['Email Type']?.toLowerCase().includes('pending_info')
-      ).length,
-      totalReady: draftEmails.length,
+      cargoAgent,
+      ownersAgent,
+      outOfScope,
+      incomplete,
+      totalReady,
       pdaSent: emails.filter(e => e.status === 'sent').length,
       fdaSent: fdaSentCount,
       fdaCwSent: fdaCwSentCount,
