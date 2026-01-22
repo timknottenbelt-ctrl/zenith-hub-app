@@ -1,4 +1,4 @@
-import { useMemo, useCallback, memo } from 'react';
+import { useMemo, useCallback, memo, startTransition } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -152,7 +152,12 @@ export default function Overview() {
     }
   }, []);
 
-  const navigateTo = useCallback((path: string) => () => navigate(path), [navigate]);
+  const navigateTo = useCallback(
+    (path: string) => () => {
+      startTransition(() => navigate(path));
+    },
+    [navigate]
+  );
 
   if (isLoading) {
     return (
