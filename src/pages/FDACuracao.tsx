@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useTransitionNavigate } from "@/hooks/useTransitionNavigate";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -355,7 +355,7 @@ const WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/invoice-upload-cur
 
 export default function FDACuracao() {
   const { t } = useLanguage();
-  const navigate = useNavigate();
+  const navigate = useTransitionNavigate();
   const [projects, setProjects] = useState<FDAProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<FDAProject | null>(null);

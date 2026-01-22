@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { useTransitionNavigate } from '@/hooks/useTransitionNavigate';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,7 +50,7 @@ interface FDAInvoice {
 
 export default function FDAPreview() {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
+  const navigate = useTransitionNavigate();
   const [project, setProject] = useState<FDAProject | null>(null);
   const [invoices, setInvoices] = useState<FDAInvoice[]>([]);
   const [loading, setLoading] = useState(true);

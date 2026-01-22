@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useTransitionNavigate } from "@/hooks/useTransitionNavigate";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,7 +73,7 @@ function getAttachmentDownloadUrl(attachmentUrl: string): string {
 }
 
 export default function FDAEmailHistory() {
-  const navigate = useNavigate();
+  const navigate = useTransitionNavigate();
   const [emails, setEmails] = useState<FDAEmailDraft[]>([]);
   const [projects, setProjects] = useState<Record<string, FDAProject>>({});
   const [selectedEmail, setSelectedEmail] = useState<FDAEmailDraft | null>(null);
