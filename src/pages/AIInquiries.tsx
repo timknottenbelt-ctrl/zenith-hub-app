@@ -110,6 +110,9 @@ export default function AIInquiries() {
     
     let query = supabase.from('email').select('*');
     
+    // Exclude sent/approved emails from all tabs - they belong in Sent PDAs
+    query = query.not('status', 'in', '("approved","sent")');
+    
     if (activeTab === 'INCOMPLETE') {
       // Filter emails that have missing_information (incomplete emails)
       query = query.not('missing_information', 'is', null);
