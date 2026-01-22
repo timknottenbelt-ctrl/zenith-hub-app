@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { NavLink } from 'react-router-dom';
+import { TransitionLink } from '@/components/TransitionLink';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -76,7 +76,7 @@ export const Sidebar = memo(function Sidebar() {
           // Use exact matching for routes that have child routes
           const needsExactMatch = item.path === '/inquiries' || item.path === '/fda' || item.path === '/fda-curacao';
           return (
-            <NavLink
+            <TransitionLink
               key={item.key}
               to={item.path}
               end={needsExactMatch}
@@ -91,7 +91,7 @@ export const Sidebar = memo(function Sidebar() {
             >
               <Icon className="w-5 h-5 flex-shrink-0" />
               <span>{t(`nav.${item.key}`)}</span>
-            </NavLink>
+            </TransitionLink>
           );
         })}
         
@@ -106,7 +106,7 @@ export const Sidebar = memo(function Sidebar() {
             {adminItems.map((item) => {
               const Icon = item.icon;
               return (
-                <NavLink
+                <TransitionLink
                   key={item.key}
                   to={item.path}
                   className={({ isActive }) =>
@@ -120,7 +120,7 @@ export const Sidebar = memo(function Sidebar() {
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
                   <span>{item.label}</span>
-                </NavLink>
+                </TransitionLink>
               );
             })}
           </>
