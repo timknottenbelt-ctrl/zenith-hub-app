@@ -1227,7 +1227,27 @@ export type Database = {
           topic: string
         }[]
       }
+      search_cargo_knowledge: {
+        Args: { search_term: string }
+        Returns: {
+          category: string
+          content: string
+          id: string
+          relevance_score: number
+          topic: string
+        }[]
+      }
       search_curacao_knowledge: {
+        Args: { search_term: string }
+        Returns: {
+          category: string
+          content: string
+          id: string
+          relevance_score: number
+          topic: string
+        }[]
+      }
+      search_owners_knowledge: {
         Args: { search_term: string }
         Returns: {
           category: string
