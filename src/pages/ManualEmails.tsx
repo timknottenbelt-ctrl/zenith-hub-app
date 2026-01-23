@@ -907,7 +907,7 @@ export default function ManualEmails() {
               </CardContent>
             </Card>
 
-            <Card className="card-premium lg:col-span-2">
+            <Card className="card-premium lg:col-span-2 overflow-hidden">
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-medium">Email Details</CardTitle>
                 {selectedEmail && (
@@ -939,6 +939,7 @@ export default function ManualEmails() {
                   </div>
                 )}
               </CardHeader>
+              <ScrollArea className="h-[calc(100vh-280px)]">
               <CardContent>
                 {selectedEmail ? (
                   <div className="space-y-4">
@@ -1084,6 +1085,7 @@ export default function ManualEmails() {
                   </div>
                 )}
               </CardContent>
+              </ScrollArea>
             </Card>
           </div>
         </TabsContent>

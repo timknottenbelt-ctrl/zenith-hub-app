@@ -85,6 +85,7 @@ export type Database = {
           embedding: string | null
           id: string
           keywords: string[] | null
+          metadata: Json | null
           topic: string
           updated_at: string | null
         }
@@ -95,6 +96,7 @@ export type Database = {
           embedding?: string | null
           id: string
           keywords?: string[] | null
+          metadata?: Json | null
           topic: string
           updated_at?: string | null
         }
@@ -105,6 +107,7 @@ export type Database = {
           embedding?: string | null
           id?: string
           keywords?: string[] | null
+          metadata?: Json | null
           topic?: string
           updated_at?: string | null
         }
@@ -1218,6 +1221,15 @@ export type Database = {
         Returns: boolean
       }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
+      match_documents: {
+        Args: { filter?: Json; match_count?: number; query_embedding?: string }
+        Returns: {
+          content: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
       search_by_keyword: {
         Args: { keyword_text: string }
         Returns: {
