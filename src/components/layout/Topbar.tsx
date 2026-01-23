@@ -279,8 +279,8 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
 
           {/* Inline Search Results Dropdown */}
           {showResults && (searchQuery || searchResults.length > 0) && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-50 overflow-hidden">
-              <ScrollArea className="max-h-[350px]">
+            <div className="absolute top-full left-0 mt-1 min-w-[400px] bg-popover border border-border rounded-md shadow-lg z-50 overflow-hidden">
+              <ScrollArea className="max-h-[400px]">
                 {isSearching ? (
                   <div className="py-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -292,12 +292,12 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
                       <button
                         key={`${result.type}-${result.id}`}
                         onClick={() => handleResultClick(result)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left"
+                        className="w-full flex items-center gap-3 px-3 py-3 hover:bg-accent transition-colors text-left"
                       >
                         {getResultIcon(result.type)}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{result.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">{result.subtitle}</p>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{result.title}</p>
+                          <p className="text-xs text-muted-foreground">{result.subtitle}</p>
                         </div>
                         <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       </button>
