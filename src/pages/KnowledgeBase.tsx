@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,8 +13,11 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
+  Search,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 
@@ -35,6 +38,7 @@ export default function KnowledgeBase() {
   const [loading, setLoading] = useState(true);
   const [ownersOpen, setOwnersOpen] = useState(false);
   const [cargoOpen, setCargoOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadData();
@@ -73,6 +77,29 @@ export default function KnowledgeBase() {
     }
   }
 
+  // Filter entries based on search query
+  const filterEntries = (entries: KnowledgeEntry[]) => {
+    if (!searchQuery.trim()) return entries;
+    const query = searchQuery.toLowerCase();
+    return entries.filter(entry => 
+      entry.topic.toLowerCase().includes(query) ||
+      entry.content.toLowerCase().includes(query) ||
+      entry.category.toLowerCase().includes(query) ||
+      (entry.keywords && entry.keywords.some(k => k.toLowerCase().includes(query)))
+    );
+  };
+
+  const filteredOwnersEntries = useMemo(() => filterEntries(ownersEntries), [ownersEntries, searchQuery]);
+  const filteredCargoEntries = useMemo(() => filterEntries(cargoEntries), [cargoEntries, searchQuery]);
+
+  // Auto-open sections when searching
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      if (filteredOwnersEntries.length > 0) setOwnersOpen(true);
+      if (filteredCargoEntries.length > 0) setCargoOpen(true);
+    }
+  }, [searchQuery, filteredOwnersEntries.length, filteredCargoEntries.length]);
+
   // Group entries by category
   function groupByCategory(entries: KnowledgeEntry[]) {
     return entries.reduce((acc, entry) => {
@@ -92,15 +119,26 @@ export default function KnowledgeBase() {
       .join(' ');
   }
 
-  const EntriesView = ({ entries, isOpen, onToggle, accentColor }: { 
+  const EntriesView = ({ entries, isOpen, onToggle, accentColor, searchQuery }: { 
     entries: KnowledgeEntry[]; 
     isOpen: boolean; 
     onToggle: () => void;
     accentColor: 'primary' | 'success';
+    searchQuery: string;
   }) => {
     const grouped = groupByCategory(entries);
     const colorClass = accentColor === 'primary' ? 'text-primary' : 'text-success';
     const bgClass = accentColor === 'primary' ? 'bg-primary/10' : 'bg-success/10';
+
+    // Highlight search matches in text
+    const highlightText = (text: string) => {
+      if (!searchQuery.trim()) return text;
+      const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+      const parts = text.split(regex);
+      return parts.map((part, i) => 
+        regex.test(part) ? <mark key={i} className="bg-warning/30 text-foreground rounded px-0.5">{part}</mark> : part
+      );
+    };
     
     return (
       <div className="mt-4">
@@ -112,7 +150,7 @@ export default function KnowledgeBase() {
         >
           <span className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
-            {isOpen ? 'Verberg entries' : 'Bekijk entries'}
+            {isOpen ? 'Verberg entries' : `Bekijk entries (${entries.length})`}
           </span>
           {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </Button>
@@ -135,13 +173,13 @@ export default function KnowledgeBase() {
                         <div className="flex items-start gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group">
                           <ChevronDown className="w-4 h-4 mt-0.5 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{entry.topic}</p>
+                            <p className="text-sm font-medium truncate">{highlightText(entry.topic)}</p>
                           </div>
                         </div>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <div className="ml-6 p-3 bg-muted/30 rounded-lg text-sm text-muted-foreground">
-                          <p className="whitespace-pre-wrap">{entry.content}</p>
+                          <p className="whitespace-pre-wrap">{highlightText(entry.content)}</p>
                           {entry.keywords && entry.keywords.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border/50">
                               {entry.keywords.filter(k => k !== 'CARGO_AGENT').slice(0, 5).map((keyword, i) => (
@@ -167,13 +205,44 @@ export default function KnowledgeBase() {
   return (
     <DashboardLayout title={t('knowledge.title')}>
       <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold">{t('knowledge.title')}</h1>
-          <p className="text-muted-foreground">
-            Knowledge base voor AI agents - gebruikt door n8n workflows
-          </p>
+        {/* Header with Search */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">{t('knowledge.title')}</h1>
+            <p className="text-muted-foreground">
+              Knowledge base voor AI agents - gebruikt door n8n workflows
+            </p>
+          </div>
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Zoek in knowledge base..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* Search Results Summary */}
+        {searchQuery.trim() && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-4 py-2 rounded-lg">
+            <Search className="w-4 h-4" />
+            <span>
+              {filteredOwnersEntries.length + filteredCargoEntries.length} resultaten gevonden voor "{searchQuery}"
+            </span>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -221,10 +290,11 @@ export default function KnowledgeBase() {
 
               {!loading && (
                 <EntriesView 
-                  entries={ownersEntries} 
+                  entries={filteredOwnersEntries} 
                   isOpen={ownersOpen} 
                   onToggle={() => setOwnersOpen(!ownersOpen)}
                   accentColor="primary"
+                  searchQuery={searchQuery}
                 />
               )}
             </CardContent>
@@ -274,10 +344,11 @@ export default function KnowledgeBase() {
 
               {!loading && (
                 <EntriesView 
-                  entries={cargoEntries} 
+                  entries={filteredCargoEntries} 
                   isOpen={cargoOpen} 
                   onToggle={() => setCargoOpen(!cargoOpen)}
                   accentColor="success"
+                  searchQuery={searchQuery}
                 />
               )}
             </CardContent>
