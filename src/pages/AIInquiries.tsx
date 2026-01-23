@@ -41,7 +41,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Link } from 'react-router-dom';
+import { TransitionLink } from '@/components/TransitionLink';
 
 type Email = Tables<'email'>;
 
@@ -391,18 +391,18 @@ export default function AIInquiries() {
   return (
     <DashboardLayout title={t('inquiries.title')}>
       <div className="flex items-center justify-end gap-2 mb-4">
-        <Link to="/inquiries/manual?tab=history">
+        <TransitionLink to="/inquiries/manual?tab=history">
           <Button variant="outline" className="gap-2">
             <Mail className="w-4 h-4" />
             History
           </Button>
-        </Link>
-        <Link to="/inquiries/manual">
+        </TransitionLink>
+        <TransitionLink to="/inquiries/manual">
           <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
             <PlusCircle className="w-4 h-4" />
             Manual
           </Button>
-        </Link>
+        </TransitionLink>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50">
