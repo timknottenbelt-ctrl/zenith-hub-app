@@ -40,7 +40,7 @@ import {
   Check,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Link } from "react-router-dom";
+import { TransitionLink } from "@/components/TransitionLink";
 
 interface ManualEmail {
   id: number;
@@ -652,12 +652,12 @@ export default function ManualEmails() {
   return (
     <DashboardLayout title="Manual Emails">
       <div className="mb-4">
-        <Link to="/inquiries">
+        <TransitionLink to="/inquiries">
           <Button variant="ghost" size="sm" className="gap-2">
             <ArrowLeft className="w-4 h-4" />
             Back to AI Inquiries
           </Button>
-        </Link>
+        </TransitionLink>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
