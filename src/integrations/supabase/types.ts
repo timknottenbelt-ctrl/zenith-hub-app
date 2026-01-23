@@ -38,6 +38,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cargo_agent_knowledge: {
+        Row: {
+          category: string
+          content: string
+          created_at: string | null
+          id: string
+          keywords: string[]
+          topic: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          content: string
+          created_at?: string | null
+          id: string
+          keywords: string[]
+          topic: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          keywords?: string[]
+          topic?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           company: string | null
@@ -1236,6 +1266,16 @@ export type Database = {
           category: string
           content: string
           id: string
+          topic: string
+        }[]
+      }
+      search_cargo_agent_knowledge: {
+        Args: { search_term: string }
+        Returns: {
+          category: string
+          content: string
+          id: string
+          relevance_score: number
           topic: string
         }[]
       }
