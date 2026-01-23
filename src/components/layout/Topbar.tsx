@@ -272,9 +272,6 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
               onFocus={() => setShowResults(true)}
               className="pl-9 pr-12 h-9 w-80 bg-muted/50 border-0 focus-visible:ring-1"
             />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none h-5 select-none items-center gap-1 rounded border border-border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground hidden sm:flex">
-              ⌘K
-            </kbd>
           </div>
 
           {/* Inline Search Results Dropdown */}
