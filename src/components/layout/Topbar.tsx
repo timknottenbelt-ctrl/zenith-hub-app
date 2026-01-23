@@ -1,5 +1,5 @@
-import { memo, useState, useEffect, useCallback } from 'react';
-import { Search, Bell, Mail, Ship, FileText, Users, X, ExternalLink } from 'lucide-react';
+import { memo, useState, useEffect, useCallback, useRef } from 'react';
+import { Search, Bell, Mail, Ship, FileText, Users, ExternalLink, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -11,12 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useTransitionNavigate } from '@/hooks/useTransitionNavigate';
@@ -47,17 +41,30 @@ interface Notification {
 export const Topbar = memo(function Topbar({ title }: TopbarProps) {
   const { t } = useLanguage();
   const navigate = useTransitionNavigate();
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Close results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowResults(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch notifications on mount
   useEffect(() => {
     const fetchNotifications = async () => {
-      // Fetch recent draft emails as notifications
       const { data: emails } = await supabase
         .from('email')
         .select('id, subject, created_at, contact_name')
@@ -74,7 +81,6 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
         read: false,
       }));
 
-      // Fetch recent FDA projects
       const { data: fdaProjects } = await supabase
         .from('fda_projects')
         .select('id, ship_name, status, created_at')
@@ -114,12 +120,11 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
     const searchTerm = `%${query}%`;
 
     try {
-      // Search emails
       const { data: emails } = await supabase
         .from('email')
         .select('id, subject, contact_name, vessel_name')
         .or(`subject.ilike.${searchTerm},contact_name.ilike.${searchTerm},vessel_name.ilike.${searchTerm}`)
-        .limit(5);
+        .limit(4);
 
       if (emails) {
         emails.forEach((email) => {
@@ -133,12 +138,11 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
         });
       }
 
-      // Search vessels
       const { data: vessels } = await supabase
         .from('vessels')
         .select('id, name, imo_number, flag')
         .or(`name.ilike.${searchTerm},imo_number.ilike.${searchTerm}`)
-        .limit(5);
+        .limit(4);
 
       if (vessels) {
         vessels.forEach((vessel) => {
@@ -152,12 +156,11 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
         });
       }
 
-      // Search contacts
       const { data: contacts } = await supabase
         .from('contacts')
         .select('id, name, company, email')
         .or(`name.ilike.${searchTerm},company.ilike.${searchTerm},email.ilike.${searchTerm}`)
-        .limit(5);
+        .limit(4);
 
       if (contacts) {
         contacts.forEach((contact) => {
@@ -171,12 +174,11 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
         });
       }
 
-      // Search FDA projects
       const { data: fdaProjects } = await supabase
         .from('fda_projects')
         .select('id, ship_name, lbh_number, client_name')
         .or(`ship_name.ilike.${searchTerm},lbh_number.ilike.${searchTerm},client_name.ilike.${searchTerm}`)
-        .limit(5);
+        .limit(4);
 
       if (fdaProjects) {
         fdaProjects.forEach((project) => {
@@ -212,7 +214,12 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setSearchOpen(true);
+        inputRef.current?.focus();
+        setShowResults(true);
+      }
+      if (e.key === 'Escape') {
+        setShowResults(false);
+        inputRef.current?.blur();
       }
     };
 
@@ -221,7 +228,7 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
   }, []);
 
   const handleResultClick = (result: SearchResult) => {
-    setSearchOpen(false);
+    setShowResults(false);
     setSearchQuery('');
     navigate(result.route);
   };
@@ -231,11 +238,11 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
       case 'email':
         return <Mail className="w-4 h-4 text-primary" />;
       case 'vessel':
-        return <Ship className="w-4 h-4 text-blue-500" />;
+        return <Ship className="w-4 h-4 text-primary" />;
       case 'contact':
-        return <Users className="w-4 h-4 text-green-500" />;
+        return <Users className="w-4 h-4 text-primary" />;
       case 'fda':
-        return <FileText className="w-4 h-4 text-orange-500" />;
+        return <FileText className="w-4 h-4 text-primary" />;
     }
   };
 
@@ -245,150 +252,131 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
   };
 
   return (
-    <>
-      <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 sticky top-0 z-40">
-        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-        
-        <div className="flex items-center gap-4">
-          {/* Search Button */}
-          <button
-            onClick={() => setSearchOpen(true)}
-            className="relative w-64 flex items-center gap-2 h-9 px-3 bg-muted/50 rounded-md text-muted-foreground text-sm hover:bg-muted transition-colors cursor-pointer"
-          >
-            <Search className="w-4 h-4" />
-            <span>{t('common.search')}</span>
-            <kbd className="absolute right-3 pointer-events-none h-5 select-none items-center gap-1 rounded border border-border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground hidden sm:flex">
+    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 sticky top-0 z-40">
+      <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+      
+      <div className="flex items-center gap-4">
+        {/* Search Input with Inline Results */}
+        <div ref={searchContainerRef} className="relative">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              ref={inputRef}
+              type="search"
+              placeholder={t('common.search')}
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowResults(true);
+              }}
+              onFocus={() => setShowResults(true)}
+              className="pl-9 pr-12 h-9 w-80 bg-muted/50 border-0 focus-visible:ring-1"
+            />
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none h-5 select-none items-center gap-1 rounded border border-border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground hidden sm:flex">
               ⌘K
             </kbd>
-          </button>
+          </div>
 
-          {/* Notifications */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5 text-muted-foreground" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel className="flex items-center justify-between">
-                <span>Notificaties</span>
-                {unreadCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto p-0 text-xs text-primary hover:text-primary/80"
-                    onClick={markAllAsRead}
-                  >
-                    Markeer als gelezen
-                  </Button>
-                )}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {notifications.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  Geen notificaties
-                </div>
-              ) : (
-                <ScrollArea className="h-[300px]">
-                  {notifications.map((notification) => (
-                    <DropdownMenuItem
-                      key={notification.id}
-                      className="flex flex-col items-start gap-1 p-3 cursor-pointer"
-                      onClick={() => {
-                        const route = notification.type === 'email' ? '/inquiries' : '/fda-creator';
-                        navigate(route);
-                      }}
-                    >
-                      <div className="flex items-center gap-2 w-full">
-                        {notification.type === 'email' ? (
-                          <Mail className="w-4 h-4 text-primary shrink-0" />
-                        ) : (
-                          <FileText className="w-4 h-4 text-orange-500 shrink-0" />
-                        )}
-                        <span className="font-medium text-sm">{notification.title}</span>
-                        {!notification.read && (
-                          <span className="ml-auto w-2 h-2 bg-primary rounded-full" />
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground pl-6 line-clamp-1">
-                        {notification.message}
-                      </p>
-                      <span className="text-[10px] text-muted-foreground pl-6">
-                        {formatDistanceToNow(notification.time, { addSuffix: true, locale: nl })}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                </ScrollArea>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Inline Search Results Dropdown */}
+          {showResults && (searchQuery || searchResults.length > 0) && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-50 overflow-hidden">
+              <ScrollArea className="max-h-[350px]">
+                {isSearching ? (
+                  <div className="py-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Zoeken...
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  <div className="py-1">
+                    {searchResults.map((result) => (
+                      <button
+                        key={`${result.type}-${result.id}`}
+                        onClick={() => handleResultClick(result)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left"
+                      >
+                        {getResultIcon(result.type)}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{result.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{result.subtitle}</p>
+                        </div>
+                        <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                ) : searchQuery ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">
+                    Geen resultaten voor "{searchQuery}"
+                  </div>
+                ) : null}
+              </ScrollArea>
+            </div>
+          )}
         </div>
-      </header>
 
-      {/* Search Dialog */}
-      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className="sm:max-w-[550px] p-0">
-          <DialogHeader className="p-4 pb-0">
-            <DialogTitle className="sr-only">Zoeken</DialogTitle>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Zoek emails, schepen, contacten, FDA projecten..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-9 h-11 text-base"
-                autoFocus
-              />
-              {searchQuery && (
+        {/* Notifications */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="w-5 h-5 text-muted-foreground" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuLabel className="flex items-center justify-between">
+              <span>Notificaties</span>
+              {unreadCount > 0 && (
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => setSearchQuery('')}
+                  size="sm"
+                  className="h-auto p-0 text-xs text-primary hover:text-primary/80"
+                  onClick={markAllAsRead}
                 >
-                  <X className="w-4 h-4" />
+                  Markeer als gelezen
                 </Button>
               )}
-            </div>
-          </DialogHeader>
-          
-          <ScrollArea className="max-h-[400px]">
-            {isSearching ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                Zoeken...
-              </div>
-            ) : searchResults.length > 0 ? (
-              <div className="p-2">
-                {searchResults.map((result, index) => (
-                  <button
-                    key={`${result.type}-${result.id}`}
-                    onClick={() => handleResultClick(result)}
-                    className="w-full flex items-center gap-3 p-3 rounded-md hover:bg-muted transition-colors text-left"
-                  >
-                    {getResultIcon(result.type)}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{result.title}</p>
-                      <p className="text-xs text-muted-foreground truncate">{result.subtitle}</p>
-                    </div>
-                    <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
-                  </button>
-                ))}
-              </div>
-            ) : searchQuery ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                Geen resultaten gevonden voor "{searchQuery}"
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {notifications.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                Geen notificaties
               </div>
             ) : (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                Begin met typen om te zoeken...
-              </div>
+              <ScrollArea className="h-[300px]">
+                {notifications.map((notification) => (
+                  <DropdownMenuItem
+                    key={notification.id}
+                    className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                    onClick={() => {
+                      const route = notification.type === 'email' ? '/inquiries' : '/fda-creator';
+                      navigate(route);
+                    }}
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      {notification.type === 'email' ? (
+                        <Mail className="w-4 h-4 text-primary shrink-0" />
+                      ) : (
+                        <FileText className="w-4 h-4 text-primary shrink-0" />
+                      )}
+                      <span className="font-medium text-sm">{notification.title}</span>
+                      {!notification.read && (
+                        <span className="ml-auto w-2 h-2 bg-primary rounded-full" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground pl-6 line-clamp-1">
+                      {notification.message}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground pl-6">
+                      {formatDistanceToNow(notification.time, { addSuffix: true, locale: nl })}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </ScrollArea>
             )}
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-    </>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </header>
   );
 });
