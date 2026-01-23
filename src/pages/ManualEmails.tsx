@@ -857,7 +857,7 @@ export default function ManualEmails() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <ScrollArea className="h-[calc(100vh-340px)]">
+                <ScrollArea className="max-h-[calc(100vh-280px)]">
                   {loading ? (
                     <div className="flex items-center justify-center p-8">
                       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
