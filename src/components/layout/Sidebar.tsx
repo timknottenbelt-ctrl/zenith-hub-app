@@ -30,7 +30,7 @@ const navItems = [
 ];
 
 const adminItems = [
-  { key: 'userManagement', icon: ShieldCheck, path: '/admin/users', label: 'Gebruikersbeheer' },
+  { key: 'userManagement', icon: ShieldCheck, path: '/admin/users' },
 ];
 
 const FLAGCDN_BASE = 'https://flagcdn.com';
@@ -119,7 +119,7 @@ export const Sidebar = memo(function Sidebar() {
                   }
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
-                  <span>{item.label}</span>
+                  <span>{t(`common.${item.key}`)}</span>
                 </TransitionLink>
               );
             })}
@@ -135,7 +135,7 @@ export const Sidebar = memo(function Sidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">
-              {user?.user_metadata?.name || 'Gebruiker'}
+              {user?.user_metadata?.name || t('common.user')}
             </p>
             <p className="text-xs text-muted-foreground truncate">
               {user?.email || ''}
@@ -149,7 +149,7 @@ export const Sidebar = memo(function Sidebar() {
           onClick={signOut}
         >
           <LogOut className="w-4 h-4 mr-2" />
-          Uitloggen
+          {t('common.logout')}
         </Button>
       </div>
     </aside>
