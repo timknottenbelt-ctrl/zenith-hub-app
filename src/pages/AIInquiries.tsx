@@ -463,7 +463,7 @@ export default function AIInquiries() {
                                   {email.vessel_name}
                                 </span>
                               )}
-                              <span>{new Date(email.created_at).toLocaleDateString()}</span>
+                              <span>{new Date(email.created_at).toLocaleDateString()} {new Date(email.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                           </div>
                         ))}
