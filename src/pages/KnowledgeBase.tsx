@@ -210,7 +210,7 @@ export default function KnowledgeBase() {
           <div>
             <h1 className="text-2xl font-bold">{t('knowledge.title')}</h1>
             <p className="text-muted-foreground">
-              Knowledge base voor AI agents - gebruikt door n8n workflows
+              Knowledge base for AI agents
             </p>
           </div>
           <div className="relative w-full sm:w-72">
@@ -366,7 +366,7 @@ export default function KnowledgeBase() {
               </div>
               <div className="flex items-start gap-3">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium shrink-0">2</span>
-                <p className="text-sm text-muted-foreground">N8N workflows query this knowledge base when processing emails</p>
+                <p className="text-sm text-muted-foreground">AI workflows query this knowledge base when processing emails</p>
               </div>
               <div className="flex items-start gap-3">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium shrink-0">3</span>
