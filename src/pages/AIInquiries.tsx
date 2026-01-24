@@ -87,7 +87,7 @@ export default function AIInquiries() {
     if (data?.signedUrl) {
       setPreviewPdfUrl(data.signedUrl);
     } else {
-      toast({ title: 'Error', description: 'Could not load PDF preview', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('common.error_occurred'), variant: 'destructive' });
     }
   }
 
@@ -149,7 +149,7 @@ export default function AIInquiries() {
 
     for (const file of Array.from(files)) {
       if (file.type !== 'application/pdf') {
-        toast({ title: 'Error', description: 'Only PDF files are allowed', variant: 'destructive' });
+        toast({ title: t('common.error'), description: t('inquiries.onlyPdf'), variant: 'destructive' });
         continue;
       }
 
@@ -160,7 +160,7 @@ export default function AIInquiries() {
         .upload(filePath, file);
 
       if (uploadError) {
-        toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+        toast({ title: t('common.error'), description: uploadError.message, variant: 'destructive' });
         continue;
       }
 
@@ -178,7 +178,7 @@ export default function AIInquiries() {
 
     await fetchEmailAttachments(selectedEmail.id);
     setUploadingPdf(false);
-    toast({ title: 'Success', description: 'PDF uploaded' });
+    toast({ title: t('common.success'), description: t('inquiries.pdfUploaded') });
   }
 
   function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -217,7 +217,7 @@ export default function AIInquiries() {
     if (selectedEmail) {
       await fetchEmailAttachments(selectedEmail.id);
     }
-    toast({ title: 'Success', description: 'Attachment deleted' });
+    toast({ title: t('common.success'), description: t('inquiries.attachmentDeleted') });
   }
 
   const getWebhookUrl = (emailType: string | null): string | null => {
@@ -305,13 +305,13 @@ export default function AIInquiries() {
       if (error) {
         toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
       } else {
-        toast({ title: t('common.success'), description: status === 'approved' ? 'Email verzonden' : 'Email afgewezen' });
+        toast({ title: t('common.success'), description: status === 'approved' ? t('inquiries.emailSent') : t('inquiries.emailRejected') });
         fetchEmails();
         setSelectedEmail(null);
       }
     } catch (error: any) {
       console.error('Error in handleUpdateStatus:', error);
-      toast({ title: t('common.error'), description: error.message || 'Er is iets misgegaan', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('common.error_occurred'), variant: 'destructive' });
     }
     
     setSending(false);
@@ -375,11 +375,11 @@ export default function AIInquiries() {
     if (error) {
       toast({
         title: t('common.error'),
-        description: error.message || 'Kon email niet verwijderen',
+        description: error.message || t('common.error_occurred'),
         variant: 'destructive',
       });
     } else {
-      toast({ title: t('common.success'), description: 'Email verwijderd' });
+      toast({ title: t('common.success'), description: t('inquiries.emailDeleted') });
       setSelectedEmail(null);
       fetchEmails();
     }
@@ -392,24 +392,24 @@ export default function AIInquiries() {
     <DashboardLayout title={t('inquiries.title')}>
       <div className="flex items-center justify-end gap-2 mb-4">
         <TransitionLink to="/inquiries/manual?tab=history">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2 h-9">
             <Mail className="w-4 h-4" />
-            History
+            {t('common.history')}
           </Button>
         </TransitionLink>
         <TransitionLink to="/inquiries/manual">
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+          <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 h-9">
             <PlusCircle className="w-4 h-4" />
-            Manual
+            {t('inquiries.manual')}
           </Button>
         </TransitionLink>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50">
-          <TabsTrigger value="CARGO_AGENT">{t('inquiries.cargoAgent')}</TabsTrigger>
-          <TabsTrigger value="OWNERS_AGENT">{t('inquiries.ownersAgent')}</TabsTrigger>
-          <TabsTrigger value="OUT_OF_SCOPE">{t('inquiries.outOfScope')}</TabsTrigger>
-          <TabsTrigger value="INCOMPLETE">Incomplete</TabsTrigger>
+        <TabsList className="bg-muted/50 p-1">
+          <TabsTrigger value="CARGO_AGENT" className="text-sm">{t('inquiries.cargoAgent')}</TabsTrigger>
+          <TabsTrigger value="OWNERS_AGENT" className="text-sm">{t('inquiries.ownersAgent')}</TabsTrigger>
+          <TabsTrigger value="OUT_OF_SCOPE" className="text-sm">{t('inquiries.outOfScope')}</TabsTrigger>
+          <TabsTrigger value="INCOMPLETE" className="text-sm">{t('inquiries.incomplete')}</TabsTrigger>
         </TabsList>
 
 
@@ -418,13 +418,13 @@ export default function AIInquiries() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
               {/* Email List - Smaller */}
               <Card className="card-premium lg:col-span-1 flex flex-col min-h-0">
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-2 pt-4 px-4">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Mail className="w-4 h-4" />
-                      Emails ({emails.length})
+                      <Mail className="w-4 h-4 text-primary" />
+                      {t('common.email')} ({emails.length})
                     </CardTitle>
-                    <Button variant="ghost" size="sm" onClick={fetchEmails}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchEmails}>
                       <RefreshCw className="w-4 h-4" />
                     </Button>
                   </div>
@@ -450,7 +450,7 @@ export default function AIInquiries() {
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2 mb-1">
-                              <p className="text-sm font-medium line-clamp-2">{email.subject || 'No subject'}</p>
+                              <p className="text-sm font-medium line-clamp-2">{email.subject || t('inquiries.noSubject')}</p>
                               <Badge className={`${getStatusBadge(email.status)} text-xs shrink-0`} variant="secondary">
                                 {getStatusIcon(email.status)}
                               </Badge>
@@ -479,39 +479,39 @@ export default function AIInquiries() {
                   <>
                     {/* Email Meta Info */}
                     <Card className="card-premium">
-                      <CardHeader className="pb-3">
+                      <CardHeader className="pb-2 pt-4 px-4">
                         <div className="flex items-center justify-between">
                           <div className="space-y-1">
-                            <CardTitle className="text-lg font-semibold">{selectedEmail.subject || 'No subject'}</CardTitle>
+                            <CardTitle className="text-base font-semibold">{selectedEmail.subject || t('inquiries.noSubject')}</CardTitle>
                             <p className="text-sm text-muted-foreground">To: {selectedEmail.email_to_person}</p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)}>
-                              <Eye className="w-4 h-4 mr-1" />
-                              {showPreview ? 'Hide' : 'Show'} Original
+                            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setShowPreview(!showPreview)}>
+                              <Eye className="w-3.5 h-3.5 mr-1" />
+                              {showPreview ? t('inquiries.hideOriginal') : t('inquiries.showOriginal')}
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-                                  <Trash2 className="w-4 h-4" />
+                                <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Email verwijderen?</AlertDialogTitle>
+                                  <AlertDialogTitle>{t('inquiries.deleteEmail')}</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Weet je zeker dat je deze email wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.
+                                    {t('inquiries.deleteConfirm')}
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                                   <AlertDialogAction 
                                     onClick={handleDeleteEmail}
                                     disabled={deleting}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
                                     {deleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-                                    Verwijderen
+                                    {t('common.delete')}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -519,14 +519,14 @@ export default function AIInquiries() {
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="px-4 pb-4">
                         {/* Quick Info Grid */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg mb-4">
                           {selectedEmail.vessel_name && (
                             <div className="flex items-center gap-2">
                               <Ship className="w-4 h-4 text-primary" />
                               <div>
-                                <p className="text-xs text-muted-foreground">Vessel</p>
+                                <p className="text-xs text-muted-foreground">{t('inquiries.vessel')}</p>
                                 <p className="text-sm font-medium">{selectedEmail.vessel_name}</p>
                               </div>
                             </div>
@@ -535,7 +535,7 @@ export default function AIInquiries() {
                             <div className="flex items-center gap-2">
                               <MapPin className="w-4 h-4 text-primary" />
                               <div>
-                                <p className="text-xs text-muted-foreground">Port</p>
+                                <p className="text-xs text-muted-foreground">{t('inquiries.port')}</p>
                                 <p className="text-sm font-medium">{selectedEmail.port}</p>
                               </div>
                             </div>
@@ -544,7 +544,7 @@ export default function AIInquiries() {
                             <div className="flex items-center gap-2">
                               <Calendar className="w-4 h-4 text-primary" />
                               <div>
-                                <p className="text-xs text-muted-foreground">ETA</p>
+                                <p className="text-xs text-muted-foreground">{t('inquiries.eta')}</p>
                                 <p className="text-sm font-medium">{selectedEmail.eta}</p>
                               </div>
                             </div>
@@ -558,37 +558,37 @@ export default function AIInquiries() {
                         </div>
 
                         {/* Links */}
-                        <div className="flex flex-wrap gap-3 mb-4">
+                        <div className="flex flex-wrap gap-2 mb-4">
                           {selectedEmail.doc_link && (
                             <a href={selectedEmail.doc_link} target="_blank" rel="noopener noreferrer" 
-                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
-                              <ExternalLink className="w-3.5 h-3.5" /> Doc Link 1
+                               className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors">
+                              <ExternalLink className="w-3 h-3" /> {t('inquiries.docLink')} 1
                             </a>
                           )}
                           {selectedEmail.dock_link_2 && (
                             <a href={selectedEmail.dock_link_2} target="_blank" rel="noopener noreferrer" 
-                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
-                              <ExternalLink className="w-3.5 h-3.5" /> Doc Link 2
+                               className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors">
+                              <ExternalLink className="w-3 h-3" /> {t('inquiries.docLink')} 2
                             </a>
                           )}
                           {selectedEmail['Google sheet url'] && (
                             <a href={selectedEmail['Google sheet url']} target="_blank" rel="noopener noreferrer"
-                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-success/10 text-success rounded-lg hover:bg-success/20 transition-colors">
-                              <ExternalLink className="w-3.5 h-3.5" /> Google Sheet
+                               className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-success/10 text-success rounded-md hover:bg-success/20 transition-colors">
+                              <ExternalLink className="w-3 h-3" /> {t('inquiries.googleSheet')}
                             </a>
                           )}
                           {selectedEmail.pdf_url && (
                             <a href={selectedEmail.pdf_url} target="_blank" rel="noopener noreferrer"
-                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-warning/10 text-warning rounded-lg hover:bg-warning/20 transition-colors">
-                              <ExternalLink className="w-3.5 h-3.5" /> PDF
+                               className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-warning/10 text-warning rounded-md hover:bg-warning/20 transition-colors">
+                              <ExternalLink className="w-3 h-3" /> {t('inquiries.pdf')}
                             </a>
                           )}
                         </div>
 
                         {showPreview && (selectedEmail.original_email || selectedEmail.orignal_email) && (
-                          <div className="p-4 bg-muted/50 rounded-lg border">
-                            <p className="text-xs font-medium mb-2 text-muted-foreground">Original Email:</p>
-                            <div className="whitespace-pre-wrap text-sm font-sans leading-relaxed max-h-48 overflow-auto">{selectedEmail.original_email || selectedEmail.orignal_email}</div>
+                          <div className="p-3 bg-muted/50 rounded-lg border">
+                            <p className="text-xs font-medium mb-2 text-muted-foreground">{t('inquiries.originalEmail')}:</p>
+                            <div className="whitespace-pre-wrap text-sm font-sans leading-relaxed max-h-40 overflow-auto">{selectedEmail.original_email || selectedEmail.orignal_email}</div>
                           </div>
                         )}
                       </CardContent>
@@ -596,21 +596,21 @@ export default function AIInquiries() {
 
                     {/* PDF Attachments */}
                     <Card className="card-premium">
-                      <CardHeader className="pb-3">
+                      <CardHeader className="pb-2 pt-4 px-4">
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <FileText className="w-4 h-4 text-primary" />
-                            PDF Attachments ({emailAttachments.length})
+                            {t('inquiries.pdfAttachments')} ({emailAttachments.length})
                           </CardTitle>
                           <label className="cursor-pointer">
-                            <Button variant="outline" size="sm" asChild disabled={uploadingPdf}>
+                            <Button variant="outline" size="sm" className="h-8 text-xs" asChild disabled={uploadingPdf}>
                               <span>
                                 {uploadingPdf ? (
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                                 ) : (
-                                  <Upload className="w-4 h-4 mr-2" />
+                                  <Upload className="w-3.5 h-3.5 mr-1.5" />
                                 )}
-                                Upload PDF
+                                {t('inquiries.uploadPdf')}
                               </span>
                             </Button>
                             <input
@@ -625,10 +625,10 @@ export default function AIInquiries() {
                           </label>
                         </div>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="px-4 pb-4">
                         {emailAttachments.length === 0 ? (
                           <div 
-                            className={`text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
+                            className={`text-center py-5 text-muted-foreground border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
                               isDragging ? 'border-primary bg-primary/5' : 'hover:border-primary/50'
                             }`}
                             onDragOver={handleDragOver}
@@ -636,9 +636,9 @@ export default function AIInquiries() {
                             onDrop={handleDrop}
                             onClick={() => document.getElementById('pdf-upload-input')?.click()}
                           >
-                            <FileText className={`w-8 h-8 mx-auto mb-2 transition-opacity ${isDragging ? 'opacity-100 text-primary' : 'opacity-50'}`} />
-                            <p className="text-sm">{isDragging ? 'Drop PDF here' : 'No PDFs attached yet'}</p>
-                            <p className="text-xs">{isDragging ? '' : 'Drag & drop or click to upload'}</p>
+                            <FileText className={`w-7 h-7 mx-auto mb-2 transition-opacity ${isDragging ? 'opacity-100 text-primary' : 'opacity-50'}`} />
+                            <p className="text-xs">{isDragging ? t('inquiries.dropToAdd') : t('inquiries.noPdfsYet')}</p>
+                            <p className="text-xs mt-1">{isDragging ? '' : t('inquiries.dropPdfs')}</p>
                           </div>
                         ) : (
                           <div 
@@ -668,8 +668,8 @@ export default function AIInquiries() {
                               ))}
                             </div>
                             {isDragging && (
-                              <div className="text-center py-2 text-sm text-primary mt-2">
-                                Drop PDF here to add
+                              <div className="text-center py-2 text-xs text-primary mt-2">
+                                {t('inquiries.dropToAdd')}
                               </div>
                             )}
                           </div>
@@ -680,61 +680,63 @@ export default function AIInquiries() {
                     {/* PDF Preview Modal */}
                     {previewPdfUrl && (
                       <Card className="card-premium">
-                        <CardHeader className="pb-2">
+                        <CardHeader className="pb-2 pt-3 px-4">
                           <div className="flex items-center justify-between">
-                            <CardTitle className="text-sm">PDF Preview</CardTitle>
-                            <Button variant="ghost" size="sm" onClick={() => setPreviewPdfUrl(null)}>
+                            <CardTitle className="text-sm">{t('inquiries.pdfPreview')}</CardTitle>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewPdfUrl(null)}>
                               <X className="w-4 h-4" />
                             </Button>
                           </div>
                         </CardHeader>
-                        <CardContent>
-                          <iframe src={previewPdfUrl} className="w-full h-[500px] rounded-lg border" />
+                        <CardContent className="px-4 pb-4">
+                          <iframe src={previewPdfUrl} className="w-full h-[400px] rounded-lg border" />
                         </CardContent>
                       </Card>
                     )}
 
                     {/* Response Editor */}
                     <Card className="card-premium">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Edit Response</CardTitle>
+                      <CardHeader className="pb-2 pt-4 px-4">
+                        <CardTitle className="text-sm font-medium">{t('inquiries.editResponse')}</CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="subject">Subject</Label>
+                      <CardContent className="space-y-3 px-4 pb-4">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="subject" className="text-xs">{t('inquiries.emailSubject')}</Label>
                           <Input 
                             id="subject" 
                             value={editSubject} 
                             onChange={(e) => setEditSubject(e.target.value)}
-                            placeholder="Email subject"
+                            placeholder={t('inquiries.emailSubject')}
+                            className="h-9"
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="body">Body</Label>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="body" className="text-xs">{t('inquiries.emailBody')}</Label>
                           <Textarea 
                             id="body" 
                             value={editBody} 
                             onChange={(e) => setEditBody(e.target.value)}
-                            placeholder="Email body"
-                            className="min-h-[200px]"
+                            placeholder={t('inquiries.emailBody')}
+                            className="min-h-[160px] text-sm"
                           />
                         </div>
-                        <div className="flex gap-3 pt-2">
+                        <div className="flex gap-2 pt-2">
                           <Button 
-                            className="flex-1" 
+                            className="flex-1 h-9 text-sm" 
                             onClick={() => handleUpdateStatus('approved')}
                             disabled={sending}
                           >
                             {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
-                            Approve & Send
+                            {t('inquiries.approveAndSend')}
                           </Button>
                           <Button 
                             variant="destructive"
+                            className="h-9 text-sm"
                             onClick={() => handleUpdateStatus('rejected')}
                             disabled={sending}
                           >
                             <XCircle className="w-4 h-4 mr-2" />
-                            Reject
+                            {t('common.reject')}
                           </Button>
                         </div>
                       </CardContent>
@@ -743,8 +745,8 @@ export default function AIInquiries() {
                 ) : (
                   <Card className="card-premium h-[calc(100vh-280px)] flex items-center justify-center">
                     <CardContent className="text-center text-muted-foreground">
-                      <Mail className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>Select an email to view details</p>
+                      <Mail className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                      <p className="text-sm">{t('inquiries.selectEmail')}</p>
                     </CardContent>
                   </Card>
                 )}
