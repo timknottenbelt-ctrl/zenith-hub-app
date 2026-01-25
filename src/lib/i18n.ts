@@ -218,6 +218,14 @@ export const translations: Record<Language, Record<string, string>> = {
     'overview.fdaCw': 'FDA Curaçao',
     'overview.viewAll': 'View All',
     'overview.noRecentEmails': 'No recent emails',
+    
+    // Auth
+    'auth.pendingApproval': 'Account Pending Approval',
+    'auth.pendingDescription': 'Your account has been created but needs to be approved by an administrator before you can access the application.',
+    'auth.whatNow': 'What now?',
+    'auth.contactAdmin': 'Contact your administrator to have your account approved. You will receive access once this has been done.',
+    'auth.noAccess': 'No Access',
+    'auth.adminOnly': 'You do not have access to this page. It is only available for administrators.',
   },
   nl: {
     // Navigation
@@ -436,6 +444,14 @@ export const translations: Record<Language, Record<string, string>> = {
     'overview.fdaCw': 'FDA Curaçao',
     'overview.viewAll': 'Bekijk alles',
     'overview.noRecentEmails': 'Geen recente emails',
+    
+    // Auth
+    'auth.pendingApproval': 'Account Wacht op Goedkeuring',
+    'auth.pendingDescription': 'Je account is aangemaakt maar moet nog worden goedgekeurd door een administrator voordat je toegang krijgt tot de applicatie.',
+    'auth.whatNow': 'Wat nu?',
+    'auth.contactAdmin': 'Neem contact op met je administrator om je account te laten goedkeuren. Je ontvangt toegang zodra dit is gebeurd.',
+    'auth.noAccess': 'Geen Toegang',
+    'auth.adminOnly': 'Je hebt geen toegang tot deze pagina. Deze is alleen beschikbaar voor administrators.',
   },
   es: {
     // Navigation
@@ -608,6 +624,14 @@ export const translations: Record<Language, Record<string, string>> = {
     'common.delete': 'Eliminar',
     'common.download': 'Descargar',
     'common.upload': 'Subir',
+    
+    // Auth
+    'auth.pendingApproval': 'Cuenta Pendiente de Aprobación',
+    'auth.pendingDescription': 'Tu cuenta ha sido creada pero necesita ser aprobada por un administrador antes de poder acceder a la aplicación.',
+    'auth.whatNow': '¿Qué hacer ahora?',
+    'auth.contactAdmin': 'Contacta a tu administrador para que apruebe tu cuenta. Recibirás acceso una vez que esto se haya hecho.',
+    'auth.noAccess': 'Sin Acceso',
+    'auth.adminOnly': 'No tienes acceso a esta página. Solo está disponible para administradores.',
   },
   pt: {
     // Navigation
@@ -742,6 +766,14 @@ export const translations: Record<Language, Record<string, string>> = {
     'common.delete': 'Excluir',
     'common.download': 'Baixar',
     'common.upload': 'Enviar',
+    
+    // Auth
+    'auth.pendingApproval': 'Conta Pendente de Aprovação',
+    'auth.pendingDescription': 'Sua conta foi criada mas precisa ser aprovada por um administrador antes de você poder acessar o aplicativo.',
+    'auth.whatNow': 'O que fazer agora?',
+    'auth.contactAdmin': 'Entre em contato com seu administrador para aprovar sua conta. Você receberá acesso assim que isso for feito.',
+    'auth.noAccess': 'Sem Acesso',
+    'auth.adminOnly': 'Você não tem acesso a esta página. Está disponível apenas para administradores.',
   },
 };
 

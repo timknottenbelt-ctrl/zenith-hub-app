@@ -129,8 +129,8 @@ export const Sidebar = memo(function Sidebar() {
 
       {/* Footer with User Info */}
       <div className="p-4 border-t border-sidebar-border space-y-3">
-        <div className="flex items-center gap-3 px-2">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+        <div className="flex items-center gap-2 px-2">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
             <Users className="w-4 h-4 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
@@ -141,6 +141,13 @@ export const Sidebar = memo(function Sidebar() {
               {user?.email || ''}
             </p>
           </div>
+          <TransitionLink
+            to="/settings"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors shrink-0"
+            title={t('nav.settings')}
+          >
+            <Settings className="w-4 h-4" />
+          </TransitionLink>
         </div>
         <Button 
           variant="ghost" 
