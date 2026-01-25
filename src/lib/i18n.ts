@@ -77,6 +77,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.manual': 'Manual',
     'inquiries.onlyPdf': 'Only PDF files are allowed',
     
+    // Sent PDAs
+    'sentPdas.title': 'Sent PDAs',
+    'sentPdas.noSentPdas': 'No sent PDAs found',
+    'sentPdas.selectToView': 'Select a sent PDA to view details',
+    'sentPdas.sentOn': 'Sent on',
+    'sentPdas.emailContent': 'Email Content',
+    'sentPdas.pdfAttachments': 'PDF Attachments',
+    'sentPdas.viewPdf': 'View PDF attachment',
+    
     // FDA Creator
     'fda.title': 'FDA Creator',
     'fda.projects': 'FDA Projects',
@@ -286,6 +295,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.manual': 'Handmatig',
     'inquiries.onlyPdf': 'Alleen PDF bestanden zijn toegestaan',
     
+    // Sent PDAs
+    'sentPdas.title': 'Verzonden PDAs',
+    'sentPdas.noSentPdas': 'Geen verzonden PDAs gevonden',
+    'sentPdas.selectToView': 'Selecteer een verzonden PDA om details te bekijken',
+    'sentPdas.sentOn': 'Verzonden op',
+    'sentPdas.emailContent': 'Email Inhoud',
+    'sentPdas.pdfAttachments': 'PDF Bijlagen',
+    'sentPdas.viewPdf': 'PDF bijlage bekijken',
+    
     // FDA Creator
     'fda.title': 'FDA Creator',
     'fda.projects': 'FDA Projecten',
@@ -494,6 +512,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.pdf': 'PDF',
     'inquiries.manual': 'Manual',
     'inquiries.onlyPdf': 'Solo se permiten archivos PDF',
+    
+    // Sent PDAs
+    'sentPdas.title': 'PDAs Enviados',
+    'sentPdas.noSentPdas': 'No se encontraron PDAs enviados',
+    'sentPdas.selectToView': 'Seleccione un PDA enviado para ver detalles',
+    'sentPdas.sentOn': 'Enviado el',
+    'sentPdas.emailContent': 'Contenido del Email',
+    'sentPdas.pdfAttachments': 'Archivos PDF',
+    'sentPdas.viewPdf': 'Ver archivo PDF adjunto',
     
     // FDA Creator
     'fda.title': 'FDA Creator',

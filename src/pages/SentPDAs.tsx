@@ -98,7 +98,7 @@ export default function SentPDAs() {
         setPdfPreviewUrl(blobUrl);
       }
     } catch (error: any) {
-      toast({ title: 'Error', description: 'Could not load PDF', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('common.error_occurred'), variant: 'destructive' });
     }
     
     setLoadingPdf(false);
@@ -121,7 +121,7 @@ export default function SentPDAs() {
         URL.revokeObjectURL(blobUrl);
       }
     } catch (error: any) {
-      toast({ title: 'Error', description: 'Could not download PDF', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('common.error_occurred'), variant: 'destructive' });
     }
   }
 
@@ -134,17 +134,17 @@ export default function SentPDAs() {
   }
 
   return (
-    <DashboardLayout title="Sent PDA's">
+    <DashboardLayout title={t('sentPdas.title')}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         {/* Sent Email List */}
         <Card className="card-premium lg:col-span-1 flex flex-col min-h-0">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2 pt-4 px-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-success" />
-                Sent PDA's ({sentEmails.length})
+                {t('sentPdas.title')} ({sentEmails.length})
               </CardTitle>
-              <Button variant="ghost" size="sm" onClick={fetchSentEmails}>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={fetchSentEmails}>
                 <RefreshCw className="w-4 h-4" />
               </Button>
             </div>
@@ -157,7 +157,8 @@ export default function SentPDAs() {
                 </div>
               ) : sentEmails.length === 0 ? (
                 <div className="text-center p-8 text-muted-foreground">
-                  Geen verzonden PDA's gevonden
+                  <Mail className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                  <p className="text-sm">{t('sentPdas.noSentPdas')}</p>
                 </div>
               ) : (
                 <div className="divide-y">
@@ -165,19 +166,19 @@ export default function SentPDAs() {
                     <div
                       key={email.id}
                       onClick={() => setSelectedEmail(email)}
-                      className={`p-3 cursor-pointer transition-colors hover:bg-muted/50 ${
+                      className={`p-3 cursor-pointer transition-all hover:bg-muted/50 ${
                         selectedEmail?.id === email.id ? 'bg-success/5 border-l-2 border-success' : ''
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="text-sm font-medium line-clamp-2">{email.subject || 'No subject'}</p>
+                        <p className="text-sm font-medium line-clamp-2">{email.subject || t('inquiries.noSubject')}</p>
                         <Badge className="bg-success/10 text-success text-xs shrink-0" variant="secondary">
                           <CheckCircle className="w-3 h-3 mr-1" />
-                          Sent
+                          {t('overview.sent')}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{email.email_to_person}</p>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
                         {email.vessel_name && (
                           <span className="flex items-center gap-1">
                             <Ship className="w-3 h-3" />
@@ -185,7 +186,7 @@ export default function SentPDAs() {
                           </span>
                         )}
                         {email.sent_at && (
-                          <span>Sent: {new Date(email.sent_at).toLocaleDateString()}</span>
+                          <span>{t('sentPdas.sentOn')}: {new Date(email.sent_at).toLocaleDateString()}</span>
                         )}
                       </div>
                     </div>
@@ -201,26 +202,26 @@ export default function SentPDAs() {
           {selectedEmail ? (
             <>
               <Card className="card-premium">
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-2 pt-4 px-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
-                      <CardTitle className="text-lg font-semibold">{selectedEmail.subject || 'No subject'}</CardTitle>
-                      <p className="text-sm text-muted-foreground">To: {selectedEmail.email_to_person}</p>
+                      <CardTitle className="text-base font-semibold">{selectedEmail.subject || t('inquiries.noSubject')}</CardTitle>
+                      <p className="text-xs text-muted-foreground">{t('inquiries.toEmail')}: {selectedEmail.email_to_person}</p>
                     </div>
                     <Badge className="bg-success/10 text-success" variant="secondary">
                       <CheckCircle className="w-3 h-3 mr-1" />
-                      Verzonden
+                      {t('overview.sent')}
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4 pb-4">
                   {/* Quick Info Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg mb-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-muted/30 rounded-lg mb-4">
                     {selectedEmail.vessel_name && (
                       <div className="flex items-center gap-2">
                         <Ship className="w-4 h-4 text-primary" />
                         <div>
-                          <p className="text-xs text-muted-foreground">Vessel</p>
+                          <p className="text-xs text-muted-foreground">{t('inquiries.vessel')}</p>
                           <p className="text-sm font-medium">{selectedEmail.vessel_name}</p>
                         </div>
                       </div>
@@ -229,7 +230,7 @@ export default function SentPDAs() {
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-primary" />
                         <div>
-                          <p className="text-xs text-muted-foreground">Port</p>
+                          <p className="text-xs text-muted-foreground">{t('inquiries.port')}</p>
                           <p className="text-sm font-medium">{selectedEmail.port}</p>
                         </div>
                       </div>
@@ -238,7 +239,7 @@ export default function SentPDAs() {
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-primary" />
                         <div>
-                          <p className="text-xs text-muted-foreground">ETA</p>
+                          <p className="text-xs text-muted-foreground">{t('inquiries.eta')}</p>
                           <p className="text-sm font-medium">{selectedEmail.eta}</p>
                         </div>
                       </div>
@@ -247,7 +248,7 @@ export default function SentPDAs() {
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-success" />
                         <div>
-                          <p className="text-xs text-muted-foreground">Verzonden op</p>
+                          <p className="text-xs text-muted-foreground">{t('sentPdas.sentOn')}</p>
                           <p className="text-sm font-medium">{new Date(selectedEmail.sent_at).toLocaleString()}</p>
                         </div>
                       </div>
@@ -255,29 +256,29 @@ export default function SentPDAs() {
                   </div>
 
                   {/* Links */}
-                  <div className="flex flex-wrap gap-3 mb-4">
+                  <div className="flex flex-wrap gap-2 mb-4">
                     {selectedEmail.doc_link && (
                       <a href={selectedEmail.doc_link} target="_blank" rel="noopener noreferrer" 
-                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
-                        <ExternalLink className="w-3.5 h-3.5" /> Doc Link 1
+                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
+                        <ExternalLink className="w-3 h-3" /> {t('inquiries.docLink')} 1
                       </a>
                     )}
                     {selectedEmail.dock_link_2 && (
                       <a href={selectedEmail.dock_link_2} target="_blank" rel="noopener noreferrer" 
-                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
-                        <ExternalLink className="w-3.5 h-3.5" /> Doc Link 2
+                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
+                        <ExternalLink className="w-3 h-3" /> {t('inquiries.docLink')} 2
                       </a>
                     )}
                     {selectedEmail['Google sheet url'] && (
                       <a href={selectedEmail['Google sheet url']} target="_blank" rel="noopener noreferrer"
-                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-success/10 text-success rounded-lg hover:bg-success/20 transition-colors">
-                        <ExternalLink className="w-3.5 h-3.5" /> Google Sheet
+                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-success/10 text-success rounded-lg hover:bg-success/20 transition-colors">
+                        <ExternalLink className="w-3 h-3" /> {t('inquiries.googleSheet')}
                       </a>
                     )}
                     {selectedEmail.pdf_url && (
                       <a href={selectedEmail.pdf_url} target="_blank" rel="noopener noreferrer"
-                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-warning/10 text-warning rounded-lg hover:bg-warning/20 transition-colors">
-                        <ExternalLink className="w-3.5 h-3.5" /> PDF
+                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-warning/10 text-warning rounded-lg hover:bg-warning/20 transition-colors">
+                        <ExternalLink className="w-3 h-3" /> {t('inquiries.pdf')}
                       </a>
                     )}
                   </div>
@@ -285,9 +286,9 @@ export default function SentPDAs() {
                   {/* PDF Attachments */}
                   {emailAttachments.length > 0 && (
                     <div className="space-y-2">
-                      <Label className="text-muted-foreground flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        PDF Bijlagen ({emailAttachments.length})
+                      <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5" />
+                        {t('sentPdas.pdfAttachments')} ({emailAttachments.length})
                       </Label>
                       <div className="flex flex-wrap gap-2">
                         {emailAttachments.map((attachment) => (
@@ -296,8 +297,8 @@ export default function SentPDAs() {
                             className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border"
                           >
                             <FileText className="w-4 h-4 text-destructive" />
-                            <span className="text-sm truncate max-w-[200px]">{attachment.file_name}</span>
-                            <div className="flex items-center gap-1 ml-2">
+                            <span className="text-xs truncate max-w-[180px]">{attachment.file_name}</span>
+                            <div className="flex items-center gap-1 ml-1">
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -325,20 +326,20 @@ export default function SentPDAs() {
 
               {/* Email Content - Read Only */}
               <Card className="card-premium">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">Email Content</CardTitle>
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <CardTitle className="text-sm font-medium">{t('sentPdas.emailContent')}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Subject</Label>
+                <CardContent className="px-4 pb-4 space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">{t('inquiries.emailSubject')}</Label>
                     <div className="p-3 bg-muted/30 rounded-lg text-sm">
-                      {selectedEmail.subject || 'No subject'}
+                      {selectedEmail.subject || t('inquiries.noSubject')}
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Body</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">{t('inquiries.emailBody')}</Label>
                     <div className="p-4 bg-muted/30 rounded-lg text-sm font-sans leading-relaxed whitespace-pre-wrap min-h-[200px]">
-                      {selectedEmail.body || 'No body'}
+                      {selectedEmail.body || t('common.noData')}
                     </div>
                   </div>
                 </CardContent>
@@ -347,8 +348,8 @@ export default function SentPDAs() {
           ) : (
             <Card className="card-premium h-[calc(100vh-280px)] flex items-center justify-center">
               <CardContent className="text-center text-muted-foreground">
-                <Mail className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Selecteer een verzonden PDA om details te bekijken</p>
+                <Mail className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                <p className="text-sm">{t('sentPdas.selectToView')}</p>
               </CardContent>
             </Card>
           )}
@@ -359,12 +360,12 @@ export default function SentPDAs() {
       <Dialog open={!!pdfPreviewUrl} onOpenChange={(open) => !open && closePdfPreview()}>
         <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5" />
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <FileText className="w-4 h-4" />
               {pdfPreviewName}
             </DialogTitle>
-            <DialogDescription>
-              PDF bijlage bekijken
+            <DialogDescription className="text-xs">
+              {t('sentPdas.viewPdf')}
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 p-4">
