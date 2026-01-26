@@ -29,6 +29,8 @@ import {
   X,
   PlusCircle,
   Trash2,
+  Building2,
+  User,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -55,7 +57,7 @@ interface EmailAttachment {
 }
 
 const EMAIL_TYPE_MAP: Record<string, string[]> = {
-  'CARGO_AGENT': ['CARGO AGENT', 'CARGO_AGENT'],
+  'CARGO_AGENT': ['CARGO AGENT', 'CARGO_AGENT', 'CARGO AGENT 2'],
   'OWNERS_AGENT': ['OWNERS_AGENT', 'OWNERS AGENT'],
   'OUT_OF_SCOPE': ['OUT_OF_SCOPE', 'Out of Scope', 'REFERRAL', 'OUT OF SCOPE'],
   'INCOMPLETE': ['INCOMPLETE'], // special: filters by status instead of Email Type
@@ -521,16 +523,51 @@ export default function AIInquiries() {
                       </CardHeader>
                       <CardContent className="px-4 pb-4">
                         {/* Quick Info Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg mb-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg mb-4">
+                          {/* Company & Contact */}
+                          {selectedEmail.company_name && (
+                            <div className="flex items-center gap-2">
+                              <Building2 className="w-4 h-4 text-primary" />
+                              <div>
+                                <p className="text-xs text-muted-foreground">{t('inquiries.company')}</p>
+                                <p className="text-sm font-medium">{selectedEmail.company_name}</p>
+                              </div>
+                            </div>
+                          )}
+                          {selectedEmail.contact_name && (
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4 text-primary" />
+                              <div>
+                                <p className="text-xs text-muted-foreground">{t('inquiries.contact')}</p>
+                                <p className="text-sm font-medium">{selectedEmail.contact_name}</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Vessel 1 */}
                           {selectedEmail.vessel_name && (
                             <div className="flex items-center gap-2">
                               <Ship className="w-4 h-4 text-primary" />
                               <div>
-                                <p className="text-xs text-muted-foreground">{t('inquiries.vessel')}</p>
+                                <p className="text-xs text-muted-foreground">{t('inquiries.vessel')} 1</p>
                                 <p className="text-sm font-medium">{selectedEmail.vessel_name}</p>
+                                {selectedEmail.imo && <p className="text-xs text-muted-foreground">IMO: {selectedEmail.imo}</p>}
                               </div>
                             </div>
                           )}
+                          
+                          {/* Vessel 2 */}
+                          {selectedEmail.vessel_2_name && (
+                            <div className="flex items-center gap-2">
+                              <Ship className="w-4 h-4 text-secondary-foreground" />
+                              <div>
+                                <p className="text-xs text-muted-foreground">{t('inquiries.vessel')} 2</p>
+                                <p className="text-sm font-medium">{selectedEmail.vessel_2_name}</p>
+                                {selectedEmail.vessel_2_imo && <p className="text-xs text-muted-foreground">IMO: {selectedEmail.vessel_2_imo}</p>}
+                              </div>
+                            </div>
+                          )}
+                          
                           {selectedEmail.port && (
                             <div className="flex items-center gap-2">
                               <MapPin className="w-4 h-4 text-primary" />
@@ -547,12 +584,6 @@ export default function AIInquiries() {
                                 <p className="text-xs text-muted-foreground">{t('inquiries.eta')}</p>
                                 <p className="text-sm font-medium">{selectedEmail.eta}</p>
                               </div>
-                            </div>
-                          )}
-                          {selectedEmail.imo && (
-                            <div>
-                              <p className="text-xs text-muted-foreground">IMO</p>
-                              <p className="text-sm font-medium">{selectedEmail.imo}</p>
                             </div>
                           )}
                         </div>
