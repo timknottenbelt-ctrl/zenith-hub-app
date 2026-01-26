@@ -94,6 +94,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'sentPdas.thisWeek': 'This week',
     'sentPdas.thisMonth': 'This month',
     'sentPdas.older': 'Older',
+    'sentPdas.allTime': 'All time',
+    
+    // Manual Emails
+    'manualEmails.emails': 'Emails',
+    'manualEmails.filterByType': 'Filter by type',
+    'manualEmails.allTypes': 'All Types',
+    'manualEmails.cargoAgent': 'Cargo Agent',
+    'manualEmails.ownersAgent': 'Owners Agent',
+    'manualEmails.noEmailsFound': 'No manual emails found',
     
     // FDA Creator
     'fda.title': 'FDA Creator',
@@ -198,6 +207,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'common.processing': 'Processing',
     'common.error_occurred': 'An error occurred',
     'common.no_results': 'No results found',
+    'common.noResultsFound': 'No results found',
     'common.select': 'Select',
     'common.create': 'Create',
     'common.new': 'New',
@@ -329,6 +339,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'sentPdas.thisWeek': 'Deze week',
     'sentPdas.thisMonth': 'Deze maand',
     'sentPdas.older': 'Ouder',
+    'sentPdas.allTime': 'Altijd',
+    
+    // Manual Emails
+    'manualEmails.emails': 'Emails',
+    'manualEmails.filterByType': 'Filter op type',
+    'manualEmails.allTypes': 'Alle Types',
+    'manualEmails.cargoAgent': 'Cargo Agent',
+    'manualEmails.ownersAgent': 'Owners Agent',
+    'manualEmails.noEmailsFound': 'Geen handmatige emails gevonden',
     
     // FDA Creator
     'fda.title': 'FDA Creator',
@@ -433,6 +452,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'common.processing': 'Bezig...',
     'common.error_occurred': 'Er is een fout opgetreden',
     'common.no_results': 'Geen resultaten gevonden',
+    'common.noResultsFound': 'Geen resultaten gevonden',
     'common.select': 'Selecteer',
     'common.create': 'Aanmaken',
     'common.new': 'Nieuw',
