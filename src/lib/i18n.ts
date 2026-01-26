@@ -87,6 +87,12 @@ export const translations: Record<Language, Record<string, string>> = {
     'sentPdas.emailContent': 'Email Content',
     'sentPdas.pdfAttachments': 'PDF Attachments',
     'sentPdas.viewPdf': 'View PDF attachment',
+    'sentPdas.searchPlaceholder': 'Search by vessel, subject, recipient...',
+    'sentPdas.filterByDate': 'Filter by date',
+    'sentPdas.all': 'All',
+    'sentPdas.thisWeek': 'This week',
+    'sentPdas.thisMonth': 'This month',
+    'sentPdas.older': 'Older',
     
     // FDA Creator
     'fda.title': 'FDA Creator',
@@ -315,6 +321,12 @@ export const translations: Record<Language, Record<string, string>> = {
     'sentPdas.emailContent': 'Email Inhoud',
     'sentPdas.pdfAttachments': 'PDF Bijlagen',
     'sentPdas.viewPdf': 'PDF bijlage bekijken',
+    'sentPdas.searchPlaceholder': 'Zoeken op schip, onderwerp, ontvanger...',
+    'sentPdas.filterByDate': 'Filter op datum',
+    'sentPdas.all': 'Alles',
+    'sentPdas.thisWeek': 'Deze week',
+    'sentPdas.thisMonth': 'Deze maand',
+    'sentPdas.older': 'Ouder',
     
     // FDA Creator
     'fda.title': 'FDA Creator',
