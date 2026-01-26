@@ -146,6 +146,8 @@ export type Database = {
       email: {
         Row: {
           body: string | null
+          cargo_quantity: number | null
+          cargo_type: string | null
           company_name: string | null
           contact_name: string | null
           created_at: string
@@ -167,10 +169,24 @@ export type Database = {
           services_requested: string | null
           status: Database["public"]["Enums"]["email_status"]
           subject: string | null
+          terminal: string | null
+          vessel_2_eta: string | null
+          vessel_2_flag: string | null
+          vessel_2_grt: number | null
+          vessel_2_imo: string | null
+          vessel_2_loa: number | null
+          vessel_2_name: string | null
+          vessel_eta: string | null
+          vessel_flag: string | null
+          vessel_grt: number | null
+          vessel_imo: string | null
+          vessel_loa: number | null
           vessel_name: string | null
         }
         Insert: {
           body?: string | null
+          cargo_quantity?: number | null
+          cargo_type?: string | null
           company_name?: string | null
           contact_name?: string | null
           created_at?: string
@@ -192,10 +208,24 @@ export type Database = {
           services_requested?: string | null
           status?: Database["public"]["Enums"]["email_status"]
           subject?: string | null
+          terminal?: string | null
+          vessel_2_eta?: string | null
+          vessel_2_flag?: string | null
+          vessel_2_grt?: number | null
+          vessel_2_imo?: string | null
+          vessel_2_loa?: number | null
+          vessel_2_name?: string | null
+          vessel_eta?: string | null
+          vessel_flag?: string | null
+          vessel_grt?: number | null
+          vessel_imo?: string | null
+          vessel_loa?: number | null
           vessel_name?: string | null
         }
         Update: {
           body?: string | null
+          cargo_quantity?: number | null
+          cargo_type?: string | null
           company_name?: string | null
           contact_name?: string | null
           created_at?: string
@@ -217,6 +247,18 @@ export type Database = {
           services_requested?: string | null
           status?: Database["public"]["Enums"]["email_status"]
           subject?: string | null
+          terminal?: string | null
+          vessel_2_eta?: string | null
+          vessel_2_flag?: string | null
+          vessel_2_grt?: number | null
+          vessel_2_imo?: string | null
+          vessel_2_loa?: number | null
+          vessel_2_name?: string | null
+          vessel_eta?: string | null
+          vessel_flag?: string | null
+          vessel_grt?: number | null
+          vessel_imo?: string | null
+          vessel_loa?: number | null
           vessel_name?: string | null
         }
         Relationships: []
