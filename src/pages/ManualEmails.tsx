@@ -58,6 +58,9 @@ interface ManualEmail {
   company_name: string | null;
   contact_name: string | null;
   pdf_path: string | null;
+  // Vessel 2 fields
+  vessel_2_name: string | null;
+  vessel_2_imo: string | null;
 }
 
 export default function ManualEmails() {
@@ -361,6 +364,8 @@ export default function ManualEmails() {
       company_name: null,
       contact_name: null,
       pdf_path: null,
+      vessel_2_name: null,
+      vessel_2_imo: null,
     };
 
     // Make sure the user can see the new record even if a filter was active
@@ -959,7 +964,9 @@ export default function ManualEmails() {
                       </div>
                       {selectedEmail.vessel_name && (
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Vessel</Label>
+                          <Label className="text-xs text-muted-foreground">
+                            {selectedEmail.vessel_2_name ? 'Vessel 1' : 'Vessel'}
+                          </Label>
                           <p className="text-sm font-medium flex items-center gap-1">
                             <Ship className="w-3 h-3" />
                             {selectedEmail.vessel_name}
@@ -968,8 +975,25 @@ export default function ManualEmails() {
                       )}
                       {selectedEmail.imo && (
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">IMO</Label>
+                          <Label className="text-xs text-muted-foreground">
+                            {selectedEmail.vessel_2_imo ? 'IMO 1' : 'IMO'}
+                          </Label>
                           <p className="text-sm">{selectedEmail.imo}</p>
+                        </div>
+                      )}
+                      {selectedEmail.vessel_2_name && (
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Vessel 2</Label>
+                          <p className="text-sm font-medium flex items-center gap-1">
+                            <Ship className="w-3 h-3" />
+                            {selectedEmail.vessel_2_name}
+                          </p>
+                        </div>
+                      )}
+                      {selectedEmail.vessel_2_imo && (
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">IMO 2</Label>
+                          <p className="text-sm">{selectedEmail.vessel_2_imo}</p>
                         </div>
                       )}
                       {selectedEmail.port && (
@@ -982,6 +1006,12 @@ export default function ManualEmails() {
                         <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">Company</Label>
                           <p className="text-sm">{selectedEmail.company_name}</p>
+                        </div>
+                      )}
+                      {selectedEmail.contact_name && (
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Contact</Label>
+                          <p className="text-sm">{selectedEmail.contact_name}</p>
                         </div>
                       )}
                     </div>
