@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -38,9 +39,11 @@ import {
   Trash2,
   Copy,
   Check,
+  Search,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TransitionLink } from "@/components/TransitionLink";
+import { isToday, isThisWeek, parseISO } from "date-fns";
 
 interface ManualEmail {
   id: number;
@@ -72,6 +75,8 @@ export default function ManualEmails() {
   const [selectedEmail, setSelectedEmail] = useState<ManualEmail | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterAgentType, setFilterAgentType] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState<string>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [emailToDelete, setEmailToDelete] = useState<{ id: number; pdfPath: string | null } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -630,6 +635,36 @@ export default function ManualEmails() {
     }
   }
 
+  // Filter emails based on search query and date filter
+  const filteredEmails = useMemo(() => {
+    return emails.filter((email) => {
+      // Search filter
+      const query = searchQuery.toLowerCase();
+      const matchesSearch =
+        !query ||
+        (email.vessel_name?.toLowerCase() || "").includes(query) ||
+        (email.subject?.toLowerCase() || "").includes(query) ||
+        (email.port?.toLowerCase() || "").includes(query) ||
+        (email.company_name?.toLowerCase() || "").includes(query) ||
+        (email.contact_name?.toLowerCase() || "").includes(query);
+
+      // Date filter
+      let matchesDate = true;
+      if (dateFilter !== "all" && email.created_at) {
+        const emailDate = parseISO(email.created_at);
+        if (dateFilter === "today") {
+          matchesDate = isToday(emailDate);
+        } else if (dateFilter === "week") {
+          matchesDate = isThisWeek(emailDate, { weekStartsOn: 1 });
+        } else if (dateFilter === "older") {
+          matchesDate = !isThisWeek(emailDate, { weekStartsOn: 1 });
+        }
+      }
+
+      return matchesSearch && matchesDate;
+    });
+  }, [emails, searchQuery, dateFilter]);
+
   const getStatusBadge = (status: string | null) => {
     const styles: Record<string, string> = {
       processing: "bg-primary/10 text-primary",
@@ -842,36 +877,67 @@ export default function ManualEmails() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Mail className="w-4 h-4" />
-                    Emails ({emails.length})
+                    {t('manualEmails.emails')} ({filteredEmails.length})
                   </CardTitle>
                   <Button variant="ghost" size="sm" onClick={() => fetchManualEmails({ showLoading: false })}>
                     <RefreshCw className="w-4 h-4" />
                   </Button>
                 </div>
+                
+                {/* Search Bar */}
                 <div className="pt-2">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder={t('common.search')}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-9 pl-8 text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Filters Row */}
+                <div className="flex gap-2 pt-2">
                   <Select value={filterAgentType} onValueChange={setFilterAgentType}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Filter by type" />
+                    <SelectTrigger className="h-8 text-xs flex-1">
+                      <SelectValue placeholder={t('manualEmails.filterByType')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="CARGO_AGENT">Cargo Agent</SelectItem>
-                      <SelectItem value="OWNERS_AGENT">Owners Agent</SelectItem>
+                      <SelectItem value="all">{t('manualEmails.allTypes')}</SelectItem>
+                      <SelectItem value="CARGO_AGENT">{t('manualEmails.cargoAgent')}</SelectItem>
+                      <SelectItem value="OWNERS_AGENT">{t('manualEmails.ownersAgent')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={dateFilter} onValueChange={setDateFilter}>
+                    <SelectTrigger className="h-8 text-xs flex-1">
+                      <SelectValue placeholder={t('sentPDAs.filterByDate')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('sentPDAs.allTime')}</SelectItem>
+                      <SelectItem value="today">{t('overview.today')}</SelectItem>
+                      <SelectItem value="week">{t('sentPDAs.thisWeek')}</SelectItem>
+                      <SelectItem value="older">{t('sentPDAs.older')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <ScrollArea className="h-[calc(100vh-280px)]">
+                <ScrollArea className="h-[calc(100vh-340px)]">
                   {loading ? (
                     <div className="flex items-center justify-center p-8">
                       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                     </div>
-                  ) : emails.length === 0 ? (
-                    <div className="text-center p-8 text-muted-foreground">No manual emails found</div>
+                  ) : filteredEmails.length === 0 ? (
+                    <div className="text-center p-8 text-muted-foreground">
+                      {searchQuery || dateFilter !== "all" 
+                        ? t('common.noResultsFound') 
+                        : t('manualEmails.noEmailsFound')}
+                    </div>
                   ) : (
                     <div className="divide-y">
-                      {emails.map((email) => (
+                      {filteredEmails.map((email) => (
                         <div
                           key={email.id}
                           onClick={() => setSelectedEmail(email)}
