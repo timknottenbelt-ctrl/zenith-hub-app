@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,6 +70,7 @@ const EMAIL_TYPE_MAP: Record<string, string[]> = {
 
 export default function AIInquiries() {
   const { t } = useLanguage();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>('CARGO_AGENT');
   const [emails, setEmails] = useState<Email[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
@@ -88,6 +90,21 @@ export default function AIInquiries() {
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+
+  // Sync /inquiries?q=... with the local search (Topbar can write this param)
+  useEffect(() => {
+    const q = searchParams.get('q') ?? '';
+    setSearchQuery((prev) => (prev === q ? prev : q));
+  }, [searchParams]);
+
+  const setQueryAndUrl = (value: string) => {
+    setSearchQuery(value);
+    const next = new URLSearchParams(searchParams);
+    const trimmed = value.trim();
+    if (trimmed) next.set('q', value);
+    else next.delete('q');
+    setSearchParams(next, { replace: true });
+  };
 
   // Filter emails based on search and date
   const filteredEmails = useMemo(() => {
@@ -487,7 +504,7 @@ export default function AIInquiries() {
                     <Input
                       placeholder={t('sentPdas.searchPlaceholder')}
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => setQueryAndUrl(e.target.value)}
                       className="pl-9 h-9"
                     />
                   </div>

@@ -1,4 +1,5 @@
 import { memo, useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { Search, Bell, Mail, Ship, FileText, Users, ExternalLink, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,8 @@ interface Notification {
 export const Topbar = memo(function Topbar({ title }: TopbarProps) {
   const { t } = useLanguage();
   const navigate = useTransitionNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -49,6 +52,28 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isInquiriesRoute = location.pathname === '/inquiries';
+
+  // Keep Topbar search in sync with /inquiries?q=... when on that route
+  useEffect(() => {
+    if (!isInquiriesRoute) return;
+    const q = searchParams.get('q') ?? '';
+    setSearchQuery((prev) => (prev === q ? prev : q));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInquiriesRoute, searchParams]);
+
+  const updateInquiriesQueryParam = useCallback(
+    (value: string) => {
+      if (!isInquiriesRoute) return;
+      const next = new URLSearchParams(searchParams);
+      const trimmed = value.trim();
+      if (trimmed) next.set('q', value);
+      else next.delete('q');
+      setSearchParams(next, { replace: true });
+    },
+    [isInquiriesRoute, searchParams, setSearchParams]
+  );
 
   // Close results when clicking outside
   useEffect(() => {
@@ -266,7 +291,9 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
               placeholder={t('common.search')}
               value={searchQuery}
               onChange={(e) => {
-                setSearchQuery(e.target.value);
+                const value = e.target.value;
+                setSearchQuery(value);
+                updateInquiriesQueryParam(value);
                 setShowResults(true);
               }}
               onFocus={() => setShowResults(true)}
