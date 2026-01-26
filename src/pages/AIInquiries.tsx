@@ -465,95 +465,88 @@ export default function AIInquiries() {
           <TabsTrigger value="INCOMPLETE" className="text-sm">{t('inquiries.incomplete')}</TabsTrigger>
         </TabsList>
 
-        {/* Search and Filter Bar */}
-        <Card className="card-premium">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-              <div className="relative flex-1 w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder={t('sentPdas.searchPlaceholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-9"
-                />
-              </div>
-              <div className="flex gap-2 items-center">
-                <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
-                  <SelectTrigger className="w-[140px] h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('sentPdas.all')}</SelectItem>
-                    <SelectItem value="today">{t('overview.today') || 'Today'}</SelectItem>
-                    <SelectItem value="thisWeek">{t('sentPdas.thisWeek')}</SelectItem>
-                    <SelectItem value="older">{t('sentPdas.older')}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={fetchEmails}>
-                  <RefreshCw className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Tab Content */}
         <TabsContent value={activeTab} className="mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-              {/* Email List - Smaller */}
-              <Card className="card-premium lg:col-span-1 flex flex-col min-h-0">
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-primary" />
-                      {t('common.email')} ({filteredEmails.length})
-                    </CardTitle>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+            {/* Email List - Smaller */}
+            <Card className="card-premium lg:col-span-1 flex flex-col min-h-0">
+              <CardHeader className="pb-2 pt-4 px-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-primary" />
+                    {t('common.email')} ({filteredEmails.length})
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={fetchEmails}>
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+                {/* Search and Filter integrated in card */}
+                <div className="flex flex-col gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder={t('sentPdas.searchPlaceholder')}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 h-9"
+                    />
                   </div>
-                </CardHeader>
-                <CardContent className="p-0 flex-1 min-h-0">
-                  <ScrollArea className="h-[calc(100dvh-320px)]">
-                    {loading ? (
-                      <div className="flex items-center justify-center p-8">
-                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : filteredEmails.length === 0 ? (
-                      <div className="text-center p-8 text-muted-foreground">
-                        {t('common.noData')}
-                      </div>
-                    ) : (
-                      <div className="divide-y">
-                        {filteredEmails.map((email) => (
-                          <div
-                            key={email.id}
-                            onClick={() => setSelectedEmail(email)}
-                            className={`p-3 cursor-pointer transition-colors hover:bg-muted/50 ${
-                              selectedEmail?.id === email.id ? 'bg-primary/5 border-l-2 border-primary' : ''
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                              <p className="text-sm font-medium line-clamp-2">{email.subject || t('inquiries.noSubject')}</p>
-                              <Badge className={`${getStatusBadge(email.status)} text-xs shrink-0`} variant="secondary">
-                                {getStatusIcon(email.status)}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground truncate">{email.email_to_person}</p>
-                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                              {email.vessel_name && (
-                                <span className="flex items-center gap-1">
-                                  <Ship className="w-3 h-3" />
-                                  {email.vessel_name}
-                                </span>
-                              )}
-                              <span>{new Date(email.created_at).toLocaleDateString()} {new Date(email.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
+                  <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('sentPdas.all')}</SelectItem>
+                      <SelectItem value="today">{t('overview.today') || 'Today'}</SelectItem>
+                      <SelectItem value="thisWeek">{t('sentPdas.thisWeek')}</SelectItem>
+                      <SelectItem value="older">{t('sentPdas.older')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 flex-1 min-h-0">
+                <ScrollArea className="h-[calc(100dvh-400px)]">
+                  {loading ? (
+                    <div className="flex items-center justify-center p-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : filteredEmails.length === 0 ? (
+                    <div className="text-center p-8 text-muted-foreground">
+                      {searchQuery || dateFilter !== 'all' ? t('common.noResultsFound') : t('common.noData')}
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {filteredEmails.map((email) => (
+                        <div
+                          key={email.id}
+                          onClick={() => setSelectedEmail(email)}
+                          className={`p-3 cursor-pointer transition-colors hover:bg-muted/50 ${
+                            selectedEmail?.id === email.id ? 'bg-primary/5 border-l-2 border-primary' : ''
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="text-sm font-medium line-clamp-2">{email.subject || t('inquiries.noSubject')}</p>
+                            <Badge className={`${getStatusBadge(email.status)} text-xs shrink-0`} variant="secondary">
+                              {getStatusIcon(email.status)}
+                            </Badge>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </ScrollArea>
-                </CardContent>
-              </Card>
+                          <p className="text-xs text-muted-foreground truncate">{email.email_to_person}</p>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                            {email.vessel_name && (
+                              <span className="flex items-center gap-1">
+                                <Ship className="w-3 h-3" />
+                                {email.vessel_name}
+                              </span>
+                            )}
+                            <span>{new Date(email.created_at).toLocaleDateString()} {new Date(email.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
 
               {/* Email Detail - Larger */}
               <div className="lg:col-span-2 space-y-4">
