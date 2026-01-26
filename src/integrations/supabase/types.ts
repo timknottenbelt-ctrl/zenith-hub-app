@@ -932,6 +932,14 @@ export type Database = {
           subject: string | null
           terminal: string | null
           tugs: number | null
+          vessel_2_beam: number | null
+          vessel_2_draft: number | null
+          vessel_2_dwt: number | null
+          vessel_2_flag: string | null
+          vessel_2_grt: number | null
+          vessel_2_imo: string | null
+          vessel_2_loa: number | null
+          vessel_2_name: string | null
           vessel_name: string | null
         }
         Insert: {
@@ -964,6 +972,14 @@ export type Database = {
           subject?: string | null
           terminal?: string | null
           tugs?: number | null
+          vessel_2_beam?: number | null
+          vessel_2_draft?: number | null
+          vessel_2_dwt?: number | null
+          vessel_2_flag?: string | null
+          vessel_2_grt?: number | null
+          vessel_2_imo?: string | null
+          vessel_2_loa?: number | null
+          vessel_2_name?: string | null
           vessel_name?: string | null
         }
         Update: {
@@ -996,6 +1012,14 @@ export type Database = {
           subject?: string | null
           terminal?: string | null
           tugs?: number | null
+          vessel_2_beam?: number | null
+          vessel_2_draft?: number | null
+          vessel_2_dwt?: number | null
+          vessel_2_flag?: string | null
+          vessel_2_grt?: number | null
+          vessel_2_imo?: string | null
+          vessel_2_loa?: number | null
+          vessel_2_name?: string | null
           vessel_name?: string | null
         }
         Relationships: []
