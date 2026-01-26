@@ -26,6 +26,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'overview.ready': 'Ready to Send',
     'overview.sent': 'Sent',
     'overview.failed': 'Failed',
+    'overview.today': 'Today',
     
     // AI Inquiries
     'inquiries.title': 'AI Inquiries',
@@ -260,6 +261,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'overview.ready': 'Klaar om te verzenden',
     'overview.sent': 'Verzonden',
     'overview.failed': 'Mislukt',
+    'overview.today': 'Vandaag',
     
     // AI Inquiries
     'inquiries.title': 'AI Aanvragen',

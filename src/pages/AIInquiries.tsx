@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
@@ -31,6 +32,7 @@ import {
   Trash2,
   Building2,
   User,
+  Search,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -44,6 +46,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { TransitionLink } from '@/components/TransitionLink';
+
+type DateFilter = 'all' | 'today' | 'thisWeek' | 'older';
 
 type Email = Tables<'email'>;
 
@@ -80,6 +84,53 @@ export default function AIInquiries() {
   const [editBody, setEditBody] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+
+  // Filter emails based on search and date
+  const filteredEmails = useMemo(() => {
+    let filtered = emails;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(email => 
+        email.subject?.toLowerCase().includes(query) ||
+        email.vessel_name?.toLowerCase().includes(query) ||
+        email.email_to_person?.toLowerCase().includes(query) ||
+        email.port?.toLowerCase().includes(query) ||
+        email.company_name?.toLowerCase().includes(query)
+      );
+    }
+
+    // Date filter
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      filtered = filtered.filter(email => {
+        const createdDate = new Date(email.created_at);
+        
+        switch (dateFilter) {
+          case 'today':
+            return createdDate >= startOfToday;
+          case 'thisWeek':
+            return createdDate >= startOfWeek && createdDate < startOfToday;
+          case 'older':
+            return createdDate < startOfWeek;
+          default:
+            return true;
+        }
+      });
+    }
+
+    return filtered;
+  }, [emails, searchQuery, dateFilter]);
 
   async function handlePreviewPdf(attachment: EmailAttachment) {
     const { data } = await supabase.storage
@@ -414,6 +465,38 @@ export default function AIInquiries() {
           <TabsTrigger value="INCOMPLETE" className="text-sm">{t('inquiries.incomplete')}</TabsTrigger>
         </TabsList>
 
+        {/* Search and Filter Bar */}
+        <Card className="card-premium">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder={t('sentPdas.searchPlaceholder')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
+              <div className="flex gap-2 items-center">
+                <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
+                  <SelectTrigger className="w-[140px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('sentPdas.all')}</SelectItem>
+                    <SelectItem value="today">{t('overview.today') || 'Today'}</SelectItem>
+                    <SelectItem value="thisWeek">{t('sentPdas.thisWeek')}</SelectItem>
+                    <SelectItem value="older">{t('sentPdas.older')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={fetchEmails}>
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Tab Content */}
         <TabsContent value={activeTab} className="mt-4">
@@ -424,26 +507,23 @@ export default function AIInquiries() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                       <Mail className="w-4 h-4 text-primary" />
-                      {t('common.email')} ({emails.length})
+                      {t('common.email')} ({filteredEmails.length})
                     </CardTitle>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchEmails}>
-                      <RefreshCw className="w-4 h-4" />
-                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0 flex-1 min-h-0">
-                  <ScrollArea className="h-[calc(100dvh-200px)]">
+                  <ScrollArea className="h-[calc(100dvh-320px)]">
                     {loading ? (
                       <div className="flex items-center justify-center p-8">
                         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                       </div>
-                    ) : emails.length === 0 ? (
+                    ) : filteredEmails.length === 0 ? (
                       <div className="text-center p-8 text-muted-foreground">
                         {t('common.noData')}
                       </div>
                     ) : (
                       <div className="divide-y">
-                        {emails.map((email) => (
+                        {filteredEmails.map((email) => (
                           <div
                             key={email.id}
                             onClick={() => setSelectedEmail(email)}
