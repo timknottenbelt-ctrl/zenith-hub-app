@@ -147,18 +147,19 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
     try {
       const { data: emails } = await supabase
         .from('email')
-        .select('id, subject, contact_name, vessel_name')
+        .select('id, subject, contact_name, vessel_name, status')
         .or(`subject.ilike.${searchTerm},contact_name.ilike.${searchTerm},vessel_name.ilike.${searchTerm}`)
         .limit(4);
 
       if (emails) {
         emails.forEach((email) => {
+          const emailRouteBase = email.status === 'approved' || email.status === 'sent' ? '/inquiries/sent' : '/inquiries';
           results.push({
             type: 'email',
             id: email.id,
             title: email.subject || 'Geen onderwerp',
             subtitle: email.contact_name || email.vessel_name || 'Email',
-            route: '/inquiries',
+            route: `${emailRouteBase}?emailId=${email.id}`,
           });
         });
       }

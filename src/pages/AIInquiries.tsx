@@ -106,6 +106,25 @@ export default function AIInquiries() {
     setSearchParams(next, { replace: true });
   };
 
+  const setEmailIdInUrl = (emailId: number | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (emailId) next.set('emailId', String(emailId));
+    else next.delete('emailId');
+    setSearchParams(next, { replace: true });
+  };
+
+  // When navigating here with ?emailId=..., auto-select that email (if present in current tab)
+  useEffect(() => {
+    const raw = searchParams.get('emailId');
+    if (!raw) return;
+    const id = Number(raw);
+    if (!Number.isFinite(id)) return;
+    const found = emails.find((e) => e.id === id);
+    if (found && selectedEmail?.id !== id) {
+      setSelectedEmail(found);
+    }
+  }, [searchParams, emails, selectedEmail?.id]);
+
   // Filter emails based on search and date
   const filteredEmails = useMemo(() => {
     let filtered = emails;
@@ -378,6 +397,7 @@ export default function AIInquiries() {
         toast({ title: t('common.success'), description: status === 'approved' ? t('inquiries.emailSent') : t('inquiries.emailRejected') });
         fetchEmails();
         setSelectedEmail(null);
+        setEmailIdInUrl(null);
       }
     } catch (error: any) {
       console.error('Error in handleUpdateStatus:', error);
@@ -451,6 +471,7 @@ export default function AIInquiries() {
     } else {
       toast({ title: t('common.success'), description: t('inquiries.emailDeleted') });
       setSelectedEmail(null);
+      setEmailIdInUrl(null);
       fetchEmails();
     }
 
@@ -536,7 +557,10 @@ export default function AIInquiries() {
                       {filteredEmails.map((email) => (
                         <div
                           key={email.id}
-                          onClick={() => setSelectedEmail(email)}
+                          onClick={() => {
+                            setSelectedEmail(email);
+                            setEmailIdInUrl(email.id);
+                          }}
                           className={`p-3 cursor-pointer transition-colors hover:bg-muted/50 ${
                             selectedEmail?.id === email.id ? 'bg-primary/5 border-l-2 border-primary' : ''
                           }`}
