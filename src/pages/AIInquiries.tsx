@@ -543,7 +543,7 @@ export default function AIInquiries() {
                 </div>
               </CardHeader>
               <CardContent className="p-0 flex-1 min-h-0">
-                <ScrollArea className="h-[calc(100dvh-400px)]">
+                <ScrollArea className="h-full">
                   {loading ? (
                     <div className="flex items-center justify-center p-8">
                       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
