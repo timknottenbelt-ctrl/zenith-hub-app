@@ -949,7 +949,12 @@ export default function ManualEmails() {
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="text-sm font-medium line-clamp-1">{email.vessel_name || "TBN"}</p>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium line-clamp-1">
+                                {email.vessel_name || "TBN"}
+                                {email.vessel_2_name && ` / ${email.vessel_2_name}`}
+                              </p>
+                            </div>
                             {email.status === "processing" ? (
                               <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
                             ) : (
@@ -964,12 +969,9 @@ export default function ManualEmails() {
                             </Badge>
                             {email.port && <span className="text-xs text-muted-foreground">{email.port}</span>}
                           </div>
-                          {email.subject &&
-                            email.id >= 0 &&
-                            email.subject !== "AI is thinking…" &&
-                            email.subject !== "Verwerken…" && (
-                              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1 italic">{email.subject}</p>
-                            )}
+                          {email.company_name && (
+                            <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1 italic">{email.company_name}</p>
+                          )}
                           <p className="text-xs text-muted-foreground mt-1">
                             {email.created_at ? new Date(email.created_at).toLocaleString("nl-NL") : "Unknown date"}
                           </p>
