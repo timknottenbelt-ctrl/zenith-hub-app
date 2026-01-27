@@ -675,16 +675,10 @@ export default function FDACuracaoEmail() {
                   <CheckCircle className="w-5 h-5 text-success" />
                   <span className="text-sm">Invoice data has been processed successfully</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={handleExportExcel}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Excel
-                  </Button>
-                  <Button size="sm" onClick={() => window.open(project!.google_sheet_url!, "_blank")}>
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Open Google Sheet
-                  </Button>
-                </div>
+                <Button size="sm" onClick={() => window.open(project!.google_sheet_url!, "_blank")}>
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open Excel Sheet
+                </Button>
               </div>
             ) : (
               <div className="flex items-center justify-center p-8 text-muted-foreground">
