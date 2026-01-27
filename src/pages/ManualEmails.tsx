@@ -43,7 +43,7 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TransitionLink } from "@/components/TransitionLink";
-import { isToday, isThisWeek, parseISO } from "date-fns";
+import { isToday, isThisWeek, isThisMonth, isThisYear, parseISO } from "date-fns";
 
 interface ManualEmail {
   id: number;
@@ -656,8 +656,10 @@ export default function ManualEmails() {
           matchesDate = isToday(emailDate);
         } else if (dateFilter === "week") {
           matchesDate = isThisWeek(emailDate, { weekStartsOn: 1 });
-        } else if (dateFilter === "older") {
-          matchesDate = !isThisWeek(emailDate, { weekStartsOn: 1 });
+        } else if (dateFilter === "month") {
+          matchesDate = isThisMonth(emailDate);
+        } else if (dateFilter === "year") {
+          matchesDate = isThisYear(emailDate);
         }
       }
 
@@ -912,13 +914,14 @@ export default function ManualEmails() {
 
                   <Select value={dateFilter} onValueChange={setDateFilter}>
                     <SelectTrigger className="h-8 text-xs flex-1">
-                      <SelectValue placeholder={t('sentPDAs.filterByDate')} />
+                      <SelectValue placeholder={t('sentPdas.filterByDate')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">{t('sentPDAs.allTime')}</SelectItem>
-                      <SelectItem value="today">{t('overview.today')}</SelectItem>
-                      <SelectItem value="week">{t('sentPDAs.thisWeek')}</SelectItem>
-                      <SelectItem value="older">{t('sentPDAs.older')}</SelectItem>
+                      <SelectItem value="all">{t('sentPdas.allTime')}</SelectItem>
+                      <SelectItem value="today">{t('sentPdas.today')}</SelectItem>
+                      <SelectItem value="week">{t('sentPdas.thisWeek')}</SelectItem>
+                      <SelectItem value="month">{t('sentPdas.thisMonth')}</SelectItem>
+                      <SelectItem value="year">{t('sentPdas.thisYear')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
