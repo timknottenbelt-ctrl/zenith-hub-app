@@ -1010,7 +1010,6 @@ export default function ManualEmails() {
                   </div>
                 )}
               </CardHeader>
-              <ScrollArea className="h-[calc(100vh-280px)]">
               <CardContent>
                 {selectedEmail ? (
                   <div className="space-y-4">
@@ -1179,7 +1178,6 @@ export default function ManualEmails() {
                   </div>
                 )}
               </CardContent>
-              </ScrollArea>
             </Card>
           </div>
         </TabsContent>
