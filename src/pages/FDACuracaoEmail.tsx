@@ -27,6 +27,7 @@ import {
   Receipt,
 } from "lucide-react";
 import { useTransitionNavigate } from "@/hooks/useTransitionNavigate";
+import * as XLSX from "xlsx";
 
 interface FDACuracaoProject {
   project_id: string;
@@ -515,6 +516,33 @@ export default function FDACuracaoEmail() {
     setExtraAttachments(extraAttachments.filter((a) => a.id !== id));
   }
 
+  function handleExportExcel() {
+    if (invoices.length === 0) {
+      toast({ title: "Geen data", description: "Er zijn geen facturen om te exporteren", variant: "destructive" });
+      return;
+    }
+
+    const exportData = invoices
+      .filter((inv) => inv.description || inv.total_amount || inv.supplier_name)
+      .map((inv) => ({
+        "Invoice Number": inv.invoice_number,
+        "File Name": inv.file_name,
+        "Supplier": inv.supplier_name || "",
+        "Description": inv.description || "",
+        "Amount": inv.total_amount || "",
+        "Currency": inv.currency || "",
+      }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Invoices");
+
+    const fileName = `${project?.lbh_number || "FDA"}_${project?.ship_name || "Export"}_Invoices.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    toast({ title: "Success", description: "Excel bestand gedownload" });
+  }
+
   async function handleSendEmail() {
     if (toEmails.length === 0) {
       toast({ title: "Error", description: "Please add at least one recipient", variant: "destructive" });
@@ -641,16 +669,22 @@ export default function FDACuracaoEmail() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {hasGoogleSheet ? (
+          {hasGoogleSheet ? (
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-success" />
                   <span className="text-sm">Invoice data has been processed successfully</span>
                 </div>
-                <Button size="sm" onClick={() => window.open(project!.google_sheet_url!, "_blank")}>
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Open Google Sheet
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={handleExportExcel}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Excel
+                  </Button>
+                  <Button size="sm" onClick={() => window.open(project!.google_sheet_url!, "_blank")}>
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open Google Sheet
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="flex items-center justify-center p-8 text-muted-foreground">
