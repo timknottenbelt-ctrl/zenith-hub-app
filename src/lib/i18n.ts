@@ -91,8 +91,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'sentPdas.searchPlaceholder': 'Search by vessel, subject, recipient...',
     'sentPdas.filterByDate': 'Filter by date',
     'sentPdas.all': 'All',
+    'sentPdas.today': 'Today',
     'sentPdas.thisWeek': 'This week',
     'sentPdas.thisMonth': 'This month',
+    'sentPdas.thisYear': 'This year',
     'sentPdas.older': 'Older',
     'sentPdas.allTime': 'All time',
     
@@ -336,8 +338,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'sentPdas.searchPlaceholder': 'Zoeken op schip, onderwerp, ontvanger...',
     'sentPdas.filterByDate': 'Filter op datum',
     'sentPdas.all': 'Alles',
+    'sentPdas.today': 'Vandaag',
     'sentPdas.thisWeek': 'Deze week',
     'sentPdas.thisMonth': 'Deze maand',
+    'sentPdas.thisYear': 'Dit jaar',
     'sentPdas.older': 'Ouder',
     'sentPdas.allTime': 'Altijd',
     
