@@ -1154,7 +1154,7 @@ export default function ManualEmails() {
                               <p className="text-sm font-medium">{selectedEmail.subject}</p>
                             </div>
                           )}
-                          <ScrollArea className="h-[180px]">
+                          <ScrollArea className="h-[320px]">
                             <pre className="p-4 text-sm whitespace-pre-wrap font-sans bg-muted/30">
                               {selectedEmail.body}
                             </pre>
@@ -1170,7 +1170,7 @@ export default function ManualEmails() {
                     {/* Original Email Content */}
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Original Email</Label>
-                      <ScrollArea className="h-[150px] border rounded-lg">
+                      <ScrollArea className="h-[200px] border rounded-lg">
                         <pre className="p-4 text-sm whitespace-pre-wrap font-sans">{selectedEmail.email_content}</pre>
                       </ScrollArea>
                     </div>
