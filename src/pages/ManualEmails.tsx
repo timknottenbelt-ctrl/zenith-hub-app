@@ -923,8 +923,8 @@ export default function ManualEmails() {
                   </Select>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[calc(100vh-340px)]">
+              <CardContent className="p-0 flex-1 min-h-0">
+                <ScrollArea className="h-full">
                   {loading ? (
                     <div className="flex items-center justify-center p-8">
                       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
