@@ -1505,9 +1505,25 @@ export default function FDACuracao() {
 
                 {/* Client Info */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-medium flex items-center gap-2">
-                    <User className="w-4 h-4 text-primary" /> Client Details
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium flex items-center gap-2">
+                      <User className="w-4 h-4 text-primary" /> Client Details
+                    </h3>
+                    <ClientSelector
+                      onSelectClient={(client) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          client_name: client.client_name,
+                          client_email: client.client_email,
+                          client_phone: client.client_phone,
+                          billing_company: client.billing_company,
+                          billing_email: client.billing_email,
+                          billing_address: client.billing_address,
+                          billing_phone: client.billing_phone,
+                        }));
+                      }}
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label>Client Name</Label>
                     <Input
