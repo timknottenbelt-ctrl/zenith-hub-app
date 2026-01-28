@@ -79,36 +79,50 @@ export default function ResetPassword() {
 
     setLoading(true);
     
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: password,
-    });
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password,
+      });
 
-    if (updateError) {
+      if (updateError) {
+        toast({ 
+          title: 'Fout', 
+          description: updateError.message, 
+          variant: 'destructive' 
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Clear the must_change_password flag
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ must_change_password: false })
+          .eq('id', user.id);
+        
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+        }
+      }
+
+      toast({ 
+        title: 'Wachtwoord gewijzigd', 
+        description: 'Je wachtwoord is succesvol gewijzigd' 
+      });
+      
+      // Use window.location for reliable redirect
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Password reset error:', error);
       toast({ 
         title: 'Fout', 
-        description: updateError.message, 
+        description: 'Er is iets misgegaan. Probeer opnieuw.', 
         variant: 'destructive' 
       });
       setLoading(false);
-      return;
     }
-
-    // Clear the must_change_password flag
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase
-        .from('profiles')
-        .update({ must_change_password: false })
-        .eq('id', user.id);
-    }
-
-    toast({ 
-      title: 'Wachtwoord gewijzigd', 
-      description: 'Je wachtwoord is succesvol gewijzigd' 
-    });
-    
-    navigate('/');
-    setLoading(false);
   }
 
   const title = mustChangePassword 
