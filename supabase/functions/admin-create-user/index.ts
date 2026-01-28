@@ -33,19 +33,27 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Create client with user's token to verify admin status
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user: requestingUser }, error: userError } = await userClient.auth.getUser();
+    // Extract the token and validate it
+    const token = authHeader.replace("Bearer ", "");
+    
+    // Create admin client for token validation
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Validate the token using admin API
+    const { data: { user: requestingUser }, error: userError } = await adminClient.auth.getUser(token);
     
     if (userError || !requestingUser) {
+      console.error("Token validation error:", userError);
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    // Create user client for RLS-based queries
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     // Check if requesting user is admin
     const { data: roleData, error: roleError } = await userClient
@@ -71,9 +79,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // Create admin client with service role
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-
+    // Use adminClient (already created above) for creating user
     // Create the user using admin API
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
