@@ -517,6 +517,11 @@ export default function FDACuracao() {
   };
 
   const addAgencyCostRow = () => {
+    // Maximum 7 agency cost rows allowed
+    if (agencyCostRows.length >= 7) {
+      toast({ title: "Maximum reached", description: "Er zijn maximaal 7 Agency Cost regels toegestaan", variant: "destructive" });
+      return;
+    }
     setAgencyCostRows(rows => [...rows, { 
       id: crypto.randomUUID(), 
       description: "", 
@@ -1273,9 +1278,10 @@ export default function FDACuracao() {
                     size="sm"
                     onClick={addAgencyCostRow}
                     className="h-8"
+                    disabled={agencyCostRows.length >= 7}
                   >
                     <Plus className="w-4 h-4 mr-1" />
-                    Add Row
+                    Add Row {agencyCostRows.length >= 7 && "(max 7)"}
                   </Button>
                 </CardTitle>
               </CardHeader>

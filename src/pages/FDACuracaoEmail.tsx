@@ -1106,6 +1106,10 @@ function InvoiceRow({ invoice, index, onView, onDownload, onUpdateNumber }: Invo
     }
   };
 
+  // Agency Cost items don't have file_url - they're generated from form input, not PDFs
+  const isAgencyCost = !invoice.file_url || invoice.file_name === "Agency Cost";
+  const hasViewableFile = invoice.file_url && !isAgencyCost;
+
   return (
     <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
       {/* File Name & Description */}
@@ -1141,15 +1145,17 @@ function InvoiceRow({ invoice, index, onView, onDownload, onUpdateNumber }: Invo
         />
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 shrink-0">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onView} title="View PDF">
-          <Eye className="w-4 h-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onDownload} title="Download PDF">
-          <Download className="w-4 h-4" />
-        </Button>
-      </div>
+      {/* Actions - Only show for items with actual PDF files */}
+      {hasViewableFile && (
+        <div className="flex items-center gap-1 shrink-0">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onView} title="View PDF">
+            <Eye className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onDownload} title="Download PDF">
+            <Download className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
