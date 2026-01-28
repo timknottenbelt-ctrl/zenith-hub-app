@@ -25,39 +25,92 @@ export default function ResetPassword() {
   const [isRecovery, setIsRecovery] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
+  const getAuthParamsFromUrl = () => {
+    const url = new URL(window.location.href);
+    const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+    const access_token = hashParams.get('access_token');
+    const refresh_token = hashParams.get('refresh_token');
+    const type = hashParams.get('type') || url.searchParams.get('type');
+    const code = url.searchParams.get('code');
+    return { access_token, refresh_token, type, code };
+  };
+
   useEffect(() => {
-    // Check if this is a password recovery session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsRecovery(true);
-      } else if (session?.user) {
-        // Check if user must change password
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('must_change_password')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (profile?.must_change_password) {
+    const readMustChangePassword = async (userId: string) => {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('must_change_password')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Profile fetch error:', error);
+        return { mustChangePassword: false };
+      }
+
+      return { mustChangePassword: Boolean(profile?.must_change_password) };
+    };
+
+    const init = async () => {
+      // 1) Ensure we actually have a session (recovery links can arrive as ?code=... or #access_token=...)
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+      // If we have a broken/stale refresh token in storage, clear it.
+      if (sessionError?.message?.toLowerCase().includes('refresh token')) {
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!sessionData.session) {
+        const { access_token, refresh_token, type, code } = getAuthParamsFromUrl();
+
+        // implicit flow
+        if (access_token && refresh_token && (supabase.auth as any).setSession) {
+          const { error } = await (supabase.auth as any).setSession({ access_token, refresh_token });
+          if (!error && type === 'recovery') setIsRecovery(true);
+        }
+
+        // PKCE flow
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (!error) setIsRecovery(true);
+        }
+      }
+
+      // 2) Now check the (possibly restored) session
+      const { data: afterData } = await supabase.auth.getSession();
+      const afterSession = afterData.session;
+      if (afterSession?.user) {
+        const { mustChangePassword: mustChange } = await readMustChangePassword(afterSession.user.id);
+        if (mustChange) {
           setMustChangePassword(true);
         } else if (!isRecovery) {
           navigate('/');
         }
       }
-    });
+    };
 
-    // Also check current session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    init();
+
+    // 3) Listen for changes (keep callback sync; defer Supabase calls)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecovery(true);
+        return;
+      }
+
       if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('must_change_password')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (profile?.must_change_password) {
-          setMustChangePassword(true);
-        }
+        setTimeout(async () => {
+          const { mustChangePassword: mustChange } = await readMustChangePassword(session.user.id);
+          if (mustChange) {
+            setMustChangePassword(true);
+          } else if (!isRecovery) {
+            navigate('/');
+          }
+        }, 0);
       }
     });
 
@@ -73,6 +126,17 @@ export default function ResetPassword() {
         title: 'Validatiefout', 
         description: validation.error.errors[0].message, 
         variant: 'destructive' 
+      });
+      return;
+    }
+
+    // updateUser requires an active auth session (recovery link/session must be established first)
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session?.user) {
+      toast({
+        title: 'Fout',
+        description: 'Auth session missing! Open de wachtwoord-reset link opnieuw of log opnieuw in.',
+        variant: 'destructive',
       });
       return;
     }
