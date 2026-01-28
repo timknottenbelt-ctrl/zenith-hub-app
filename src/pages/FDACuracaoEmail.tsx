@@ -81,6 +81,71 @@ const SEND_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/send-to-urugu
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
 
+// Buckets that are explicitly public in this project.
+// (If you later make more buckets public, add them here so webhook URLs become permanent public links.)
+const PUBLIC_BUCKETS = new Set(["avatars", "fda-final-packages"]);
+
+function stripQuery(url: string) {
+  return url.split("?")[0];
+}
+
+function parseSupabaseStorageUrl(input: string): {
+  bucket: string | null;
+  path: string | null;
+  kind: "sign" | "public" | "path" | "other";
+} {
+  const url = input.trim();
+  if (!url) return { bucket: null, path: null, kind: "other" };
+
+  // Full/relative Supabase storage URLs
+  // https://<ref>.supabase.co/storage/v1/object/(sign|public)/<bucket>/<path>
+  // /storage/v1/object/(sign|public)/<bucket>/<path>
+  const m = url.match(/\/storage\/v1\/object\/(sign|public)\/([^/]+)\/(.+)$/);
+  if (m) {
+    return { bucket: m[2], path: m[3], kind: m[1] as "sign" | "public" };
+  }
+
+  // Bucket/path strings like: fda-invoices/curacao/.../file.pdf
+  const cleaned = url.replace(/^\/+/, "");
+  const [bucket, ...rest] = cleaned.split("/");
+  if (bucket && rest.length > 0) {
+    return { bucket, path: rest.join("/"), kind: "path" };
+  }
+
+  return { bucket: null, path: null, kind: "other" };
+}
+
+async function getWebhookPdfUrl(inputUrl: string | null): Promise<string> {
+  if (!inputUrl) return "";
+
+  // Non-Supabase URLs (e.g., OneDrive links) => send as-is
+  if (!inputUrl.includes("/storage/v1/object/") && (inputUrl.startsWith("http://") || inputUrl.startsWith("https://"))) {
+    return inputUrl;
+  }
+
+  const parsed = parseSupabaseStorageUrl(stripQuery(inputUrl));
+  if (!parsed.bucket || !parsed.path) return inputUrl;
+
+  // Public buckets should always be sent as permanent public URLs (no token)
+  if (PUBLIC_BUCKETS.has(parsed.bucket)) {
+    return `${SUPABASE_URL}/storage/v1/object/public/${parsed.bucket}/${parsed.path}`;
+  }
+
+  // Private buckets: always generate a fresh signed URL for the webhook.
+  // This guarantees n8n/external services can open the file.
+  const { data, error } = await supabase.storage
+    .from(parsed.bucket)
+    // 7 days is a pragmatic default; adjust if you want longer/shorter.
+    .createSignedUrl(parsed.path, 60 * 60 * 24 * 7);
+
+  if (error || !data?.signedUrl) {
+    // Fallback to whatever we have; better than sending an empty string.
+    return inputUrl;
+  }
+
+  return data.signedUrl;
+}
+
 function getPublicPdfUrl(url: string | null): string | null {
   if (!url) return null;
   
@@ -619,6 +684,18 @@ export default function FDACuracaoEmail() {
     setSending(true);
 
     try {
+      const resolvedAttachmentUrl = await getWebhookPdfUrl(
+        emailDraft?.attachment_url || project?.final_pdf_url || ""
+      );
+
+      const resolvedExtraAttachments = await Promise.all(
+        extraAttachments.map(async (a) => ({ ...a, url: await getWebhookPdfUrl(a.url) }))
+      );
+
+      const resolvedInvoices = await Promise.all(
+        invoices.map(async (inv) => ({ ...inv, file_url: await getWebhookPdfUrl(inv.file_url) }))
+      );
+
       const payload = {
         project_id: projectId,
         lbh_number: project?.lbh_number,
@@ -628,13 +705,13 @@ export default function FDACuracaoEmail() {
         email_subject: subject,
         email_body: body,
         google_sheet_url: project?.google_sheet_url || emailDraft?.google_sheet_url || "",
-        attachment_url: toPublicUrl(emailDraft?.attachment_url || project?.final_pdf_url || ""),
-        extra_attachments: extraAttachments.map((a) => toPublicUrl(a.url)),
-        invoices: invoices.map((inv) => ({
+        attachment_url: resolvedAttachmentUrl,
+        extra_attachments: resolvedExtraAttachments.map((a) => a.url),
+        invoices: resolvedInvoices.map((inv) => ({
           id: inv.id,
           invoice_number: inv.invoice_number,
           file_name: inv.file_name,
-          file_url: toPublicUrl(inv.file_url), // Convert signed URL to public URL
+          file_url: inv.file_url,
           description: inv.description,
           total_amount: inv.total_amount,
           currency: inv.currency,
