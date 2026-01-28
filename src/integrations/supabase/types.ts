@@ -390,6 +390,66 @@ export type Database = {
         }
         Relationships: []
       }
+      fda_curacao_agency_costs: {
+        Row: {
+          client: string | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          excel_file_url: string | null
+          fda_responsible: string | null
+          id: string
+          invoice_number: string
+          lbh_number: string
+          project_id: string
+          remark: string | null
+          ship_name: string
+          supplier_name: string | null
+          total_amount: number | null
+          updated_at: string | null
+          vessel_arrived: string | null
+          vessel_sailed: string | null
+        }
+        Insert: {
+          client?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          excel_file_url?: string | null
+          fda_responsible?: string | null
+          id?: string
+          invoice_number: string
+          lbh_number: string
+          project_id: string
+          remark?: string | null
+          ship_name: string
+          supplier_name?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+          vessel_arrived?: string | null
+          vessel_sailed?: string | null
+        }
+        Update: {
+          client?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          excel_file_url?: string | null
+          fda_responsible?: string | null
+          id?: string
+          invoice_number?: string
+          lbh_number?: string
+          project_id?: string
+          remark?: string | null
+          ship_name?: string
+          supplier_name?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+          vessel_arrived?: string | null
+          vessel_sailed?: string | null
+        }
+        Relationships: []
+      }
       fda_curacao_processed_invoices: {
         Row: {
           created_at: string | null
