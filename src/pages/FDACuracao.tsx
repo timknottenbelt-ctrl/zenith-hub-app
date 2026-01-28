@@ -460,6 +460,55 @@ export default function FDACuracao() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  async function syncClientToContacts(data: FDAFormData) {
+    const clientName = data.client_name?.trim();
+    if (!clientName) return;
+
+    try {
+      const { data: existingContact, error: existingError } = await supabase
+        .from("contacts")
+        .select("id")
+        .eq("name", clientName)
+        .eq("role", "FDA Client")
+        .maybeSingle();
+
+      if (existingError) {
+        console.error("Error checking existing contact:", existingError);
+        return;
+      }
+
+      const contactData = {
+        name: clientName,
+        email: data.client_email || null,
+        phone: data.client_phone || null,
+        company: data.billing_company || null,
+        function: data.billing_address || null, // Store address in function field
+      };
+
+      if (existingContact?.id) {
+        const { error: updateError } = await supabase
+          .from("contacts")
+          .update(contactData)
+          .eq("id", existingContact.id);
+
+        if (updateError) {
+          console.error("Error updating client in contacts:", updateError);
+        }
+      } else {
+        const { error: insertError } = await supabase.from("contacts").insert({
+          ...contactData,
+          role: "FDA Client",
+        });
+
+        if (insertError) {
+          console.error("Error saving client to contacts:", insertError);
+        }
+      }
+    } catch (e) {
+      console.error("Unexpected error syncing client to contacts:", e);
+    }
+  }
+
   // Agency Cost Row handlers
   const handleAgencyCostChange = (id: string, field: keyof AgencyCostRow, value: string) => {
     setAgencyCostRows(rows => rows.map(row => 
@@ -521,33 +570,7 @@ export default function FDACuracao() {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      // Save client to contacts if client_name is provided
-      if (formData.client_name) {
-        const { data: existingContact } = await supabase
-          .from("contacts")
-          .select("id")
-          .eq("name", formData.client_name)
-          .eq("role", "FDA Client")
-          .maybeSingle();
-
-        if (!existingContact) {
-          const { error: contactError } = await supabase.from("contacts").insert({
-            name: formData.client_name,
-            email: formData.client_email || null,
-            phone: formData.client_phone || null,
-            company: formData.billing_company || null,
-            function: formData.billing_address || null, // Store address in function field
-            role: "FDA Client",
-          });
-          if (contactError) {
-            console.error("Error saving client to contacts:", contactError);
-          } else {
-            console.log("Client saved to contacts successfully:", formData.client_name);
-          }
-        } else {
-          console.log("Client already exists in contacts:", existingContact.id);
-        }
-      }
+      await syncClientToContacts(formData);
 
       toast({ title: "Success", description: "FDA Curacao project created" });
       setShowCreateDialog(false);
@@ -593,6 +616,7 @@ export default function FDACuracao() {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      await syncClientToContacts(formData);
       toast({ title: "Success", description: "Project saved" });
       await fetchProjects();
     }
