@@ -876,9 +876,18 @@ export default function FDACuracao() {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit className="w-4 h-4" />}
                 <span className="ml-2">Save</span>
               </Button>
+              {selectedProject.status === 'sent' && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate(`/fda-curacao/email/${selectedProject.project_id}`)}
+                >
+                  <Mail className="w-4 h-4" />
+                  <span className="ml-2">Bekijk Email</span>
+                </Button>
+              )}
               <Button onClick={handleSendToWebhook} disabled={sending}>
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                <span className="ml-2">Send FDA</span>
+                <span className="ml-2">{selectedProject.status === 'sent' ? 'Send FDA Again' : 'Send FDA'}</span>
               </Button>
             </div>
           </div>
