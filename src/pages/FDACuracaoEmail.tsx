@@ -610,10 +610,16 @@ export default function FDACuracaoEmail() {
         throw new Error(`Send failed: ${response.status}`);
       }
 
-      // Update project status
+      // Update project status and save email content for viewing later
       await supabase
         .from("fda_curacao_projects")
-        .update({ status: "sent", email_sent_at: new Date().toISOString() })
+        .update({ 
+          status: "sent", 
+          email_sent_at: new Date().toISOString(),
+          email_subject: subject,
+          email_body: body,
+          client_email: toEmails.join(", "),
+        })
         .eq("project_id", projectId);
 
       toast({ title: "Success!", description: "Email sent successfully!" });

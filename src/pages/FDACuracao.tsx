@@ -52,6 +52,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, parseISO, isValid } from "date-fns";
+import { ClientSelector } from "@/components/ClientSelector";
 
 interface FDAProject {
   id: string;
@@ -520,6 +521,27 @@ export default function FDACuracao() {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      // Save client to contacts if client_name is provided
+      if (formData.client_name) {
+        const { data: existingContact } = await supabase
+          .from("contacts")
+          .select("id")
+          .eq("name", formData.client_name)
+          .eq("role", "FDA Client")
+          .maybeSingle();
+
+        if (!existingContact) {
+          await supabase.from("contacts").insert({
+            name: formData.client_name,
+            email: formData.client_email || null,
+            phone: formData.client_phone || null,
+            company: formData.billing_company || null,
+            function: formData.billing_address || null, // Store address in function field
+            role: "FDA Client",
+          });
+        }
+      }
+
       toast({ title: "Success", description: "FDA Curacao project created" });
       setShowCreateDialog(false);
       resetForm();
@@ -932,9 +954,25 @@ export default function FDACuracao() {
             {/* Client Information */}
             <Card className="card-premium">
               <CardHeader className="pb-4">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <User className="w-4 h-4 text-primary" />
-                  Client Information
+                <CardTitle className="text-sm font-medium flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" />
+                    Client Information
+                  </div>
+                  <ClientSelector
+                    onSelectClient={(client) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        client_name: client.client_name,
+                        client_email: client.client_email,
+                        client_phone: client.client_phone,
+                        billing_company: client.billing_company,
+                        billing_email: client.billing_email,
+                        billing_address: client.billing_address,
+                        billing_phone: client.billing_phone,
+                      }));
+                    }}
+                  />
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
