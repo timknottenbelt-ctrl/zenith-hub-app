@@ -245,15 +245,15 @@ export default function KnowledgeBase() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
           {/* Owners Agent Section */}
-          <Card className="card-premium">
-            <CardContent className="p-6">
+          <Card className="card-premium h-full">
+            <CardContent className="p-6 h-full flex flex-col">
               <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                   <Ship className="w-6 h-6 text-primary" />
                 </div>
-                <div>
+                <div className="min-h-[48px]">
                   <h3 className="text-lg font-semibold">Owners Agent Kennis</h3>
                   <p className="text-sm text-muted-foreground">
                     Crew change, hotels, provisions, spares
@@ -288,26 +288,28 @@ export default function KnowledgeBase() {
                 </div>
               </div>
 
-              {!loading && (
-                <EntriesView 
-                  entries={filteredOwnersEntries} 
-                  isOpen={ownersOpen} 
-                  onToggle={() => setOwnersOpen(!ownersOpen)}
-                  accentColor="primary"
-                  searchQuery={searchQuery}
-                />
-              )}
+              <div className="mt-auto">
+                {!loading && (
+                  <EntriesView 
+                    entries={filteredOwnersEntries} 
+                    isOpen={ownersOpen} 
+                    onToggle={() => setOwnersOpen(!ownersOpen)}
+                    accentColor="primary"
+                    searchQuery={searchQuery}
+                  />
+                )}
+              </div>
             </CardContent>
           </Card>
 
           {/* Cargo Agent Section */}
-          <Card className="card-premium">
-            <CardContent className="p-6">
+          <Card className="card-premium h-full">
+            <CardContent className="p-6 h-full flex flex-col">
               <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
                   <Package className="w-6 h-6 text-success" />
                 </div>
-                <div>
+                <div className="min-h-[48px]">
                   <h3 className="text-lg font-semibold">Cargo Agent Kennis</h3>
                   <p className="text-sm text-muted-foreground">
                     Port restrictions, terminals, loading rates, ISLA
@@ -342,15 +344,17 @@ export default function KnowledgeBase() {
                 </div>
               </div>
 
-              {!loading && (
-                <EntriesView 
-                  entries={filteredCargoEntries} 
-                  isOpen={cargoOpen} 
-                  onToggle={() => setCargoOpen(!cargoOpen)}
-                  accentColor="success"
-                  searchQuery={searchQuery}
-                />
-              )}
+              <div className="mt-auto">
+                {!loading && (
+                  <EntriesView 
+                    entries={filteredCargoEntries} 
+                    isOpen={cargoOpen} 
+                    onToggle={() => setCargoOpen(!cargoOpen)}
+                    accentColor="success"
+                    searchQuery={searchQuery}
+                  />
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
