@@ -191,6 +191,21 @@ export default function FDACuracaoEmail() {
 
       setSubject(draftData.email_subject);
       setBody(draftData.email_body);
+    } else if (projectData.status === "sent") {
+      // For already sent projects, use the stored email data from project
+      if (projectData.client_email) {
+        const toList = projectData.client_email
+          .split(",")
+          .map((e: string) => e.trim())
+          .filter((e: string) => e);
+        setToEmails(toList);
+      }
+      if (projectData.email_subject) {
+        setSubject(projectData.email_subject);
+      }
+      if (projectData.email_body) {
+        setBody(projectData.email_body);
+      }
     }
   }, [projectId, navigate]);
 
@@ -625,8 +640,8 @@ export default function FDACuracaoEmail() {
     );
   }
 
-  // Check what's still loading
-  const hasDraft = emailDraft?.status === "draft";
+  // Check what's still loading - also consider already sent projects as "ready"
+  const hasDraft = emailDraft?.status === "draft" || project?.status === "sent";
   const hasGoogleSheet = !!project?.google_sheet_url;
 
   return (
