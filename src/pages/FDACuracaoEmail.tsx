@@ -585,6 +585,16 @@ export default function FDACuracaoEmail() {
     const file = e.target.files?.[0];
     if (!file || !projectId) return;
 
+     if (!project?.lbh_number || !project?.ship_name) {
+       toast({
+         title: "Error",
+         description: "Project data is nog niet geladen. Probeer opnieuw.",
+         variant: "destructive",
+       });
+       e.target.value = "";
+       return;
+     }
+
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       toast({ title: "Error", description: "Only PDF files allowed", variant: "destructive" });
       return;
@@ -611,23 +621,58 @@ export default function FDACuracaoEmail() {
 
       if (!urlData?.signedUrl) throw new Error("Failed to get URL");
 
-      // Add to local state as a new invoice row (user uploaded, no AI processing)
-      const newInvoice: ProcessedInvoice = {
-        id: `local-${Date.now()}`,
-        invoice_number: String(invoices.length + 1).padStart(3, "0"),
-        file_name: file.name,
-        description: "User uploaded",
-        total_amount: null,
-        currency: null,
-        file_url: urlData.signedUrl,
-        supplier_name: null,
-      };
+      // Compute next invoice number based on existing invoice_number values (handle duplicates)
+      const maxNum = Math.max(
+        0,
+        ...invoices
+          .map((inv) => Number.parseInt(inv.invoice_number, 10))
+          .filter((n) => Number.isFinite(n))
+      );
+      const nextInvoiceNumber = String(maxNum + 1).padStart(3, "0");
 
-      setInvoices(prev => [...prev, newInvoice]);
-      toast({ title: "Success", description: "PDF uploaded" });
+      // Persist row so it survives refresh + is included in any subsequent loads
+      const { error: insertError } = await supabase
+        .from("fda_curacao_processed_invoices")
+        .insert({
+          project_id: projectId,
+          lbh_number: project.lbh_number,
+          ship_name: project.ship_name,
+          invoice_number: nextInvoiceNumber,
+          file_name: file.name,
+          file_url: urlData.signedUrl,
+          description: "User uploaded",
+          total_amount: null,
+          currency: null,
+          supplier_name: null,
+        });
+
+      if (insertError) {
+        // Best effort cleanup to avoid orphaned files
+        await supabase.storage.from("fda-invoices").remove([filePath]);
+        throw insertError;
+      }
+
+      // Re-fetch to get the real DB id and keep ordering consistent
+      const { data: refreshedInvoices, error: refreshError } = await supabase
+        .from("fda_curacao_processed_invoices")
+        .select("id, invoice_number, file_name, description, total_amount, currency, file_url, supplier_name")
+        .eq("project_id", projectId)
+        .order("invoice_number", { ascending: true });
+
+      if (refreshError) throw refreshError;
+      if (refreshedInvoices) setInvoices(refreshedInvoices);
+
+      toast({ title: "Success", description: "Extra factuur is geüpload" });
     } catch (error) {
       console.error("Upload error:", error);
-      toast({ title: "Error", description: "Failed to upload PDF", variant: "destructive" });
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Upload mislukt (storage of database). Probeer opnieuw.",
+        variant: "destructive",
+      });
     } finally {
       setUploadingInvoicePdf(false);
       e.target.value = "";
