@@ -169,27 +169,35 @@ export default function UserManagement() {
       // Use edge function to create user with service role
       const { data: sessionData } = await supabase.auth.getSession();
       
-      const response = await fetch(
-        `https://oxkshjaombffbdemqrqb.supabase.co/functions/v1/admin-create-user`,
+      if (!sessionData.session?.access_token) {
+        throw new Error('Je sessie is verlopen. Log opnieuw in en probeer het nogmaals.');
+      }
+
+      const { data: result, error: fnError } = await supabase.functions.invoke(
+        'admin-create-user',
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionData.session?.access_token}`,
-          },
-          body: JSON.stringify({
+          body: {
             email: newUserEmail,
             password: newUserPassword,
             name: newUserName || undefined,
             role: newUserRole,
-          }),
+          },
         }
       );
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Fout bij aanmaken gebruiker');
+      if (fnError) {
+        // supabase-js wraps non-2xx responses; try to surface the function's error payload
+        const maybeAny = fnError as any;
+        let message = fnError.message || 'Fout bij aanmaken gebruiker';
+        if (maybeAny?.context) {
+          try {
+            const payload = await maybeAny.context.json();
+            message = payload?.error || message;
+          } catch {
+            // ignore
+          }
+        }
+        throw new Error(message);
       }
 
       toast({ 
