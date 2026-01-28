@@ -1605,9 +1605,7 @@ export default function FDACuracao() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="flex items-center gap-1">
-                        <Mail className="w-3 h-3" /> Email
-                      </Label>
+                      <Label>Email</Label>
                       <Input
                         type="email"
                         value={formData.billing_email}
@@ -1615,24 +1613,22 @@ export default function FDACuracao() {
                         placeholder="billing@company.com"
                       />
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Billing Address</Label>
-                    <Input
-                      value={formData.billing_address}
-                      onChange={(e) => handleInputChange("billing_address", e.target.value)}
-                      placeholder="123 Business Street, City"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-1">
-                      <Phone className="w-3 h-3" /> Phone
-                    </Label>
-                    <Input
-                      value={formData.billing_phone}
-                      onChange={(e) => handleInputChange("billing_phone", e.target.value)}
-                      placeholder="+1 234 567 890"
-                    />
+                    <div className="space-y-2">
+                      <Label>Billing Address</Label>
+                      <Input
+                        value={formData.billing_address}
+                        onChange={(e) => handleInputChange("billing_address", e.target.value)}
+                        placeholder="123 Business Street, City"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input
+                        value={formData.billing_phone}
+                        onChange={(e) => handleInputChange("billing_phone", e.target.value)}
+                        placeholder="+1 234 567 890"
+                      />
+                    </div>
                   </div>
                 </div>
 
