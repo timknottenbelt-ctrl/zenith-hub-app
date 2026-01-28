@@ -43,6 +43,7 @@ interface FDACuracaoProject {
   total_invoices: number | null;
   total_amount: number | null;
   google_sheet_url: string | null;
+  agency_cost_url: string | null;
   status: string | null;
 }
 
@@ -369,12 +370,12 @@ export default function FDACuracaoEmail() {
         }
       }
 
-      // Poll for google_sheet_url
+      // Poll for google_sheet_url and agency_cost_url
       const currentProject = projectRef.current;
-      if (!currentProject?.google_sheet_url) {
+      if (!currentProject?.google_sheet_url || !currentProject?.agency_cost_url) {
         const { data } = await supabase
           .from("fda_curacao_projects")
-          .select("google_sheet_url, final_pdf_url, status")
+          .select("google_sheet_url, final_pdf_url, status, agency_cost_url")
           .eq("project_id", projectId)
           .single();
 
@@ -385,6 +386,7 @@ export default function FDACuracaoEmail() {
                   ...prev,
                   google_sheet_url: data.google_sheet_url,
                   final_pdf_url: data.final_pdf_url,
+                  agency_cost_url: data.agency_cost_url,
                   status: data.status,
                 }
               : null
@@ -863,6 +865,35 @@ export default function FDACuracaoEmail() {
                 <Button size="sm" onClick={() => window.open(project!.google_sheet_url!, "_blank")}>
                   <ExternalLink className="w-4 h-4 mr-2" />
                   Open Excel Sheet
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center p-8 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                AI is generating...
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Agency Cost Link */}
+        <Card className="card-premium">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-primary" />
+              Agency Invoice
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {project?.agency_cost_url ? (
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-success" />
+                  <span className="text-sm">Agency invoice is ready</span>
+                </div>
+                <Button size="sm" onClick={() => window.open(project.agency_cost_url!, "_blank")}>
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open Agency Invoice
                 </Button>
               </div>
             ) : (
