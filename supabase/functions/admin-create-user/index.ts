@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
+import { createClient } from "npm:@supabase/supabase-js@2.90.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,35 +53,11 @@ serve(async (req: Request) => {
       },
     });
 
-    let requestingUserId: string | null = null;
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+    const requestingUserId = claimsData?.claims?.sub ?? null;
 
-    // Preferred (signing-keys compatible)
-    try {
-      const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
-      if (claimsError) {
-        console.error("Token claims error:", claimsError);
-      } else {
-        requestingUserId = claimsData?.claims?.sub ?? null;
-      }
-    } catch (e) {
-      console.error("getClaims threw:", e);
-    }
-
-    // Fallback for older auth-js behavior
-    if (!requestingUserId) {
-      try {
-        const { data: userData, error: userError } = await authClient.auth.getUser(token);
-        if (userError) {
-          console.error("Token getUser error:", userError);
-        } else {
-          requestingUserId = userData?.user?.id ?? null;
-        }
-      } catch (e) {
-        console.error("getUser(token) threw:", e);
-      }
-    }
-
-    if (!requestingUserId) {
+    if (claimsError || !requestingUserId) {
+      console.error("Token claims error:", claimsError);
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
