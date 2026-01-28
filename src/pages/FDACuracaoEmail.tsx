@@ -598,8 +598,8 @@ export default function FDACuracaoEmail() {
     setUploadingInvoicePdf(true);
 
     try {
-      const fileName = `${Date.now()}_${file.name}`;
-      const filePath = `${projectId}/invoices/${fileName}`;
+      const fileName = `${Date.now()}-${file.name}`;
+      const filePath = `curacao/${projectId}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage.from("fda-invoices").upload(filePath, file);
 
