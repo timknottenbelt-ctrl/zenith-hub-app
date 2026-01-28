@@ -325,6 +325,22 @@ export default function ManualEmails() {
         const combined = [...resolvedOptimistic, ...remainingServer];
         return dedupeCloseDuplicates(combined);
       });
+
+      // Also update selectedEmail if it exists in the new server data
+      setSelectedEmail((prev) => {
+        if (!prev) return prev;
+        // If it's an optimistic placeholder, try to find the real row
+        if (prev.id < 0) {
+          const realRow = serverRows.find(
+            (row) => row.agent_type === prev.agent_type && 
+            normalizeForKey(row.email_content) === normalizeForKey(prev.email_content)
+          );
+          return realRow ?? prev;
+        }
+        // If it's a real row, update it with the latest data from server
+        const updated = serverRows.find((row) => row.id === prev.id);
+        return updated ?? prev;
+      });
     }
 
     if (shouldShowLoading) setLoading(false);
