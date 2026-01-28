@@ -25,6 +25,8 @@ const Vessels = lazy(() => import("./pages/Vessels"));
 const Contacts = lazy(() => import("./pages/Contacts"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Auth = lazy(() => import("./pages/Auth"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 
@@ -50,6 +52,8 @@ const App = () => {
             <BrowserRouter>
               <Routes>
                 <Route path="/auth" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><Auth /></Suspense>} />
+                <Route path="/forgot-password" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><ForgotPassword /></Suspense>} />
+                <Route path="/reset-password" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><ResetPassword /></Suspense>} />
                 <Route path="/" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
                 <Route path="/inquiries" element={<ProtectedRoute><AIInquiries /></ProtectedRoute>} />
                 <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />

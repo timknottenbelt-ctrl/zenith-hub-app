@@ -185,6 +185,23 @@ export default function UserManagement() {
     }
 
     if (authData.user) {
+      // Wait a moment for the trigger to create the initial profile
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Update the profile with name and email, and set must_change_password
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: authData.user.id,
+          email: newUserEmail,
+          name: newUserName || null,
+          must_change_password: true, // Force password change on first login
+        }, { onConflict: 'id' });
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+      }
+
       // Update the role to the selected role (skip pending)
       const { error: roleError } = await supabase
         .from('user_roles')
@@ -195,20 +212,13 @@ export default function UserManagement() {
         })
         .eq('user_id', authData.user.id);
 
-      // Create profile
-      await supabase.from('profiles').upsert({
-        id: authData.user.id,
-        email: newUserEmail,
-        name: newUserName,
-      });
-
       if (roleError) {
         console.error('Role update error:', roleError);
       }
 
       toast({ 
         title: 'Succes', 
-        description: `Gebruiker ${newUserEmail} is aangemaakt` 
+        description: `Gebruiker ${newUserEmail} is aangemaakt. Bij eerste login moet het wachtwoord worden gewijzigd.` 
       });
       
       setAddDialogOpen(false);

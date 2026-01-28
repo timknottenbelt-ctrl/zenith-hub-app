@@ -1080,6 +1080,7 @@ export type Database = {
           email: string | null
           id: string
           language: string | null
+          must_change_password: boolean | null
           name: string | null
           office: string | null
           phone: string | null
@@ -1092,6 +1093,7 @@ export type Database = {
           email?: string | null
           id: string
           language?: string | null
+          must_change_password?: boolean | null
           name?: string | null
           office?: string | null
           phone?: string | null
@@ -1104,6 +1106,7 @@ export type Database = {
           email?: string | null
           id?: string
           language?: string | null
+          must_change_password?: boolean | null
           name?: string | null
           office?: string | null
           phone?: string | null

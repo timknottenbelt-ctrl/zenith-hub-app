@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTransitionNavigate } from '@/hooks/useTransitionNavigate';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,8 @@ const loginSchema = z.object({
 });
 
 export default function Auth() {
-  const navigate = useTransitionNavigate();
+  const navigate = useNavigate();
+  const transitionNavigate = useTransitionNavigate();
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   
@@ -23,22 +25,45 @@ export default function Auth() {
   const [loginPassword, setLoginPassword] = useState('');
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        navigate('/');
+        // Check if user must change password
+        setTimeout(async () => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('must_change_password')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profile?.must_change_password) {
+            navigate('/reset-password');
+          } else {
+            transitionNavigate('/');
+          }
+        }, 0);
       }
       setCheckingAuth(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        navigate('/');
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('must_change_password')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (profile?.must_change_password) {
+          navigate('/reset-password');
+        } else {
+          transitionNavigate('/');
+        }
       }
       setCheckingAuth(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, transitionNavigate]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -54,7 +79,7 @@ export default function Auth() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: loginEmail,
       password: loginPassword,
     });
@@ -65,9 +90,27 @@ export default function Auth() {
         message = 'Onjuiste email of wachtwoord';
       }
       toast({ title: 'Login mislukt', description: message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Welkom terug!', description: 'Je bent succesvol ingelogd' });
+      setLoading(false);
+      return;
     }
+
+    // Check if must change password
+    if (data.user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('must_change_password')
+        .eq('id', data.user.id)
+        .single();
+      
+      if (profile?.must_change_password) {
+        toast({ title: 'Welkom!', description: 'Stel eerst je nieuwe wachtwoord in' });
+        navigate('/reset-password');
+        setLoading(false);
+        return;
+      }
+    }
+
+    toast({ title: 'Welkom terug!', description: 'Je bent succesvol ingelogd' });
     setLoading(false);
   }
 
@@ -112,9 +155,17 @@ export default function Auth() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="login-password" className="flex items-center gap-2">
-                  <Lock className="w-4 h-4" /> Wachtwoord
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="login-password" className="flex items-center gap-2">
+                    <Lock className="w-4 h-4" /> Wachtwoord
+                  </Label>
+                  <Link 
+                    to="/forgot-password" 
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Wachtwoord vergeten?
+                  </Link>
+                </div>
                 <Input
                   id="login-password"
                   type="password"
