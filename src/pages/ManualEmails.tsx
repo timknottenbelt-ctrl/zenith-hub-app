@@ -1028,9 +1028,11 @@ export default function ManualEmails() {
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Status</Label>
-                        <Badge className={getStatusBadge(selectedEmail.status)}>
-                          {selectedEmail.status || "processing"}
-                        </Badge>
+                        <p className="text-sm">
+                          <Badge className={getStatusBadge(selectedEmail.status)}>
+                            {selectedEmail.status || "processing"}
+                          </Badge>
+                        </p>
                       </div>
                       {selectedEmail.vessel_name && (
                         <div className="space-y-1">
