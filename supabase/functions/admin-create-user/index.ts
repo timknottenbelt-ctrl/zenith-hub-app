@@ -38,10 +38,9 @@ serve(async (req: Request) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claims, error: claimsError } = await userClient.auth.getUser(token);
+    const { data: { user: requestingUser }, error: userError } = await userClient.auth.getUser();
     
-    if (claimsError || !claims.user) {
+    if (userError || !requestingUser) {
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -52,7 +51,7 @@ serve(async (req: Request) => {
     const { data: roleData, error: roleError } = await userClient
       .from("user_roles")
       .select("role")
-      .eq("user_id", claims.user.id)
+      .eq("user_id", requestingUser.id)
       .single();
 
     if (roleError || roleData?.role !== "admin") {
@@ -118,7 +117,7 @@ serve(async (req: Request) => {
       .update({
         role: role,
         approved_at: new Date().toISOString(),
-        approved_by: claims.user.id,
+        approved_by: requestingUser.id,
       })
       .eq("user_id", newUser.user.id);
 
