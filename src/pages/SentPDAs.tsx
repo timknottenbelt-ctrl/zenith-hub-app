@@ -498,10 +498,13 @@ function EmailDetailView({
         </CardContent>
       </Card>
 
-      {/* Email Content - Full Display */}
+      {/* AI Generated Email Content */}
       <Card className="card-premium">
         <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-sm font-medium">{t('sentPdas.emailContent')}</CardTitle>
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Mail className="w-4 h-4" />
+            {t('sentPdas.emailContent')}
+          </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 space-y-4">
           <div className="space-y-1.5">
@@ -512,14 +515,29 @@ function EmailDetailView({
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">{t('inquiries.emailBody')}</Label>
-            <ScrollArea className="max-h-[400px]">
-              <div className="p-4 bg-muted/30 rounded-lg text-sm font-sans leading-relaxed whitespace-pre-wrap">
-                {email.body || t('common.noData')}
-              </div>
-            </ScrollArea>
+            <div className="p-4 bg-muted/30 rounded-lg text-sm font-sans leading-relaxed whitespace-pre-wrap">
+              {email.body || t('common.noData')}
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Original Email */}
+      {(email.original_email || email.orignal_email) && (
+        <Card className="card-premium">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              {t('inquiries.originalEmail')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="p-4 bg-muted/30 rounded-lg text-sm font-sans leading-relaxed whitespace-pre-wrap">
+              {email.original_email || email.orignal_email}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }
