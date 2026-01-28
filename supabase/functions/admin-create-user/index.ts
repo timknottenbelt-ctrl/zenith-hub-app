@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface CreateUserRequest {
@@ -16,7 +16,7 @@ interface CreateUserRequest {
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -29,37 +29,79 @@ serve(async (req: Request) => {
       );
     }
 
+    const token = authHeader.replace("Bearer ", "").trim();
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("admin-create-user: auth header ok; token length:", token.length);
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Extract the token and validate it
-    const token = authHeader.replace("Bearer ", "");
-    
-    // Create admin client for token validation
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Validate the token using admin API
-    const { data: { user: requestingUser }, error: userError } = await adminClient.auth.getUser(token);
-    
-    if (userError || !requestingUser) {
-      console.error("Token validation error:", userError);
+    // Validate the token (signing-keys compatible)
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+
+    let requestingUserId: string | null = null;
+
+    // Preferred (signing-keys compatible)
+    try {
+      const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+      if (claimsError) {
+        console.error("Token claims error:", claimsError);
+      } else {
+        requestingUserId = claimsData?.claims?.sub ?? null;
+      }
+    } catch (e) {
+      console.error("getClaims threw:", e);
+    }
+
+    // Fallback for older auth-js behavior
+    if (!requestingUserId) {
+      try {
+        const { data: userData, error: userError } = await authClient.auth.getUser(token);
+        if (userError) {
+          console.error("Token getUser error:", userError);
+        } else {
+          requestingUserId = userData?.user?.id ?? null;
+        }
+      } catch (e) {
+        console.error("getUser(token) threw:", e);
+      }
+    }
+
+    if (!requestingUserId) {
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
-    // Create user client for RLS-based queries
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
+
+    // Use service role for authorization + user creation
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
     });
 
     // Check if requesting user is admin
-    const { data: roleData, error: roleError } = await userClient
+    const { data: roleData, error: roleError } = await adminClient
       .from("user_roles")
       .select("role")
-      .eq("user_id", requestingUser.id)
+      .eq("user_id", requestingUserId)
       .single();
 
     if (roleError || roleData?.role !== "admin") {
@@ -79,7 +121,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // Use adminClient (already created above) for creating user
+    // Create the user using admin API
     // Create the user using admin API
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
@@ -123,7 +165,7 @@ serve(async (req: Request) => {
       .update({
         role: role,
         approved_at: new Date().toISOString(),
-        approved_by: requestingUser.id,
+        approved_by: requestingUserId,
       })
       .eq("user_id", newUser.user.id);
 
