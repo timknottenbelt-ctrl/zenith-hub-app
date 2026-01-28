@@ -47,6 +47,7 @@ import {
   Package,
   DollarSign,
   CreditCard,
+  ExternalLink,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -1441,6 +1442,69 @@ export default function FDACuracao() {
               )}
             </CardContent>
           </Card>
+
+          {/* External Links - FDA Front Page & Agency Invoice */}
+          {(selectedProject.google_sheet_url || selectedProject.agency_cost_url) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* FDA Front Page */}
+              <Card className="card-premium">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    FDA Front Page
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedProject.google_sheet_url ? (
+                    <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="w-5 h-5 text-success" />
+                        <span className="text-sm">Excel Sheet is ready</span>
+                      </div>
+                      <Button size="sm" onClick={() => window.open(selectedProject.google_sheet_url!, "_blank")}>
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open Excel Sheet
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center p-8 text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      AI is generating...
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Agency Invoice */}
+              <Card className="card-premium">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-primary" />
+                    Agency Invoice
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedProject.agency_cost_url ? (
+                    <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="w-5 h-5 text-success" />
+                        <span className="text-sm">Agency invoice is ready</span>
+                      </div>
+                      <Button size="sm" onClick={() => window.open(selectedProject.agency_cost_url!, "_blank")}>
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open Agency Invoice
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center p-8 text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      AI is generating...
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* Danger Zone */}
           {selectedProject.status !== "sent" && (
