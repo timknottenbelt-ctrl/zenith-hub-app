@@ -83,15 +83,57 @@ const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
 
 function getPublicPdfUrl(url: string | null): string | null {
   if (!url) return null;
+  
+  // If it's a signed URL, extract the path and make it public
+  if (url.includes('/object/sign/')) {
+    // Extract the bucket and path from signed URL
+    // Format: https://xxx.supabase.co/storage/v1/object/sign/bucket-name/path?token=xxx
+    const match = url.match(/\/object\/sign\/([^?]+)/);
+    if (match) {
+      const bucketAndPath = match[1];
+      return `${SUPABASE_URL}/storage/v1/object/public/${bucketAndPath}`;
+    }
+  }
+  
+  // If URL has a token query param, it's a signed URL - strip the token and make public
+  if (url.includes('?token=')) {
+    const urlWithoutToken = url.split('?token=')[0];
+    // Replace /object/sign/ with /object/public/
+    return urlWithoutToken.replace('/object/sign/', '/object/public/');
+  }
+  
+  // If it's already a full URL without token, return as-is
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
+  
+  // Handle relative paths
   if (url.startsWith("/object/sign/")) {
-    return encodeURI(`${SUPABASE_URL}/storage/v1${url}`);
+    const path = url.replace("/object/sign/", "");
+    return `${SUPABASE_URL}/storage/v1/object/public/${path}`;
   }
+  
   if (url.includes("fda-final-packages/") || url.includes("fda-curacao/") || url.includes("fda-invoices/")) {
-    return encodeURI(`${SUPABASE_URL}/storage/v1/object/public/${url}`);
+    return `${SUPABASE_URL}/storage/v1/object/public/${url}`;
   }
+  
+  return url;
+}
+
+// Convert signed URL to public URL for webhook payload
+function toPublicUrl(url: string | null): string {
+  if (!url) return "";
+  
+  // If it's a signed URL, convert to public
+  if (url.includes('/object/sign/') || url.includes('?token=')) {
+    // Extract bucket and path from the URL
+    // Possible formats:
+    // https://xxx.supabase.co/storage/v1/object/sign/fda-invoices/curacao/xxx/file.pdf?token=xxx
+    let cleanUrl = url.split('?')[0]; // Remove query params
+    cleanUrl = cleanUrl.replace('/object/sign/', '/object/public/');
+    return cleanUrl;
+  }
+  
   return url;
 }
 
@@ -586,13 +628,13 @@ export default function FDACuracaoEmail() {
         email_subject: subject,
         email_body: body,
         google_sheet_url: project?.google_sheet_url || emailDraft?.google_sheet_url || "",
-        attachment_url: emailDraft?.attachment_url || project?.final_pdf_url || "",
-        extra_attachments: extraAttachments.map((a) => a.url),
+        attachment_url: toPublicUrl(emailDraft?.attachment_url || project?.final_pdf_url || ""),
+        extra_attachments: extraAttachments.map((a) => toPublicUrl(a.url)),
         invoices: invoices.map((inv) => ({
           id: inv.id,
           invoice_number: inv.invoice_number,
           file_name: inv.file_name,
-          file_url: inv.file_url,
+          file_url: toPublicUrl(inv.file_url), // Convert signed URL to public URL
           description: inv.description,
           total_amount: inv.total_amount,
           currency: inv.currency,
