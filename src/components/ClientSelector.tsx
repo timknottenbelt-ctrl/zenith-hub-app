@@ -50,7 +50,7 @@ export function ClientSelector({ onSelectClient }: ClientSelectorProps) {
     const { data, error } = await supabase
       .from("contacts")
       .select("id, name, company, email, phone, function")
-      .eq("role", "FDA Client")
+      .eq("role", "CLIENT")
       .order("name", { ascending: true });
 
     if (!error && data) {

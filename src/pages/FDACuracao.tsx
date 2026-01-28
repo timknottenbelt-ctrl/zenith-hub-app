@@ -469,7 +469,7 @@ export default function FDACuracao() {
         .from("contacts")
         .select("id")
         .eq("name", clientName)
-        .eq("role", "FDA Client")
+        .eq("role", "CLIENT")
         .maybeSingle();
 
       if (existingError) {
@@ -497,7 +497,7 @@ export default function FDACuracao() {
       } else {
         const { error: insertError } = await supabase.from("contacts").insert({
           ...contactData,
-          role: "FDA Client",
+          role: "CLIENT",
         });
 
         if (insertError) {
