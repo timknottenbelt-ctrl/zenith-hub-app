@@ -860,22 +860,22 @@ export default function FDACuracaoEmail() {
                       onUpdateNumber={handleUpdateInvoiceNumber}
                     />
                   ))}
-
-                {/* Upload extra PDF */}
-                <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors mt-4">
-                  <Plus className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Upload extra PDF</span>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    className="hidden"
-                    onChange={handleUploadInvoicePdf}
-                    disabled={uploadingInvoicePdf}
-                  />
-                  {uploadingInvoicePdf && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
-                </label>
               </div>
             )}
+
+            {/* Upload extra PDF - Always visible */}
+            <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors mt-4">
+              <Plus className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Upload extra PDF</span>
+              <input
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={handleUploadInvoicePdf}
+                disabled={uploadingInvoicePdf}
+              />
+              {uploadingInvoicePdf && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
+            </label>
           </CardContent>
         </Card>
 
