@@ -28,15 +28,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
-      .single();
-    
+      // If there is no row yet, we should not hard-fail into an infinite loader.
+      // maybeSingle() returns null when 0 rows.
+      .maybeSingle();
+
     if (error) {
+      // Avoid infinite spinner when the role row is missing or temporarily inaccessible.
       console.error('Error fetching user role:', error);
-      setRole(null);
+      setRole('pending');
       return;
     }
-    
-    setRole(data?.role as UserRole || null);
+
+    // If no role record exists yet, treat as pending approval.
+    const nextRole = (data?.role as UserRole | undefined) ?? 'pending';
+    setRole(nextRole);
   };
 
   const refreshRole = async () => {
