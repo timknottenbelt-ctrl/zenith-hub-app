@@ -94,17 +94,18 @@ export default function ResetPassword() {
         return;
       }
 
-      // Clear the must_change_password flag
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ must_change_password: false })
-          .eq('id', user.id);
-        
-        if (profileError) {
-          console.error('Profile update error:', profileError);
+      // Clear the must_change_password flag (don't block redirect on failure)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('profiles')
+            .update({ must_change_password: false })
+            .eq('id', user.id);
         }
+      } catch (profileErr) {
+        console.error('Profile update error:', profileErr);
+        // Continue anyway - password was changed successfully
       }
 
       toast({ 
@@ -112,8 +113,13 @@ export default function ResetPassword() {
         description: 'Je wachtwoord is succesvol gewijzigd' 
       });
       
-      // Use window.location for reliable redirect
-      window.location.href = '/';
+      // Reset loading before redirect
+      setLoading(false);
+      
+      // Small delay to show success toast, then redirect
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
     } catch (error) {
       console.error('Password reset error:', error);
       toast({ 
