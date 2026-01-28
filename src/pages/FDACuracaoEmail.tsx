@@ -850,7 +850,7 @@ export default function FDACuracaoEmail() {
           <CardHeader className="pb-4">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" />
-              Google Sheet
+              FDA front page
             </CardTitle>
           </CardHeader>
           <CardContent>
