@@ -165,55 +165,31 @@ export default function UserManagement() {
 
     setCreating(true);
 
-    // Create user via Supabase Auth Admin API (requires service role, so we use signUp)
-    // Note: In production, you'd use an Edge Function with service_role for this
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: newUserEmail,
-      password: newUserPassword,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-        data: {
-          name: newUserName,
+    try {
+      // Use edge function to create user with service role
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      const response = await fetch(
+        `https://oxkshjaombffbdemqrqb.supabase.co/functions/v1/admin-create-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionData.session?.access_token}`,
+          },
+          body: JSON.stringify({
+            email: newUserEmail,
+            password: newUserPassword,
+            name: newUserName || undefined,
+            role: newUserRole,
+          }),
         }
-      }
-    });
+      );
 
-    if (authError) {
-      toast({ title: 'Fout', description: authError.message, variant: 'destructive' });
-      setCreating(false);
-      return;
-    }
+      const result = await response.json();
 
-    if (authData.user) {
-      // Wait a moment for the trigger to create the initial profile
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Update the profile with name and email, and set must_change_password
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: authData.user.id,
-          email: newUserEmail,
-          name: newUserName || null,
-          must_change_password: true, // Force password change on first login
-        }, { onConflict: 'id' });
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-      }
-
-      // Update the role to the selected role (skip pending)
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .update({ 
-          role: newUserRole,
-          approved_at: new Date().toISOString(),
-          approved_by: user?.id
-        })
-        .eq('user_id', authData.user.id);
-
-      if (roleError) {
-        console.error('Role update error:', roleError);
+      if (!response.ok) {
+        throw new Error(result.error || 'Fout bij aanmaken gebruiker');
       }
 
       toast({ 
@@ -227,6 +203,13 @@ export default function UserManagement() {
       setNewUserName('');
       setNewUserRole('user');
       fetchUsers();
+    } catch (error: any) {
+      console.error('Create user error:', error);
+      toast({ 
+        title: 'Fout', 
+        description: error.message || 'Kon gebruiker niet aanmaken', 
+        variant: 'destructive' 
+      });
     }
 
     setCreating(false);
