@@ -531,7 +531,7 @@ export default function FDACuracao() {
           .maybeSingle();
 
         if (!existingContact) {
-          await supabase.from("contacts").insert({
+          const { error: contactError } = await supabase.from("contacts").insert({
             name: formData.client_name,
             email: formData.client_email || null,
             phone: formData.client_phone || null,
@@ -539,6 +539,13 @@ export default function FDACuracao() {
             function: formData.billing_address || null, // Store address in function field
             role: "FDA Client",
           });
+          if (contactError) {
+            console.error("Error saving client to contacts:", contactError);
+          } else {
+            console.log("Client saved to contacts successfully:", formData.client_name);
+          }
+        } else {
+          console.log("Client already exists in contacts:", existingContact.id);
         }
       }
 
