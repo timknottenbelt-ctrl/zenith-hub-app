@@ -115,20 +115,49 @@ export default function UserManagement() {
     setActionLoading(null);
   }
 
-  async function handleRejectUser(userId: string) {
+  async function handleDeleteUser(userId: string) {
     setActionLoading(userId);
     
-    // Delete the user role (this will deny access)
-    const { error } = await supabase
-      .from('user_roles')
-      .delete()
-      .eq('user_id', userId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      if (!sessionData.session?.access_token) {
+        throw new Error('Je sessie is verlopen. Log opnieuw in.');
+      }
 
-    if (error) {
-      toast({ title: 'Fout', description: 'Kon gebruiker niet afwijzen', variant: 'destructive' });
-    } else {
-      toast({ title: 'Succes', description: 'Gebruiker is afgewezen' });
+      const { data: result, error: fnError } = await supabase.functions.invoke(
+        'admin-create-user',
+        {
+          body: {
+            action: 'delete',
+            userId: userId,
+          },
+        }
+      );
+
+      if (fnError) {
+        const maybeAny = fnError as any;
+        let message = fnError.message || 'Fout bij verwijderen gebruiker';
+        if (maybeAny?.context) {
+          try {
+            const payload = await maybeAny.context.json();
+            message = payload?.error || message;
+          } catch {
+            // ignore
+          }
+        }
+        throw new Error(message);
+      }
+
+      toast({ title: 'Succes', description: 'Gebruiker is volledig verwijderd' });
       fetchUsers();
+    } catch (error: any) {
+      console.error('Delete user error:', error);
+      toast({ 
+        title: 'Fout', 
+        description: error.message || 'Kon gebruiker niet verwijderen', 
+        variant: 'destructive' 
+      });
     }
     
     setActionLoading(null);
@@ -366,7 +395,7 @@ export default function UserManagement() {
                         size="sm"
                         variant="outline"
                         className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={() => handleRejectUser(pendingUser.id)}
+                        onClick={() => handleDeleteUser(pendingUser.id)}
                         disabled={actionLoading === pendingUser.id}
                       >
                         {actionLoading === pendingUser.id ? (
@@ -452,7 +481,7 @@ export default function UserManagement() {
                                 size="icon"
                                 variant="ghost"
                                 className="text-destructive hover:bg-destructive/10"
-                                onClick={() => handleRejectUser(u.id)}
+                                onClick={() => handleDeleteUser(u.id)}
                                 disabled={actionLoading === u.id}
                               >
                                 {actionLoading === u.id ? (
