@@ -28,6 +28,8 @@ import {
   Search,
   List,
   LayoutGrid,
+  Building2,
+  User,
 } from 'lucide-react';
 
 type Email = Tables<'email'>;
@@ -439,12 +441,12 @@ export default function SentPDAs() {
       {/* Email Detail Dialog for Table View */}
       {viewMode === 'table' && selectedEmail && (
         <Dialog open={!!selectedEmail} onOpenChange={(open) => !open && setSelectedEmail(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{selectedEmail.subject || t('inquiries.noSubject')}</DialogTitle>
               <DialogDescription>{selectedEmail.email_to_person}</DialogDescription>
             </DialogHeader>
-            <EmailDetailContent 
+            <EmailDialogContent 
               email={selectedEmail}
               attachments={emailAttachments}
               onViewPdf={handleViewPdf}
@@ -458,7 +460,7 @@ export default function SentPDAs() {
   );
 }
 
-// Extracted Email Detail View Component
+// Email Detail View Component with toggle for original email
 function EmailDetailView({ 
   email, 
   attachments, 
@@ -472,29 +474,186 @@ function EmailDetailView({
   onDownloadPdf: (attachment: EmailAttachment) => void;
   t: (key: string) => string;
 }) {
+  const [showOriginal, setShowOriginal] = useState(false);
+
   return (
     <>
       <Card className="card-premium">
         <CardHeader className="pb-2 pt-4 px-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div className="space-y-1 flex-1 min-w-0">
               <CardTitle className="text-base font-semibold">{email.subject || t('inquiries.noSubject')}</CardTitle>
               <p className="text-xs text-muted-foreground">{t('inquiries.toEmail')}: {email.email_to_person}</p>
             </div>
-            <Badge className="bg-success/10 text-success shrink-0" variant="secondary">
-              <CheckCircle className="w-3 h-3 mr-1" />
-              {t('overview.sent')}
-            </Badge>
+            <div className="flex items-center gap-2 shrink-0">
+              {(email.original_email || email.orignal_email) && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 text-xs" 
+                  onClick={() => setShowOriginal(!showOriginal)}
+                >
+                  <Eye className="w-3.5 h-3.5 mr-1" />
+                  {showOriginal ? t('inquiries.hideOriginal') : t('inquiries.showOriginal')}
+                </Button>
+              )}
+              <Badge className="bg-success/10 text-success" variant="secondary">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                {t('overview.sent')}
+              </Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          <EmailDetailContent 
-            email={email}
-            attachments={attachments}
-            onViewPdf={onViewPdf}
-            onDownloadPdf={onDownloadPdf}
-            t={t}
-          />
+          {/* Quick Info Grid - Same as AIInquiries */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg mb-4">
+            {/* Company & Contact */}
+            {email.company_name && (
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{t('inquiries.company')}</p>
+                  <p className="text-sm font-medium">{email.company_name}</p>
+                </div>
+              </div>
+            )}
+            {email.contact_name && (
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{t('inquiries.contact')}</p>
+                  <p className="text-sm font-medium">{email.contact_name}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Vessel 1 */}
+            {email.vessel_name && (
+              <div className="flex items-center gap-2">
+                <Ship className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{t('inquiries.vessel')} 1</p>
+                  <p className="text-sm font-medium">{email.vessel_name}</p>
+                  {email.imo && <p className="text-xs text-muted-foreground">IMO: {email.imo}</p>}
+                </div>
+              </div>
+            )}
+            
+            {/* Vessel 2 */}
+            {email.vessel_2_name && (
+              <div className="flex items-center gap-2">
+                <Ship className="w-4 h-4 text-secondary-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{t('inquiries.vessel')} 2</p>
+                  <p className="text-sm font-medium">{email.vessel_2_name}</p>
+                  {email.vessel_2_imo && <p className="text-xs text-muted-foreground">IMO: {email.vessel_2_imo}</p>}
+                </div>
+              </div>
+            )}
+            
+            {email.port && (
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{t('inquiries.port')}</p>
+                  <p className="text-sm font-medium">{email.port}</p>
+                </div>
+              </div>
+            )}
+            {email.eta && (
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{t('inquiries.eta')}</p>
+                  <p className="text-sm font-medium">{email.eta}</p>
+                </div>
+              </div>
+            )}
+            {email.sent_at && (
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-success" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{t('sentPdas.sentOn')}</p>
+                  <p className="text-sm font-medium">{new Date(email.sent_at).toLocaleString()}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Links */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {email.doc_link && (
+              <a href={email.doc_link} target="_blank" rel="noopener noreferrer" 
+                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors">
+                <ExternalLink className="w-3 h-3" /> {t('inquiries.docLink')} 1
+              </a>
+            )}
+            {email.dock_link_2 && (
+              <a href={email.dock_link_2} target="_blank" rel="noopener noreferrer" 
+                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors">
+                <ExternalLink className="w-3 h-3" /> {t('inquiries.docLink')} 2
+              </a>
+            )}
+            {email['Google sheet url'] && (
+              <a href={email['Google sheet url']} target="_blank" rel="noopener noreferrer"
+                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-success/10 text-success rounded-md hover:bg-success/20 transition-colors">
+                <ExternalLink className="w-3 h-3" /> {t('inquiries.googleSheet')}
+              </a>
+            )}
+            {email.pdf_url && (
+              <a href={email.pdf_url} target="_blank" rel="noopener noreferrer"
+                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-warning/10 text-warning rounded-md hover:bg-warning/20 transition-colors">
+                <ExternalLink className="w-3 h-3" /> {t('inquiries.pdf')}
+              </a>
+            )}
+          </div>
+
+          {/* Original Email - Collapsible */}
+          {showOriginal && (email.original_email || email.orignal_email) && (
+            <div className="p-3 bg-muted/50 rounded-lg border mb-4">
+              <p className="text-xs font-medium mb-2 text-muted-foreground">{t('inquiries.originalEmail')}:</p>
+              <div className="whitespace-pre-wrap text-sm font-sans leading-relaxed">{email.original_email || email.orignal_email}</div>
+            </div>
+          )}
+
+          {/* PDF Attachments */}
+          {attachments.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5" />
+                {t('sentPdas.pdfAttachments')} ({attachments.length})
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border"
+                  >
+                    <FileText className="w-4 h-4 text-destructive" />
+                    <span className="text-xs truncate max-w-[180px]">{attachment.file_name}</span>
+                    <div className="flex items-center gap-1 ml-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => onViewPdf(attachment)}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => onDownloadPdf(attachment)}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -521,29 +680,12 @@ function EmailDetailView({
           </div>
         </CardContent>
       </Card>
-
-      {/* Original Email */}
-      {(email.original_email || email.orignal_email) && (
-        <Card className="card-premium">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              {t('inquiries.originalEmail')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="p-4 bg-muted/30 rounded-lg text-sm font-sans leading-relaxed whitespace-pre-wrap">
-              {email.original_email || email.orignal_email}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </>
   );
 }
 
-// Shared Email Detail Content Component
-function EmailDetailContent({ 
+// Dialog Content for Table View (simplified version)
+function EmailDialogContent({ 
   email, 
   attachments, 
   onViewPdf, 
@@ -556,16 +698,62 @@ function EmailDetailContent({
   onDownloadPdf: (attachment: EmailAttachment) => void;
   t: (key: string) => string;
 }) {
+  const [showOriginal, setShowOriginal] = useState(false);
+
   return (
-    <>
+    <div className="space-y-4">
+      {/* Toggle Original Button */}
+      {(email.original_email || email.orignal_email) && (
+        <div className="flex justify-end">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 text-xs" 
+            onClick={() => setShowOriginal(!showOriginal)}
+          >
+            <Eye className="w-3.5 h-3.5 mr-1" />
+            {showOriginal ? t('inquiries.hideOriginal') : t('inquiries.showOriginal')}
+          </Button>
+        </div>
+      )}
+
       {/* Quick Info Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-muted/30 rounded-lg mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg">
+        {email.company_name && (
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-primary" />
+            <div>
+              <p className="text-xs text-muted-foreground">{t('inquiries.company')}</p>
+              <p className="text-sm font-medium">{email.company_name}</p>
+            </div>
+          </div>
+        )}
+        {email.contact_name && (
+          <div className="flex items-center gap-2">
+            <User className="w-4 h-4 text-primary" />
+            <div>
+              <p className="text-xs text-muted-foreground">{t('inquiries.contact')}</p>
+              <p className="text-sm font-medium">{email.contact_name}</p>
+            </div>
+          </div>
+        )}
         {email.vessel_name && (
           <div className="flex items-center gap-2">
             <Ship className="w-4 h-4 text-primary" />
             <div>
-              <p className="text-xs text-muted-foreground">{t('inquiries.vessel')}</p>
+              <p className="text-xs text-muted-foreground">{t('inquiries.vessel')} 1</p>
               <p className="text-sm font-medium">{email.vessel_name}</p>
+              {email.imo && <p className="text-xs text-muted-foreground">IMO: {email.imo}</p>}
+            </div>
+          </div>
+        )}
+        {email.vessel_2_name && (
+          <div className="flex items-center gap-2">
+            <Ship className="w-4 h-4 text-secondary-foreground" />
+            <div>
+              <p className="text-xs text-muted-foreground">{t('inquiries.vessel')} 2</p>
+              <p className="text-sm font-medium">{email.vessel_2_name}</p>
+              {email.vessel_2_imo && <p className="text-xs text-muted-foreground">IMO: {email.vessel_2_imo}</p>}
             </div>
           </div>
         )}
@@ -575,15 +763,6 @@ function EmailDetailContent({
             <div>
               <p className="text-xs text-muted-foreground">{t('inquiries.port')}</p>
               <p className="text-sm font-medium">{email.port}</p>
-            </div>
-          </div>
-        )}
-        {email.eta && (
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-primary" />
-            <div>
-              <p className="text-xs text-muted-foreground">{t('inquiries.eta')}</p>
-              <p className="text-sm font-medium">{email.eta}</p>
             </div>
           </div>
         )}
@@ -599,31 +778,37 @@ function EmailDetailContent({
       </div>
 
       {/* Links */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-wrap gap-2">
         {email.doc_link && (
           <a href={email.doc_link} target="_blank" rel="noopener noreferrer" 
-             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
+             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors">
             <ExternalLink className="w-3 h-3" /> {t('inquiries.docLink')} 1
           </a>
         )}
         {email.dock_link_2 && (
           <a href={email.dock_link_2} target="_blank" rel="noopener noreferrer" 
-             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
+             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors">
             <ExternalLink className="w-3 h-3" /> {t('inquiries.docLink')} 2
           </a>
         )}
-        {email['Google sheet url'] && (
-          <a href={email['Google sheet url']} target="_blank" rel="noopener noreferrer"
-             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-success/10 text-success rounded-lg hover:bg-success/20 transition-colors">
-            <ExternalLink className="w-3 h-3" /> {t('inquiries.googleSheet')}
-          </a>
-        )}
-        {email.pdf_url && (
-          <a href={email.pdf_url} target="_blank" rel="noopener noreferrer"
-             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-warning/10 text-warning rounded-lg hover:bg-warning/20 transition-colors">
-            <ExternalLink className="w-3 h-3" /> {t('inquiries.pdf')}
-          </a>
-        )}
+      </div>
+
+      {/* Original Email - Collapsible */}
+      {showOriginal && (email.original_email || email.orignal_email) && (
+        <div className="p-3 bg-muted/50 rounded-lg border">
+          <p className="text-xs font-medium mb-2 text-muted-foreground">{t('inquiries.originalEmail')}:</p>
+          <div className="whitespace-pre-wrap text-sm font-sans leading-relaxed max-h-40 overflow-auto">{email.original_email || email.orignal_email}</div>
+        </div>
+      )}
+
+      {/* AI Generated Email */}
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">{t('inquiries.emailBody')}</Label>
+          <div className="p-4 bg-muted/30 rounded-lg text-sm font-sans leading-relaxed whitespace-pre-wrap max-h-60 overflow-auto">
+            {email.body || t('common.noData')}
+          </div>
+        </div>
       </div>
 
       {/* PDF Attachments */}
@@ -664,6 +849,6 @@ function EmailDetailContent({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
