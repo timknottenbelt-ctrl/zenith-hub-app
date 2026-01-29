@@ -496,12 +496,12 @@ export default function AIInquiries() {
         </TransitionLink>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="bg-muted/50 p-1 w-max sm:w-auto">
-            <TabsTrigger value="CARGO_AGENT" className="text-xs sm:text-sm whitespace-nowrap">{t('inquiries.cargoAgent')}</TabsTrigger>
-            <TabsTrigger value="OWNERS_AGENT" className="text-xs sm:text-sm whitespace-nowrap">{t('inquiries.ownersAgent')}</TabsTrigger>
-            <TabsTrigger value="OUT_OF_SCOPE" className="text-xs sm:text-sm whitespace-nowrap">{t('inquiries.outOfScope')}</TabsTrigger>
-            <TabsTrigger value="INCOMPLETE" className="text-xs sm:text-sm whitespace-nowrap">{t('inquiries.incomplete')}</TabsTrigger>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+          <TabsList className="bg-muted/50 p-1 inline-flex min-w-max">
+            <TabsTrigger value="CARGO_AGENT" className="text-xs sm:text-sm px-2.5 sm:px-3">{t('inquiries.cargoAgent')}</TabsTrigger>
+            <TabsTrigger value="OWNERS_AGENT" className="text-xs sm:text-sm px-2.5 sm:px-3">{t('inquiries.ownersAgent')}</TabsTrigger>
+            <TabsTrigger value="OUT_OF_SCOPE" className="text-xs sm:text-sm px-2.5 sm:px-3">{t('inquiries.outOfScope')}</TabsTrigger>
+            <TabsTrigger value="INCOMPLETE" className="text-xs sm:text-sm px-2.5 sm:px-3">{t('inquiries.incomplete')}</TabsTrigger>
           </TabsList>
         </div>
 

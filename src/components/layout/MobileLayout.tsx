@@ -20,7 +20,7 @@ export function MobileLayout({ children, title }: MobileLayoutProps) {
   return (
     <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
       <MobileHeader title={title} />
-      <main className="flex-1 p-4 pb-20 overflow-x-hidden">
+      <main className="flex-1 p-4 pb-20 overflow-x-hidden animate-fade-in">
         <Suspense fallback={<PageLoader />}>
           {children}
         </Suspense>

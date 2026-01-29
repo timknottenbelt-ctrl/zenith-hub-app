@@ -32,8 +32,8 @@ export const MobileBottomNav = memo(function MobileBottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border safe-area-bottom">
+      <div className="flex items-center justify-around h-16 px-1">
         {bottomNavItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
@@ -42,13 +42,18 @@ export const MobileBottomNav = memo(function MobileBottomNav() {
               key={item.key}
               to={item.path}
               className={cn(
-                'flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors',
+                'flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-all duration-100 ease-out active:scale-95 active:opacity-80',
                 active ? 'text-primary' : 'text-muted-foreground'
               )}
             >
-              <Icon className={cn('w-5 h-5 mb-1', active && 'text-primary')} />
+              <div className={cn(
+                'p-1.5 rounded-xl transition-colors duration-100',
+                active && 'bg-primary/10'
+              )}>
+                <Icon className={cn('w-5 h-5', active && 'text-primary')} />
+              </div>
               <span className={cn(
-                'text-[10px] font-medium',
+                'text-[10px] font-medium mt-0.5',
                 active ? 'text-primary' : 'text-muted-foreground'
               )}>
                 {item.label}
