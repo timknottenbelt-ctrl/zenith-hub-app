@@ -291,12 +291,12 @@ export default function Overview() {
 
         {/* Recent Emails */}
         <Card className="card-premium">
-          <CardHeader className="flex flex-row items-center justify-between pb-4">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
             <div>
               <CardTitle className="text-lg font-semibold">Recente Aanvragen</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">Laatste activiteit in AI Aanvragen</p>
             </div>
-            <Button variant="outline" size="sm" onClick={navigateTo('/inquiries')} className="gap-2">
+            <Button variant="outline" size="sm" onClick={navigateTo('/inquiries')} className="gap-2 w-full sm:w-auto">
               Bekijk alles <ArrowRight className="w-4 h-4" />
             </Button>
           </CardHeader>
@@ -311,23 +311,31 @@ export default function Overview() {
                 {recentEmails.map((email) => (
                   <div
                     key={email.id}
-                    className="flex items-center justify-between p-4 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer border border-transparent hover:border-border/50"
+                    className="flex items-start sm:items-center gap-3 p-3 sm:p-4 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer border border-transparent hover:border-border/50"
                     onClick={navigateTo('/inquiries')}
                   >
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className={`p-2.5 rounded-xl ${getStatusBadgeClass(email.status)}`}>
-                        {getStatusIcon(email.status)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{email.subject || 'No subject'}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{email.email_to_person}</p>
+                    <div className={`p-2 sm:p-2.5 rounded-xl shrink-0 ${getStatusBadgeClass(email.status)}`}>
+                      {getStatusIcon(email.status)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{email.subject || 'No subject'}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{email.email_to_person}</p>
+                      {/* Mobile: Show status and date inline below */}
+                      <div className="flex items-center gap-2 mt-1 sm:hidden">
+                        <Badge className={`${getStatusBadgeClass(email.status)} font-medium text-xs`} variant="secondary">
+                          {email.status}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(email.created_at).toLocaleDateString('nl-NL')}
+                        </span>
                       </div>
                     </div>
-                    <div className="text-right flex items-center gap-4">
+                    {/* Desktop: Show status and date on the right */}
+                    <div className="hidden sm:flex items-center gap-4 shrink-0">
                       <Badge className={`${getStatusBadgeClass(email.status)} font-medium`} variant="secondary">
                         {email.status}
                       </Badge>
-                      <p className="text-xs text-muted-foreground min-w-[80px]">
+                      <p className="text-xs text-muted-foreground min-w-[80px] text-right">
                         {new Date(email.created_at).toLocaleDateString('nl-NL')}
                       </p>
                     </div>

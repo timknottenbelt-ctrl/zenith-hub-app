@@ -988,21 +988,21 @@ export default function FDACuracao() {
       <DashboardLayout title="FDA Curacao">
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" onClick={() => setSelectedProject(null)}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
-              <div>
-                <h1 className="text-2xl font-bold">{formData.ship_name}</h1>
-                <p className="text-muted-foreground">{formData.lbh_number}</p>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold truncate">{formData.ship_name}</h1>
+                <p className="text-muted-foreground text-sm">{formData.lbh_number}</p>
               </div>
               {getStatusBadge(selectedProject.status)}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="icon">
+                  <Button variant="destructive" size="icon" className="shrink-0">
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </AlertDialogTrigger>
@@ -1025,22 +1025,23 @@ export default function FDACuracao() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              <Button variant="outline" onClick={handleUpdateProject} disabled={saving}>
+              <Button variant="outline" onClick={handleUpdateProject} disabled={saving} className="gap-2">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit className="w-4 h-4" />}
-                <span className="ml-2">Save</span>
+                <span className="hidden sm:inline">Save</span>
               </Button>
               {selectedProject.status === 'sent' && (
                 <Button 
                   variant="outline" 
                   onClick={() => navigate(`/fda-curacao/email/${selectedProject.project_id}`)}
+                  className="gap-2"
                 >
                   <Mail className="w-4 h-4" />
-                  <span className="ml-2">Bekijk Email</span>
+                  <span className="hidden sm:inline">Bekijk Email</span>
                 </Button>
               )}
-              <Button onClick={handleSendToWebhook} disabled={sending}>
+              <Button onClick={handleSendToWebhook} disabled={sending} className="gap-2">
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                <span className="ml-2">{selectedProject.status === 'sent' ? 'Send FDA Again' : 'Send FDA'}</span>
+                <span className="hidden sm:inline">{selectedProject.status === 'sent' ? 'Send FDA Again' : 'Send FDA'}</span>
               </Button>
             </div>
           </div>
@@ -1641,21 +1642,21 @@ export default function FDACuracao() {
     <DashboardLayout title="FDA Curacao">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">FDA Curacao</h1>
-            <p className="text-muted-foreground">Manage your FDA Curacao projects</p>
+            <h1 className="text-xl sm:text-2xl font-bold">FDA Curacao</h1>
+            <p className="text-muted-foreground text-sm">Manage your FDA Curacao projects</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="lg" className="gap-2" onClick={() => navigate("/fda-curacao/history")}>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={() => navigate("/fda-curacao/history")}>
               <History className="w-4 h-4" />
-              Email History
+              <span className="hidden xs:inline">Email History</span>
             </Button>
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
-                <Button size="lg" className="gap-2">
+                <Button className="gap-2 flex-1 sm:flex-none">
                   <Plus className="w-4 h-4" />
-                  Create FDA
+                  <span className="hidden xs:inline">Create FDA</span>
                 </Button>
               </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
