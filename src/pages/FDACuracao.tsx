@@ -865,11 +865,36 @@ export default function FDACuracao() {
         sent_at: new Date().toISOString(),
       };
 
-      // Update project status
+      // Save all form data including Port Call info before sending
       await supabase
         .from("fda_curacao_projects")
-        .update({ status: "processing" })
+        .update({
+          status: "processing",
+          lbh_number: formData.lbh_number,
+          ship_name: formData.ship_name,
+          fda_responsible: formData.fda_responsible || null,
+          client_name: formData.client_name || null,
+          client_email: formData.client_email || null,
+          client_phone: formData.client_phone || null,
+          billing_company: formData.billing_company || null,
+          billing_address: formData.billing_address || null,
+          billing_email: formData.billing_email || null,
+          billing_phone: formData.billing_phone || null,
+          vessel_arrived: formData.vessel_arrived || null,
+          vessel_sailed: formData.vessel_sailed || null,
+          operation: formData.operation || null,
+          commodity: formData.commodity || null,
+          client_reference: formData.client_reference || null,
+          advanced_payment_amount: formData.advanced_payment_amount ? parseFloat(formData.advanced_payment_amount) : null,
+          advanced_payment_currency: formData.advanced_payment_currency || "USD",
+          advanced_payment_reference: formData.advanced_payment_reference || null,
+          advanced_payment_status: formData.advanced_payment_status || "unpaid",
+          advanced_payment_remark: formData.advanced_payment_remark || null,
+        })
         .eq("project_id", selectedProject.project_id);
+
+      // Also save agency costs
+      await saveAgencyCosts(selectedProject.project_id);
 
       // Send to webhook
       const response = await fetch(WEBHOOK_URL, {
