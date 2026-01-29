@@ -8,10 +8,12 @@ const corsHeaders = {
 };
 
 interface CreateUserRequest {
+  action?: "create" | "delete";
   email: string;
-  password: string;
+  password?: string;
   name?: string;
-  role: "admin" | "user";
+  role?: "admin" | "user";
+  userId?: string; // For delete action
 }
 
 serve(async (req: Request) => {
@@ -88,7 +90,61 @@ serve(async (req: Request) => {
     }
 
     // Parse request body
-    const { email, password, name, role }: CreateUserRequest = await req.json();
+    const body: CreateUserRequest = await req.json();
+    const action = body.action || "create";
+
+    // ===== DELETE USER =====
+    if (action === "delete") {
+      const { userId } = body;
+
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: "User ID required for deletion" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Prevent self-deletion
+      if (userId === requestingUserId) {
+        return new Response(
+          JSON.stringify({ error: "Cannot delete yourself" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Delete from user_roles first (foreign key constraint)
+      await adminClient
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId);
+
+      // Delete from profiles
+      await adminClient
+        .from("profiles")
+        .delete()
+        .eq("id", userId);
+
+      // Delete the auth user
+      const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
+
+      if (deleteError) {
+        console.error("Delete user error:", deleteError);
+        return new Response(
+          JSON.stringify({ error: deleteError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("User deleted successfully:", userId);
+
+      return new Response(
+        JSON.stringify({ success: true, message: "User deleted" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== CREATE USER =====
+    const { email, password, name, role } = body;
 
     if (!email || !password) {
       return new Response(
@@ -97,7 +153,6 @@ serve(async (req: Request) => {
       );
     }
 
-    // Create the user using admin API
     // Create the user using admin API
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
@@ -139,7 +194,7 @@ serve(async (req: Request) => {
     const { error: roleUpdateError } = await adminClient
       .from("user_roles")
       .update({
-        role: role,
+        role: role || "user",
         approved_at: new Date().toISOString(),
         approved_by: requestingUserId,
       })
