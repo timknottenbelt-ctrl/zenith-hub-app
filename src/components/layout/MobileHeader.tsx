@@ -46,17 +46,20 @@ export const MobileHeader = memo(function MobileHeader({ title }: MobileHeaderPr
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 bg-background border-b border-border h-14 flex items-center justify-between px-4">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-50 bg-background border-b border-border h-14 flex items-center px-4">
+      {/* Logo links */}
+      <div className="flex items-center gap-2 shrink-0">
         <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
           <Ship className="w-5 h-5 text-primary-foreground" />
         </div>
-        <span className="font-semibold text-foreground">LBH Portal</span>
       </div>
 
-      <h1 className="text-sm font-medium text-foreground absolute left-1/2 -translate-x-1/2 truncate max-w-[40%]">
-        {title}
-      </h1>
+      {/* Titel in het midden, met ruimte aan beide kanten */}
+      <div className="flex-1 flex justify-center px-2 min-w-0">
+        <h1 className="text-sm font-semibold text-foreground truncate">
+          {title}
+        </h1>
+      </div>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
