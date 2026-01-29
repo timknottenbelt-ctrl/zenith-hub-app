@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Suspense, lazy } from "react";
@@ -44,39 +45,41 @@ const queryClient = new QueryClient({
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <LanguageProvider>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/auth" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><Auth /></Suspense>} />
-                <Route path="/forgot-password" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><ForgotPassword /></Suspense>} />
-                <Route path="/reset-password" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><ResetPassword /></Suspense>} />
-                <Route path="/" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
-                <Route path="/inquiries" element={<ProtectedRoute><AIInquiries /></ProtectedRoute>} />
-                <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
-                <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
-                <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
-                <Route path="/fda-curacao" element={<ProtectedRoute><FDACuracao /></ProtectedRoute>} />
-                <Route path="/fda-curacao/history" element={<ProtectedRoute><FDACuracaoHistory /></ProtectedRoute>} />
-                <Route path="/fda-curacao/email/:projectId" element={<ProtectedRoute><FDACuracaoEmail /></ProtectedRoute>} />
-                <Route path="/fda/history" element={<ProtectedRoute><FDAEmailHistory /></ProtectedRoute>} />
-                <Route path="/fda-preview/:projectId" element={<ProtectedRoute><FDAPreview /></ProtectedRoute>} />
-                <Route path="/fda-front-page/:projectId" element={<ProtectedRoute><FDAFrontPage /></ProtectedRoute>} />
-                <Route path="/fda/email/:projectId" element={<ProtectedRoute><FDAEmailPreview /></ProtectedRoute>} />
-                <Route path="/knowledge" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
-                <Route path="/vessels" element={<ProtectedRoute><Vessels /></ProtectedRoute>} />
-                <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-                <Route path="*" element={<Suspense fallback={null}><NotFound /></Suspense>} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </AuthProvider>
-      </LanguageProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/auth" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><Auth /></Suspense>} />
+                  <Route path="/forgot-password" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><ForgotPassword /></Suspense>} />
+                  <Route path="/reset-password" element={<Suspense fallback={<div className="min-h-screen bg-background" />}><ResetPassword /></Suspense>} />
+                  <Route path="/" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
+                  <Route path="/inquiries" element={<ProtectedRoute><AIInquiries /></ProtectedRoute>} />
+                  <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
+                  <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
+                  <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
+                  <Route path="/fda-curacao" element={<ProtectedRoute><FDACuracao /></ProtectedRoute>} />
+                  <Route path="/fda-curacao/history" element={<ProtectedRoute><FDACuracaoHistory /></ProtectedRoute>} />
+                  <Route path="/fda-curacao/email/:projectId" element={<ProtectedRoute><FDACuracaoEmail /></ProtectedRoute>} />
+                  <Route path="/fda/history" element={<ProtectedRoute><FDAEmailHistory /></ProtectedRoute>} />
+                  <Route path="/fda-preview/:projectId" element={<ProtectedRoute><FDAPreview /></ProtectedRoute>} />
+                  <Route path="/fda-front-page/:projectId" element={<ProtectedRoute><FDAFrontPage /></ProtectedRoute>} />
+                  <Route path="/fda/email/:projectId" element={<ProtectedRoute><FDAEmailPreview /></ProtectedRoute>} />
+                  <Route path="/knowledge" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
+                  <Route path="/vessels" element={<ProtectedRoute><Vessels /></ProtectedRoute>} />
+                  <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+                  <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                  <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+                  <Route path="*" element={<Suspense fallback={null}><NotFound /></Suspense>} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </AuthProvider>
+        </LanguageProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };

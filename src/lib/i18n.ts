@@ -232,6 +232,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.updatePassword': 'Update Password',
     'settings.passwordUpdated': 'Password updated successfully',
     'settings.profileSaved': 'Profile saved successfully',
+    'settings.theme': 'Theme',
+    'settings.themeLight': 'Light',
+    'settings.themeDark': 'Dark',
+    'settings.themeSystem': 'System',
     
     // Overview extended
     'overview.sendStatus': 'Send Status',
@@ -479,6 +483,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.updatePassword': 'Wachtwoord bijwerken',
     'settings.passwordUpdated': 'Wachtwoord succesvol gewijzigd',
     'settings.profileSaved': 'Profiel succesvol opgeslagen',
+    'settings.theme': 'Thema',
+    'settings.themeLight': 'Licht',
+    'settings.themeDark': 'Donker',
+    'settings.themeSystem': 'Systeem',
     
     // Overview extended
     'overview.sendStatus': 'Verzend Status',
@@ -655,6 +663,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.english': 'English',
     'settings.spanish': 'Español',
     'settings.portuguese': 'Português',
+    'settings.theme': 'Tema',
+    'settings.themeLight': 'Claro',
+    'settings.themeDark': 'Oscuro',
+    'settings.themeSystem': 'Sistema',
     
     // Common
     'common.loading': 'Cargando...',
@@ -802,6 +814,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.english': 'English',
     'settings.spanish': 'Español',
     'settings.portuguese': 'Português',
+    'settings.theme': 'Tema',
+    'settings.themeLight': 'Claro',
+    'settings.themeDark': 'Escuro',
+    'settings.themeSystem': 'Sistema',
     
     // Common
     'common.loading': 'Carregando...',
