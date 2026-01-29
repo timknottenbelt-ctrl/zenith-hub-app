@@ -1,6 +1,8 @@
 import { ReactNode, Suspense } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { MobileLayout } from './MobileLayout';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Loader2 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -17,6 +19,14 @@ function PageLoader() {
 }
 
 export function DashboardLayout({ children, title }: DashboardLayoutProps) {
+  const isMobile = useIsMobile();
+
+  // Mobiele layout
+  if (isMobile) {
+    return <MobileLayout title={title}>{children}</MobileLayout>;
+  }
+
+  // Desktop layout (ongewijzigd)
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />

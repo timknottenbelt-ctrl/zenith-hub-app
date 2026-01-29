@@ -2,12 +2,13 @@ import { forwardRef, startTransition } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
-interface TransitionLinkProps extends Omit<NavLinkProps, 'onClick'> {
+export interface TransitionLinkProps extends Omit<NavLinkProps, 'onClick'> {
   activeClassName?: string;
+  onClick?: () => void;
 }
 
 export const TransitionLink = forwardRef<HTMLAnchorElement, TransitionLinkProps>(
-  ({ to, children, className, activeClassName, ...props }, ref) => {
+  ({ to, children, className, activeClassName, onClick, ...props }, ref) => {
     const navigate = useNavigate();
 
     const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -15,6 +16,7 @@ export const TransitionLink = forwardRef<HTMLAnchorElement, TransitionLinkProps>
       startTransition(() => {
         navigate(typeof to === 'string' ? to : to.pathname || '/');
       });
+      onClick?.();
     };
 
     return (
