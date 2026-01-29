@@ -481,27 +481,29 @@ export default function AIInquiries() {
 
   return (
     <DashboardLayout title={t('inquiries.title')}>
-      <div className="flex items-center justify-end gap-2 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2 mb-4">
         <TransitionLink to="/inquiries/manual?tab=history">
-          <Button variant="outline" size="sm" className="gap-2 h-9">
+          <Button variant="outline" size="sm" className="gap-2 h-9 w-full sm:w-auto">
             <Mail className="w-4 h-4" />
-            {t('common.history')}
+            <span className="sm:inline">{t('common.history')}</span>
           </Button>
         </TransitionLink>
         <TransitionLink to="/inquiries/manual">
-          <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 h-9">
+          <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 h-9 w-full sm:w-auto">
             <PlusCircle className="w-4 h-4" />
-            {t('inquiries.manual')}
+            <span className="sm:inline">{t('inquiries.manual')}</span>
           </Button>
         </TransitionLink>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="CARGO_AGENT" className="text-sm">{t('inquiries.cargoAgent')}</TabsTrigger>
-          <TabsTrigger value="OWNERS_AGENT" className="text-sm">{t('inquiries.ownersAgent')}</TabsTrigger>
-          <TabsTrigger value="OUT_OF_SCOPE" className="text-sm">{t('inquiries.outOfScope')}</TabsTrigger>
-          <TabsTrigger value="INCOMPLETE" className="text-sm">{t('inquiries.incomplete')}</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="bg-muted/50 p-1 w-max sm:w-auto">
+            <TabsTrigger value="CARGO_AGENT" className="text-xs sm:text-sm whitespace-nowrap">{t('inquiries.cargoAgent')}</TabsTrigger>
+            <TabsTrigger value="OWNERS_AGENT" className="text-xs sm:text-sm whitespace-nowrap">{t('inquiries.ownersAgent')}</TabsTrigger>
+            <TabsTrigger value="OUT_OF_SCOPE" className="text-xs sm:text-sm whitespace-nowrap">{t('inquiries.outOfScope')}</TabsTrigger>
+            <TabsTrigger value="INCOMPLETE" className="text-xs sm:text-sm whitespace-nowrap">{t('inquiries.incomplete')}</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Tab Content */}
         <TabsContent value={activeTab} className="mt-4">
@@ -596,15 +598,15 @@ export default function AIInquiries() {
                     {/* Email Meta Info */}
                     <Card className="card-premium">
                       <CardHeader className="pb-2 pt-4 px-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <CardTitle className="text-base font-semibold">{selectedEmail.subject || t('inquiries.noSubject')}</CardTitle>
-                            <p className="text-sm text-muted-foreground">To: {selectedEmail.email_to_person}</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="space-y-1 min-w-0">
+                            <CardTitle className="text-sm sm:text-base font-semibold truncate">{selectedEmail.subject || t('inquiries.noSubject')}</CardTitle>
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">To: {selectedEmail.email_to_person}</p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 shrink-0">
                             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setShowPreview(!showPreview)}>
-                              <Eye className="w-3.5 h-3.5 mr-1" />
-                              {showPreview ? t('inquiries.hideOriginal') : t('inquiries.showOriginal')}
+                              <Eye className="w-3.5 h-3.5 sm:mr-1" />
+                              <span className="hidden sm:inline">{showPreview ? t('inquiries.hideOriginal') : t('inquiries.showOriginal')}</span>
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
@@ -865,23 +867,23 @@ export default function AIInquiries() {
                             className="min-h-[160px] text-sm"
                           />
                         </div>
-                        <div className="flex gap-2 pt-2">
+                        <div className="flex flex-col sm:flex-row gap-2 pt-2">
                           <Button 
                             className="flex-1 h-9 text-sm" 
                             onClick={() => handleUpdateStatus('approved')}
                             disabled={sending}
                           >
                             {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
-                            {t('inquiries.approveAndSend')}
+                            <span className="truncate">{t('inquiries.approveAndSend')}</span>
                           </Button>
                           <Button 
                             variant="destructive"
-                            className="h-9 text-sm"
+                            className="h-9 text-sm sm:w-auto"
                             onClick={() => handleUpdateStatus('rejected')}
                             disabled={sending}
                           >
                             <XCircle className="w-4 h-4 mr-2" />
-                            {t('common.reject')}
+                            <span className="truncate">{t('common.reject')}</span>
                           </Button>
                         </div>
                       </CardContent>
