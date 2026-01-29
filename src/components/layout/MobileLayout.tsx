@@ -18,9 +18,9 @@ function PageLoader() {
 
 export function MobileLayout({ children, title }: MobileLayoutProps) {
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
       <MobileHeader title={title} />
-      <main className="flex-1 p-4 pb-20 overflow-y-auto">
+      <main className="flex-1 p-4 pb-20 overflow-x-hidden">
         <Suspense fallback={<PageLoader />}>
           {children}
         </Suspense>
