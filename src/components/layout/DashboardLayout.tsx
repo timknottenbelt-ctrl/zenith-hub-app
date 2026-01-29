@@ -32,7 +32,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       <Sidebar />
       <div className="pl-64">
         <Topbar title={title} />
-        <main className="p-6">
+        <main className="p-6 animate-fade-in">
           <Suspense fallback={<PageLoader />}>
             {children}
           </Suspense>
