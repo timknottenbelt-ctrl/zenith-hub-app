@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,9 @@ import {
   EyeOff,
   Save,
   Shield,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 
 const LBH_OFFICES = [
@@ -44,6 +48,7 @@ const LBH_OFFICES = [
 
 export default function Settings() {
   const { t, language, setLanguage, office, setOffice } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -354,6 +359,47 @@ export default function Settings() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Theme Section */}
+        <Card className="card-premium overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent pb-4">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Sun className="w-4 h-4 text-primary" />
+              {t('settings.theme')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="flex gap-2">
+              <Button
+                variant={theme === 'light' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTheme('light')}
+                className="gap-2"
+              >
+                <Sun className="w-4 h-4" />
+                {t('settings.themeLight')}
+              </Button>
+              <Button
+                variant={theme === 'dark' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTheme('dark')}
+                className="gap-2"
+              >
+                <Moon className="w-4 h-4" />
+                {t('settings.themeDark')}
+              </Button>
+              <Button
+                variant={theme === 'system' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTheme('system')}
+                className="gap-2"
+              >
+                <Monitor className="w-4 h-4" />
+                {t('settings.themeSystem')}
+              </Button>
             </div>
           </CardContent>
         </Card>
