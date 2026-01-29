@@ -752,6 +752,7 @@ export default function FDACuracaoEmail() {
         email_subject: subject,
         email_body: body,
         google_sheet_url: project?.google_sheet_url || emailDraft?.google_sheet_url || "",
+        agency_cost_url: project?.agency_cost_url || "",
         attachment_url: resolvedAttachmentUrl,
         extra_attachments: resolvedExtraAttachments.map((a) => a.url),
         invoices: resolvedInvoices.map((inv) => ({
