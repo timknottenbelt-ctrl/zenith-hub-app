@@ -400,6 +400,32 @@ export default function FDACuracao() {
     fetchProjects();
   }, []);
 
+  // Fetch agency costs for a project
+  async function fetchAgencyCosts(projectId: string) {
+    const { data, error } = await supabase
+      .from("fda_curacao_agency_costs")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching agency costs:", error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      setAgencyCostRows(data.map((row: any) => ({
+        id: row.id,
+        description: row.description || "",
+        number: row.invoice_number || "",
+        remark: row.remark || "",
+        amount: row.total_amount?.toString() || "",
+      })));
+    } else {
+      setAgencyCostRows([{ id: crypto.randomUUID(), description: "", number: "", remark: "", amount: "" }]);
+    }
+  }
+
   useEffect(() => {
     if (selectedProject) {
       setFormData({
@@ -411,7 +437,7 @@ export default function FDACuracao() {
         client_phone: selectedProject.client_phone || "",
         billing_company: selectedProject.billing_company || "",
         billing_address: selectedProject.billing_address || "",
-        billing_email: selectedProject.billing_phone || "",
+        billing_email: selectedProject.billing_email || "",
         billing_phone: selectedProject.billing_phone || "",
         vessel_arrived: (selectedProject as any).vessel_arrived || "",
         vessel_sailed: (selectedProject as any).vessel_sailed || "",
@@ -424,8 +450,8 @@ export default function FDACuracao() {
         advanced_payment_status: (selectedProject as any).advanced_payment_status || "unpaid",
         advanced_payment_remark: (selectedProject as any).advanced_payment_remark || "",
       });
-      // Reset agency cost rows when project changes
-      setAgencyCostRows([{ id: crypto.randomUUID(), description: "", number: "", remark: "", amount: "" }]);
+      // Load agency costs and invoices for this project
+      fetchAgencyCosts(selectedProject.project_id);
       fetchProjectInvoices(selectedProject.project_id);
     }
   }, [selectedProject]);
@@ -576,6 +602,11 @@ export default function FDACuracao() {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      // Save agency costs for the new project
+      if (data?.project_id) {
+        await saveAgencyCosts(data.project_id);
+      }
+      
       await syncClientToContacts(formData);
 
       toast({ title: "Success", description: "FDA Curacao project created" });
@@ -622,11 +653,49 @@ export default function FDACuracao() {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      // Save agency costs to fda_curacao_agency_costs table
+      await saveAgencyCosts(selectedProject.project_id);
+      
       await syncClientToContacts(formData);
       toast({ title: "Success", description: "Project saved" });
       await fetchProjects();
     }
     setSaving(false);
+  }
+
+  // Save agency costs to the database
+  async function saveAgencyCosts(projectId: string) {
+    // First, delete existing agency costs for this project
+    await supabase
+      .from("fda_curacao_agency_costs")
+      .delete()
+      .eq("project_id", projectId);
+
+    // Filter out empty rows and insert the rest
+    const nonEmptyRows = agencyCostRows.filter(
+      row => row.description || row.number || row.remark || row.amount
+    );
+
+    if (nonEmptyRows.length === 0) return;
+
+    const rowsToInsert = nonEmptyRows.map(row => ({
+      project_id: projectId,
+      lbh_number: formData.lbh_number,
+      ship_name: formData.ship_name,
+      invoice_number: row.number || "",
+      description: row.description || null,
+      remark: row.remark || null,
+      total_amount: row.amount ? parseFloat(row.amount) : null,
+      currency: "USD",
+    }));
+
+    const { error } = await supabase
+      .from("fda_curacao_agency_costs")
+      .insert(rowsToInsert);
+
+    if (error) {
+      console.error("Error saving agency costs:", error);
+    }
   }
 
   async function handleDeleteProject(id: string) {
