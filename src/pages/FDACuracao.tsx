@@ -499,12 +499,18 @@ export default function FDACuracao() {
             </div>
           </div>
 
-          {/* Wizard Steps */}
+          {/* Wizard Steps - Clickable navigation */}
           <FDACuracaoWizardSteps 
             currentStep={currentStep} 
             projectStatus={selectedProject.status}
             hasInvoices={invoices.length > 0}
             hasDraft={false}
+            onNavigate={(step) => {
+              if (step === "email" || step === "processing") {
+                navigate(`/fda-curacao/email/${selectedProject.project_id}`);
+              }
+              // setup and invoices are on the same page, no navigation needed
+            }}
           />
 
           {/* Processing Status */}
