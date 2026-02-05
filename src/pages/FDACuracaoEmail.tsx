@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useTransitionNavigate } from "@/hooks/useTransitionNavigate";
 import * as XLSX from "xlsx";
+import { FDACuracaoWizardSteps } from "@/components/fda-curacao/FDACuracaoWizardSteps";
 
 interface FDACuracaoProject {
   project_id: string;
@@ -887,6 +888,20 @@ export default function FDACuracaoEmail() {
             Send Email
           </Button>
         </div>
+
+        {/* Wizard Steps - Navigation */}
+        <FDACuracaoWizardSteps 
+          currentStep={hasDraft ? "email" : "processing"} 
+          projectStatus={project?.status}
+          hasInvoices={invoices.length > 0}
+          hasDraft={hasDraft}
+          onNavigate={(step) => {
+            if (step === "setup" || step === "invoices") {
+              navigate(`/fda-curacao?project=${project?.project_id}`);
+            }
+            // processing and email are on this page already
+          }}
+        />
 
         {/* Google Sheet Link */}
         <Card className="card-premium">
