@@ -233,6 +233,7 @@ export default function FDACuracaoEmail() {
   // Polling refs
   const emailDraftRef = useRef<FDAEmailDraft | null>(null);
   const projectRef = useRef<FDACuracaoProject | null>(null);
+  const invoicesLoadedRef = useRef(false);
 
   useEffect(() => {
     emailDraftRef.current = emailDraft;
@@ -241,6 +242,12 @@ export default function FDACuracaoEmail() {
   useEffect(() => {
     projectRef.current = project;
   }, [project]);
+
+  useEffect(() => {
+    if (invoices.length > 0) {
+      invoicesLoadedRef.current = true;
+    }
+  }, [invoices.length]);
 
   const fetchProjectAndDraft = useCallback(async () => {
     if (!projectId) return;
@@ -394,8 +401,8 @@ export default function FDACuracaoEmail() {
         }
       }
 
-      // Poll for invoices if we don't have any yet
-      if (invoices.length === 0) {
+      // Poll for invoices only if we haven't loaded any yet (not after user deletes)
+      if (!invoicesLoadedRef.current) {
         const { data: invoiceData } = await supabase
           .from("fda_curacao_processed_invoices")
           .select("id, invoice_number, file_name, description, total_amount, currency, file_url, supplier_name")
@@ -404,6 +411,7 @@ export default function FDACuracaoEmail() {
 
         if (invoiceData && invoiceData.length > 0) {
           setInvoices(invoiceData);
+          invoicesLoadedRef.current = true;
         }
       }
 
@@ -417,7 +425,7 @@ export default function FDACuracaoEmail() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [fetchProjectAndDraft, projectId, invoices.length]);
+  }, [fetchProjectAndDraft, projectId]);
 
   // PDF Preview helpers
   const loadPdfForPreview = useCallback(async (invoice: ProcessedInvoice) => {
