@@ -8,6 +8,8 @@ interface WizardStepsProps {
   projectStatus?: string | null;
   hasInvoices?: boolean;
   hasDraft?: boolean;
+  projectId?: string;
+  onNavigate?: (step: WizardStep) => void;
 }
 
 const STEPS = [
@@ -54,13 +56,36 @@ function getStepState(
   return stepIndex < currentIndex ? "complete" : stepIndex === currentIndex ? "current" : "upcoming";
 }
 
-export function FDACuracaoWizardSteps({ currentStep, projectStatus, hasInvoices, hasDraft }: WizardStepsProps) {
+function isStepClickable(
+  stepId: WizardStep,
+  projectStatus?: string | null,
+  hasInvoices?: boolean
+): boolean {
+  // Setup and invoices are always accessible on the main page
+  if (stepId === "setup" || stepId === "invoices") return true;
+  
+  // Processing and email are only clickable if project has been processed
+  if (stepId === "processing" || stepId === "email") {
+    return !!(projectStatus === "processing" || projectStatus === "ready_to_send" || projectStatus === "sent" || hasInvoices);
+  }
+  
+  return false;
+}
+
+export function FDACuracaoWizardSteps({ 
+  currentStep, 
+  projectStatus, 
+  hasInvoices, 
+  hasDraft,
+  onNavigate 
+}: WizardStepsProps) {
   return (
     <nav aria-label="Progress" className="mb-8">
       <ol className="flex items-center justify-between">
         {STEPS.map((step, index) => {
           const state = getStepState(step.id, currentStep, projectStatus, hasInvoices, hasDraft);
           const Icon = step.icon;
+          const clickable = isStepClickable(step.id, projectStatus, hasInvoices) && onNavigate;
           
           return (
             <li key={step.id} className="flex-1 relative">
@@ -75,7 +100,16 @@ export function FDACuracaoWizardSteps({ currentStep, projectStatus, hasInvoices,
                 />
               )}
               
-              <div className="flex flex-col items-center relative z-10">
+              <button
+                type="button"
+                onClick={() => clickable && onNavigate(step.id)}
+                disabled={!clickable}
+                className={cn(
+                  "flex flex-col items-center relative z-10 w-full",
+                  clickable && "cursor-pointer hover:opacity-80 transition-opacity",
+                  !clickable && "cursor-default"
+                )}
+              >
                 <div
                   className={cn(
                     "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300",
@@ -98,7 +132,7 @@ export function FDACuracaoWizardSteps({ currentStep, projectStatus, hasInvoices,
                 >
                   {step.label}
                 </span>
-              </div>
+              </button>
             </li>
           );
         })}
