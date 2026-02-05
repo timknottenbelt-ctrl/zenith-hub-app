@@ -1160,8 +1160,13 @@ function InvoiceRow({ invoice, index, onView, onDownload, onUpdateNumber }: Invo
 
       {/* Amount */}
       {invoice.total_amount && (
-        <div className="text-sm font-medium shrink-0">
-          {invoice.currency || "USD"} {invoice.total_amount.toLocaleString()}
+        <div className="shrink-0 flex flex-col items-end">
+          <div className={`text-sm font-medium ${invoice.currency && invoice.currency.toUpperCase() !== "USD" ? "text-destructive" : ""}`}>
+            {invoice.currency || "USD"} {invoice.total_amount.toLocaleString()}
+          </div>
+          {invoice.currency && invoice.currency.toUpperCase() !== "USD" && (
+            <span className="text-[10px] text-destructive">Please convert to USD in Excel</span>
+          )}
         </div>
       )}
 
