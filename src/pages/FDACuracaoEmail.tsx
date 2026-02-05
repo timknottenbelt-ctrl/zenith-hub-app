@@ -489,6 +489,38 @@ export default function FDACuracaoEmail() {
     }
   }
 
+  // Update invoice amount and currency
+  async function handleUpdateInvoiceAmount(invoiceId: string, amount: number | null, currency: string | null) {
+    const { error } = await supabase
+      .from("fda_curacao_processed_invoices")
+      .update({ total_amount: amount, currency: currency })
+      .eq("id", invoiceId);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setInvoices((prev) =>
+        prev.map((inv) => (inv.id === invoiceId ? { ...inv, total_amount: amount, currency: currency } : inv))
+      );
+      toast({ title: "Saved", description: "Invoice updated" });
+    }
+  }
+
+  // Delete invoice
+  async function handleDeleteInvoice(invoiceId: string) {
+    const { error } = await supabase
+      .from("fda_curacao_processed_invoices")
+      .delete()
+      .eq("id", invoiceId);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setInvoices((prev) => prev.filter((inv) => inv.id !== invoiceId));
+      toast({ title: "Verwijderd", description: "Factuur verwijderd" });
+    }
+  }
+
   function isValidEmail(email: string): boolean {
     return EMAIL_REGEX.test(email.trim());
   }
@@ -935,6 +967,8 @@ export default function FDACuracaoEmail() {
                       onView={() => loadPdfForPreview(invoice)}
                       onDownload={() => handleDownloadInvoice(invoice)}
                       onUpdateNumber={handleUpdateInvoiceNumber}
+                      onUpdateAmount={handleUpdateInvoiceAmount}
+                      onDelete={handleDeleteInvoice}
                     />
                   ))}
               </div>
@@ -1127,10 +1161,14 @@ interface InvoiceRowProps {
   onView: () => void;
   onDownload: () => void;
   onUpdateNumber: (id: string, number: string) => void;
+  onUpdateAmount: (id: string, amount: number | null, currency: string | null) => void;
+  onDelete: (id: string) => void;
 }
 
-function InvoiceRow({ invoice, index, onView, onDownload, onUpdateNumber }: InvoiceRowProps) {
+function InvoiceRow({ invoice, index, onView, onDownload, onUpdateNumber, onUpdateAmount, onDelete }: InvoiceRowProps) {
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoice_number || String(index + 1).padStart(3, "0"));
+  const [amount, setAmount] = useState(invoice.total_amount?.toString() || "");
+  const [currency, setCurrency] = useState(invoice.currency || "USD");
 
   const handleSaveNumber = () => {
     if (invoiceNumber !== invoice.invoice_number) {
@@ -1138,12 +1176,25 @@ function InvoiceRow({ invoice, index, onView, onDownload, onUpdateNumber }: Invo
     }
   };
 
+  const handleSaveAmount = () => {
+    const numericAmount = amount ? parseFloat(amount.replace(",", ".")) : null;
+    if (numericAmount !== invoice.total_amount || currency !== invoice.currency) {
+      onUpdateAmount(invoice.id, numericAmount, currency);
+    }
+  };
+
+  const handleConvertToUSD = () => {
+    setCurrency("USD");
+    onUpdateAmount(invoice.id, invoice.total_amount, "USD");
+  };
+
   // Agency Cost items don't have file_url - they're generated from form input, not PDFs
   const isAgencyCost = !invoice.file_url || invoice.file_name === "Agency Cost";
   const hasViewableFile = invoice.file_url && !isAgencyCost;
+  const isNonUSD = currency && currency.toUpperCase() !== "USD";
 
   return (
-    <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+    <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg group">
       {/* File Name & Description */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <CheckCircle className="w-4 h-4 text-success shrink-0" />
@@ -1158,17 +1209,39 @@ function InvoiceRow({ invoice, index, onView, onDownload, onUpdateNumber }: Invo
         </div>
       </div>
 
-      {/* Amount */}
-      {invoice.total_amount && (
-        <div className="shrink-0 flex flex-col items-end">
-          <div className={`text-sm font-medium ${invoice.currency && invoice.currency.toUpperCase() !== "USD" ? "text-destructive" : ""}`}>
-            {invoice.currency || "USD"} {invoice.total_amount.toLocaleString()}
-          </div>
-          {invoice.currency && invoice.currency.toUpperCase() !== "USD" && (
-            <span className="text-[10px] text-destructive">Please convert to USD in Excel</span>
-          )}
+      {/* Amount & Currency - Editable */}
+      <div className="shrink-0 flex flex-col items-end gap-1">
+        <div className="flex items-center gap-1">
+          <select
+            value={currency}
+            onChange={(e) => {
+              setCurrency(e.target.value);
+              onUpdateAmount(invoice.id, invoice.total_amount, e.target.value);
+            }}
+            className={`h-7 text-xs border rounded px-1 bg-background ${isNonUSD ? "text-destructive border-destructive" : ""}`}
+          >
+            <option value="USD">USD</option>
+            <option value="NAF">NAF</option>
+            <option value="EUR">EUR</option>
+            <option value="ANG">ANG</option>
+          </select>
+          <Input
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            onBlur={handleSaveAmount}
+            className={`w-24 h-7 text-xs text-right ${isNonUSD ? "text-destructive border-destructive" : ""}`}
+            placeholder="0.00"
+          />
         </div>
-      )}
+        {isNonUSD && (
+          <button
+            onClick={handleConvertToUSD}
+            className="text-[10px] text-destructive hover:underline"
+          >
+            Convert to USD
+          </button>
+        )}
+      </div>
 
       {/* Invoice Number */}
       <div className="flex items-center gap-2 shrink-0">
@@ -1182,17 +1255,28 @@ function InvoiceRow({ invoice, index, onView, onDownload, onUpdateNumber }: Invo
         />
       </div>
 
-      {/* Actions - Only show for items with actual PDF files */}
-      {hasViewableFile && (
-        <div className="flex items-center gap-1 shrink-0">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onView} title="View PDF">
-            <Eye className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onDownload} title="Download PDF">
-            <Download className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
+      {/* Actions */}
+      <div className="flex items-center gap-1 shrink-0">
+        {hasViewableFile && (
+          <>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onView} title="View PDF">
+              <Eye className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onDownload} title="Download PDF">
+              <Download className="w-4 h-4" />
+            </Button>
+          </>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={() => onDelete(invoice.id)}
+          title="Delete invoice"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 }
