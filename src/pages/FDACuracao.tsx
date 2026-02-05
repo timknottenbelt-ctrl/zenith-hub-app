@@ -809,9 +809,34 @@ export default function FDACuracao() {
     }
   }
 
-  async function handleSendToWebhook() {
+  // Check if project is already being processed or has been sent
+  function isProjectProcessing() {
+    return selectedProject?.status === 'processing' || selectedProject?.status === 'ready_to_send';
+  }
+
+  function isProjectSent() {
+    return selectedProject?.status === 'sent' || selectedProject?.status === 'email_sent';
+  }
+
+  // Navigate to email page without resending (for when processing is already happening)
+  function handleContinueToEmail() {
+    if (!selectedProject) return;
+    navigate(`/fda-curacao/email/${selectedProject.project_id}`);
+  }
+
+  async function handleSendToWebhook(forceResend = false) {
     if (!selectedProject) {
       toast({ title: "Error", description: "No project selected", variant: "destructive" });
+      return;
+    }
+
+    // If already processing and not forcing resend, just navigate to email page
+    if (isProjectProcessing() && !forceResend) {
+      toast({ 
+        title: "Al bezig met verwerken", 
+        description: "Navigeren naar email pagina...",
+      });
+      navigate(`/fda-curacao/email/${selectedProject.project_id}`);
       return;
     }
 
@@ -863,6 +888,8 @@ export default function FDACuracao() {
         invoice_files: invoiceFiles,
         invoice_count: projectInvoices.length,
         sent_at: new Date().toISOString(),
+        // Flag for force resend (useful for webhook to know if it should process everything again)
+        force_resend: forceResend,
       };
 
       // Save all form data including Port Call info before sending
@@ -907,7 +934,7 @@ export default function FDACuracao() {
         throw new Error(`Webhook error: ${response.status}`);
       }
 
-      toast({ title: "Success", description: "FDA sent successfully, redirecting..." });
+      toast({ title: "Success", description: "FDA wordt verwerkt, redirecting..." });
       
       // Navigate to the email page to show AI generating status
       navigate(`/fda-curacao/email/${selectedProject.project_id}`);
@@ -923,7 +950,6 @@ export default function FDACuracao() {
       setSending(false);
     }
   }
-
   function resetForm() {
     setFormData({
       lbh_number: "",
@@ -1029,7 +1055,21 @@ export default function FDACuracao() {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit className="w-4 h-4" />}
                 <span className="hidden sm:inline">Save</span>
               </Button>
-              {selectedProject.status === 'sent' && (
+              
+              {/* Show "Continue" button when processing is in progress */}
+              {isProjectProcessing() && (
+                <Button 
+                  variant="outline" 
+                  onClick={handleContinueToEmail}
+                  className="gap-2 border-primary text-primary hover:bg-primary/10"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span className="hidden sm:inline">Ga naar Email</span>
+                </Button>
+              )}
+              
+              {/* Show "View Email" button when project has been sent */}
+              {isProjectSent() && (
                 <Button 
                   variant="outline" 
                   onClick={() => navigate(`/fda-curacao/email/${selectedProject.project_id}`)}
@@ -1039,12 +1079,63 @@ export default function FDACuracao() {
                   <span className="hidden sm:inline">Bekijk Email</span>
                 </Button>
               )}
-              <Button onClick={handleSendToWebhook} disabled={sending} className="gap-2">
-                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                <span className="hidden sm:inline">{selectedProject.status === 'sent' ? 'Send FDA Again' : 'Send FDA'}</span>
-              </Button>
+              
+              {/* Dynamic Send/Process button */}
+              {isProjectProcessing() ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="secondary" disabled={sending} className="gap-2">
+                      {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      <span className="hidden sm:inline">Opnieuw verwerken</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Opnieuw verwerken?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Dit project wordt al verwerkt. Wil je de verwerking opnieuw starten? 
+                        Dit kan nodig zijn als je nieuwe facturen hebt geüpload.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleSendToWebhook(true)}>
+                        Ja, opnieuw verwerken
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <Button onClick={() => handleSendToWebhook(false)} disabled={sending} className="gap-2">
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  <span className="hidden sm:inline">{isProjectSent() ? 'Opnieuw versturen' : 'Send FDA'}</span>
+                </Button>
+              )}
             </div>
           </div>
+
+          {/* Processing Status Banner */}
+          {isProjectProcessing() && (
+            <Card className="border-primary/50 bg-primary/5">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                    <div>
+                      <p className="font-medium text-primary">Verwerking bezig</p>
+                      <p className="text-sm text-muted-foreground">
+                        De AI verwerkt je facturen. Je kunt doorgaan naar de email pagina of wachten.
+                      </p>
+                    </div>
+                  </div>
+                  <Button onClick={handleContinueToEmail} className="gap-2">
+                    <Mail className="w-4 h-4" />
+                    Ga naar Email
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Form Sections */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
