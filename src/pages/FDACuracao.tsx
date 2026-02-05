@@ -447,6 +447,7 @@ export default function FDACuracao() {
 
   const isProcessing = selectedProject?.status === "processing" || selectedProject?.status === "ready_to_send";
   const isSent = selectedProject?.status === "sent";
+  const hasBeenProcessed = isProcessing || isSent || selectedProject?.google_sheet_url;
   const currentStep = !selectedProject ? "setup" : invoices.length === 0 ? "setup" : showProcessing ? "processing" : "invoices";
 
   if (loading) {
@@ -482,17 +483,19 @@ export default function FDACuracao() {
                 Opslaan
               </Button>
               
-              {isProcessing ? (
-                <Button onClick={() => navigate(`/fda-curacao/email/${selectedProject.project_id}`)}>
+              {/* Show "Naar E-mail" if already processed */}
+              {hasBeenProcessed && (
+                <Button variant="secondary" onClick={() => navigate(`/fda-curacao/email/${selectedProject.project_id}`)}>
                   <Mail className="w-4 h-4 mr-2" />
                   Naar E-mail
                 </Button>
-              ) : (
-                <Button onClick={() => handleSendFDA(false)} disabled={sending || invoices.length === 0}>
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-                  {isSent ? "Opnieuw verzenden" : "Verstuur FDA"}
-                </Button>
               )}
+              
+              {/* Always show reprocess button if needed */}
+              <Button onClick={() => handleSendFDA(!!hasBeenProcessed)} disabled={sending || invoices.length === 0}>
+                {sending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                {hasBeenProcessed ? "Opnieuw verwerken" : "Verstuur FDA"}
+              </Button>
             </div>
           </div>
 
