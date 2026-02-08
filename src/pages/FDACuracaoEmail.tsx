@@ -889,8 +889,9 @@ export default function FDACuracaoEmail() {
           </Button>
         </div>
 
-        {/* Wizard Steps - Shows actual project status, not page location */}
+        {/* Wizard Steps - Navigation */}
         <FDACuracaoWizardSteps 
+          currentStep={hasDraft ? "email" : "processing"} 
           projectStatus={project?.status}
           hasInvoices={invoices.length > 0}
           hasDraft={hasDraft}
