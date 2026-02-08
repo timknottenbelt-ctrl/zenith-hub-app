@@ -5,11 +5,15 @@ import { motion } from "framer-motion";
 export type WizardStep = "setup" | "invoices" | "processing" | "email";
 
 interface WizardStepsProps {
+  /** Which page the user is currently viewing */
   currentStep: WizardStep;
+  /** The project's actual status from database */
   projectStatus?: string | null;
+  /** Whether the project has invoices uploaded */
   hasInvoices?: boolean;
+  /** Whether an email draft exists */
   hasDraft?: boolean;
-  projectId?: string;
+  /** Navigation callback */
   onNavigate?: (step: WizardStep) => void;
 }
 
@@ -20,66 +24,64 @@ const STEPS = [
   { id: "email" as const, label: "E-mail", icon: Mail },
 ];
 
-function getStepState(
-  stepId: WizardStep,
-  currentStep: WizardStep,
+/**
+ * Determines the HIGHEST completed step based on project progress.
+ * This is independent of which page the user is currently viewing.
+ */
+function getProjectProgress(
   projectStatus?: string | null,
   hasInvoices?: boolean,
   hasDraft?: boolean
-): "complete" | "current" | "upcoming" {
-  const stepOrder: WizardStep[] = ["setup", "invoices", "processing", "email"];
-  const currentIndex = stepOrder.indexOf(currentStep);
-  const stepIndex = stepOrder.indexOf(stepId);
-
-  // If project is sent, everything is complete
-  if (projectStatus === "sent") return "complete";
+): number {
+  // Project has been sent - all steps complete
+  if (projectStatus === "sent") return 4;
   
-  // If we're on email page and have a draft, processing is complete
-  if (stepId === "processing" && (hasDraft || projectStatus === "ready_to_send")) {
+  // Draft exists or ready to send - at email step
+  if (hasDraft || projectStatus === "ready_to_send") return 3;
+  
+  // Currently processing
+  if (projectStatus === "processing") return 2;
+  
+  // Has invoices uploaded
+  if (hasInvoices) return 1;
+  
+  // Just setup
+  return 0;
+}
+
+function getStepState(
+  stepIndex: number,
+  currentStepIndex: number,
+  projectProgress: number
+): "complete" | "current" | "upcoming" {
+  // Step is complete if project progress has passed it
+  if (stepIndex < projectProgress) {
     return "complete";
   }
   
-  // Email step is current when we have a draft or are ready to send
-  if (stepId === "email" && (hasDraft || projectStatus === "ready_to_send")) {
-    return currentStep === "email" ? "current" : "upcoming";
-  }
-  
-  // Setup is complete if we have invoices or moved past it
-  if (stepId === "setup") {
-    return hasInvoices || currentIndex > 0 ? "complete" : "current";
-  }
-  
-  // Invoices is complete if we have invoices and moved to processing/email
-  if (stepId === "invoices") {
-    if (hasInvoices && (currentIndex > 1 || projectStatus === "processing" || projectStatus === "ready_to_send")) {
-      return "complete";
+  // Step is at the project's current progress level
+  if (stepIndex === projectProgress) {
+    // If user is viewing this step, show as current
+    if (stepIndex === currentStepIndex) {
+      return "current";
     }
-    return hasInvoices ? (currentStep === "invoices" ? "current" : "complete") : "upcoming";
+    // Otherwise it's the project's frontier - show as current but user is elsewhere
+    return "current";
   }
   
-  // Processing is current when actively processing
-  if (stepId === "processing") {
-    if (projectStatus === "processing") return "current";
-    return stepIndex < currentIndex ? "complete" : stepIndex === currentIndex ? "current" : "upcoming";
-  }
-
-  return stepIndex < currentIndex ? "complete" : stepIndex === currentIndex ? "current" : "upcoming";
+  // Step is beyond project progress
+  return "upcoming";
 }
 
 function isStepClickable(
   stepId: WizardStep,
-  projectStatus?: string | null,
-  hasInvoices?: boolean
+  projectProgress: number
 ): boolean {
-  // Setup and invoices are always accessible
-  if (stepId === "setup" || stepId === "invoices") return true;
+  const stepOrder: WizardStep[] = ["setup", "invoices", "processing", "email"];
+  const stepIndex = stepOrder.indexOf(stepId);
   
-  // Processing and email are clickable if project has been processed or has invoices
-  if (stepId === "processing" || stepId === "email") {
-    return !!(projectStatus === "processing" || projectStatus === "ready_to_send" || projectStatus === "sent" || hasInvoices);
-  }
-  
-  return false;
+  // Can always go back to completed steps or current progress
+  return stepIndex <= projectProgress;
 }
 
 export function FDACuracaoWizardSteps({ 
@@ -89,20 +91,24 @@ export function FDACuracaoWizardSteps({
   hasDraft,
   onNavigate 
 }: WizardStepsProps) {
+  const stepOrder: WizardStep[] = ["setup", "invoices", "processing", "email"];
+  const currentStepIndex = stepOrder.indexOf(currentStep);
+  const projectProgress = getProjectProgress(projectStatus, hasInvoices, hasDraft);
+  
   return (
     <nav aria-label="Progress" className="mb-6">
       <ol className="flex items-center justify-between relative">
         {/* Background connector line */}
-        <div className="absolute top-5 left-0 right-0 h-0.5 bg-muted mx-[12.5%]" aria-hidden="true" />
+        <div className="absolute top-5 left-0 right-0 h-[2px] bg-border mx-[12.5%]" aria-hidden="true" />
         
         {STEPS.map((step, index) => {
-          const state = getStepState(step.id, currentStep, projectStatus, hasInvoices, hasDraft);
+          const state = getStepState(index, currentStepIndex, projectProgress);
+          const isViewing = index === currentStepIndex;
           const Icon = step.icon;
-          const clickable = isStepClickable(step.id, projectStatus, hasInvoices) && onNavigate;
+          const clickable = isStepClickable(step.id, projectProgress) && onNavigate;
           
-          // Calculate progress line width for this segment
-          const prevState = index > 0 ? getStepState(STEPS[index - 1].id, currentStep, projectStatus, hasInvoices, hasDraft) : null;
-          const showProgressLine = index > 0 && (prevState === "complete" || state === "complete" || state === "current");
+          // Show progress line if this step or previous is complete
+          const showProgressLine = index > 0 && index <= projectProgress;
           
           return (
             <li key={step.id} className="flex-1 relative z-10">
@@ -111,9 +117,8 @@ export function FDACuracaoWizardSteps({
                 <motion.div
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: showProgressLine ? 1 : 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.1, ease: "easeOut" }}
-                  className="absolute top-5 right-1/2 w-full h-0.5 bg-primary origin-right"
-                  style={{ transformOrigin: "right" }}
+                  transition={{ duration: 0.5, delay: index * 0.1, ease: "easeOut" }}
+                  className="absolute top-5 right-1/2 w-full h-[2px] bg-primary origin-right"
                   aria-hidden="true"
                 />
               )}
@@ -122,78 +127,71 @@ export function FDACuracaoWizardSteps({
                 type="button"
                 onClick={() => clickable && onNavigate(step.id)}
                 disabled={!clickable}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.08 }}
-                whileHover={clickable ? { scale: 1.05 } : {}}
-                whileTap={clickable ? { scale: 0.95 } : {}}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                whileHover={clickable ? { scale: 1.02 } : {}}
+                whileTap={clickable ? { scale: 0.98 } : {}}
                 className={cn(
                   "flex flex-col items-center relative w-full group",
                   clickable && "cursor-pointer",
-                  !clickable && "cursor-default"
+                  !clickable && "cursor-default opacity-50"
                 )}
               >
                 {/* Step circle */}
                 <motion.div
                   initial={false}
                   animate={{
-                    scale: state === "current" ? 1.1 : 1,
-                    backgroundColor: state === "complete" 
-                      ? "hsl(var(--primary))" 
-                      : state === "current" 
-                        ? "hsl(var(--primary) / 0.15)" 
-                        : "hsl(var(--muted))",
+                    scale: isViewing ? 1.05 : 1,
                   }}
-                  transition={{ duration: 0.3, type: "spring", stiffness: 300, damping: 25 }}
+                  transition={{ duration: 0.2, type: "spring", stiffness: 400, damping: 25 }}
                   className={cn(
-                    "w-11 h-11 rounded-full flex items-center justify-center shadow-sm",
-                    state === "complete" && "text-primary-foreground shadow-primary/25",
-                    state === "current" && "text-primary ring-2 ring-primary ring-offset-2 ring-offset-background shadow-primary/20",
-                    state === "upcoming" && "text-muted-foreground",
-                    clickable && "group-hover:shadow-md transition-shadow"
+                    "w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300",
+                    // Completed steps - solid primary
+                    state === "complete" && "bg-primary text-primary-foreground shadow-md shadow-primary/20",
+                    // Current step (project progress frontier) - ring style
+                    state === "current" && !isViewing && "bg-primary/10 text-primary ring-2 ring-primary/50",
+                    // Currently viewing this step - prominent ring
+                    state === "current" && isViewing && "bg-primary/15 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background shadow-lg shadow-primary/10",
+                    // Viewing a completed step - show it's selected
+                    state === "complete" && isViewing && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                    // Upcoming steps
+                    state === "upcoming" && "bg-muted text-muted-foreground"
                   )}
                 >
                   {state === "complete" ? (
                     <motion.div
                       initial={{ scale: 0, rotate: -45 }}
                       animate={{ scale: 1, rotate: 0 }}
-                      transition={{ duration: 0.3, type: "spring", stiffness: 400, damping: 20 }}
+                      transition={{ duration: 0.3, type: "spring", stiffness: 500, damping: 25 }}
                     >
                       <Check className="w-5 h-5" strokeWidth={2.5} />
                     </motion.div>
                   ) : (
-                    <Icon className={cn(
-                      "w-5 h-5 transition-transform",
-                      state === "current" && "animate-pulse"
-                    )} />
+                    <Icon className="w-5 h-5" />
                   )}
                 </motion.div>
                 
                 {/* Label */}
-                <motion.span
-                  initial={false}
-                  animate={{
-                    color: state === "current" 
-                      ? "hsl(var(--primary))" 
-                      : state === "complete"
-                        ? "hsl(var(--foreground))"
-                        : "hsl(var(--muted-foreground))",
-                    fontWeight: state === "current" ? 600 : 500,
-                  }}
-                  transition={{ duration: 0.2 }}
-                  className="mt-2.5 text-xs tracking-wide"
+                <span
+                  className={cn(
+                    "mt-2 text-xs font-medium transition-colors duration-200",
+                    isViewing && "text-primary font-semibold",
+                    !isViewing && state === "complete" && "text-foreground",
+                    !isViewing && state === "current" && "text-primary/80",
+                    state === "upcoming" && "text-muted-foreground"
+                  )}
                 >
                   {step.label}
-                </motion.span>
+                </span>
                 
-                {/* Active indicator dot */}
-                {state === "current" && (
+                {/* Active page indicator dot */}
+                {isViewing && (
                   <motion.div
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-primary"
+                    transition={{ duration: 0.2, delay: 0.1 }}
+                    className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-primary"
                   />
                 )}
               </motion.button>
