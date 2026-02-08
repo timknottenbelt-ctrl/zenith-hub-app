@@ -1191,7 +1191,9 @@ interface InvoiceRowProps {
 function InvoiceRow({ invoice, index, onView, onDownload, onUpdateNumber, onUpdateAmount, onDelete }: InvoiceRowProps) {
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoice_number || String(index + 1).padStart(3, "0"));
   const [amount, setAmount] = useState(invoice.total_amount?.toString() || "");
-  const [currency, setCurrency] = useState(invoice.currency || "USD");
+  // FIX: Properly read currency from database - normalize casing and only default to USD if truly null/empty
+  const normalizedCurrency = invoice.currency ? invoice.currency.toUpperCase() : null;
+  const [currency, setCurrency] = useState(normalizedCurrency || "USD");
 
   const handleSaveNumber = () => {
     if (invoiceNumber !== invoice.invoice_number) {
