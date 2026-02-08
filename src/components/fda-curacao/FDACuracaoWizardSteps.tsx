@@ -5,8 +5,6 @@ import { motion } from "framer-motion";
 export type WizardStep = "setup" | "invoices" | "processing" | "email";
 
 interface WizardStepsProps {
-  /** Which page the user is currently viewing */
-  currentStep: WizardStep;
   /** The project's actual status from database */
   projectStatus?: string | null;
   /** Whether the project has invoices uploaded */
@@ -25,16 +23,16 @@ const STEPS = [
 ];
 
 /**
- * Determines the HIGHEST completed step based on project progress.
- * This is independent of which page the user is currently viewing.
+ * Determines which step the project is CURRENTLY at based on status.
+ * Returns the step index (0-3).
  */
-function getProjectProgress(
+function getProjectCurrentStep(
   projectStatus?: string | null,
   hasInvoices?: boolean,
   hasDraft?: boolean
 ): number {
-  // Project has been sent - all steps complete
-  if (projectStatus === "sent") return 4;
+  // Project has been sent - email step is complete, show email as current
+  if (projectStatus === "sent") return 3;
   
   // Draft exists or ready to send - at email step
   if (hasDraft || projectStatus === "ready_to_send") return 3;
@@ -42,7 +40,7 @@ function getProjectProgress(
   // Currently processing
   if (projectStatus === "processing") return 2;
   
-  // Has invoices uploaded
+  // Has invoices uploaded - at invoices step
   if (hasInvoices) return 1;
   
   // Just setup
@@ -51,49 +49,43 @@ function getProjectProgress(
 
 function getStepState(
   stepIndex: number,
-  currentStepIndex: number,
-  projectProgress: number
+  projectCurrentStep: number,
+  projectStatus?: string | null
 ): "complete" | "current" | "upcoming" {
-  // Step is complete if project progress has passed it
-  if (stepIndex < projectProgress) {
+  // If project is sent, all steps are complete
+  if (projectStatus === "sent") {
     return "complete";
   }
   
-  // Step is at the project's current progress level
-  if (stepIndex === projectProgress) {
-    // If user is viewing this step, show as current
-    if (stepIndex === currentStepIndex) {
-      return "current";
-    }
-    // Otherwise it's the project's frontier - show as current but user is elsewhere
+  // Step is before the current project step - it's complete
+  if (stepIndex < projectCurrentStep) {
+    return "complete";
+  }
+  
+  // Step is at the current project step - it's active
+  if (stepIndex === projectCurrentStep) {
     return "current";
   }
   
-  // Step is beyond project progress
+  // Step is after the current project step - upcoming
   return "upcoming";
 }
 
 function isStepClickable(
-  stepId: WizardStep,
-  projectProgress: number
+  stepIndex: number,
+  projectCurrentStep: number
 ): boolean {
-  const stepOrder: WizardStep[] = ["setup", "invoices", "processing", "email"];
-  const stepIndex = stepOrder.indexOf(stepId);
-  
-  // Can always go back to completed steps or current progress
-  return stepIndex <= projectProgress;
+  // Can click on completed steps and current step
+  return stepIndex <= projectCurrentStep;
 }
 
 export function FDACuracaoWizardSteps({ 
-  currentStep, 
   projectStatus, 
   hasInvoices, 
   hasDraft,
   onNavigate 
 }: WizardStepsProps) {
-  const stepOrder: WizardStep[] = ["setup", "invoices", "processing", "email"];
-  const currentStepIndex = stepOrder.indexOf(currentStep);
-  const projectProgress = getProjectProgress(projectStatus, hasInvoices, hasDraft);
+  const projectCurrentStep = getProjectCurrentStep(projectStatus, hasInvoices, hasDraft);
   
   return (
     <nav aria-label="Progress" className="mb-6">
@@ -102,13 +94,12 @@ export function FDACuracaoWizardSteps({
         <div className="absolute top-5 left-0 right-0 h-[2px] bg-border mx-[12.5%]" aria-hidden="true" />
         
         {STEPS.map((step, index) => {
-          const state = getStepState(index, currentStepIndex, projectProgress);
-          const isViewing = index === currentStepIndex;
+          const state = getStepState(index, projectCurrentStep, projectStatus);
           const Icon = step.icon;
-          const clickable = isStepClickable(step.id, projectProgress) && onNavigate;
+          const clickable = isStepClickable(index, projectCurrentStep) && onNavigate;
           
-          // Show progress line if this step or previous is complete
-          const showProgressLine = index > 0 && index <= projectProgress;
+          // Show progress line if this step is complete or current
+          const showProgressLine = index > 0 && index <= projectCurrentStep;
           
           return (
             <li key={step.id} className="flex-1 relative z-10">
@@ -142,20 +133,16 @@ export function FDACuracaoWizardSteps({
                 <motion.div
                   initial={false}
                   animate={{
-                    scale: isViewing ? 1.05 : 1,
+                    scale: state === "current" ? 1.05 : 1,
                   }}
                   transition={{ duration: 0.2, type: "spring", stiffness: 400, damping: 25 }}
                   className={cn(
                     "w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300",
-                    // Completed steps - solid primary
+                    // Completed steps - solid primary with checkmark
                     state === "complete" && "bg-primary text-primary-foreground shadow-md shadow-primary/20",
-                    // Current step (project progress frontier) - ring style
-                    state === "current" && !isViewing && "bg-primary/10 text-primary ring-2 ring-primary/50",
-                    // Currently viewing this step - prominent ring
-                    state === "current" && isViewing && "bg-primary/15 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background shadow-lg shadow-primary/10",
-                    // Viewing a completed step - show it's selected
-                    state === "complete" && isViewing && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-                    // Upcoming steps
+                    // Current step - prominent ring style (this is where the project IS)
+                    state === "current" && "bg-primary/15 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background shadow-lg shadow-primary/10",
+                    // Upcoming steps - muted
                     state === "upcoming" && "bg-muted text-muted-foreground"
                   )}
                 >
@@ -176,17 +163,16 @@ export function FDACuracaoWizardSteps({
                 <span
                   className={cn(
                     "mt-2 text-xs font-medium transition-colors duration-200",
-                    isViewing && "text-primary font-semibold",
-                    !isViewing && state === "complete" && "text-foreground",
-                    !isViewing && state === "current" && "text-primary/80",
+                    state === "current" && "text-primary font-semibold",
+                    state === "complete" && "text-foreground",
                     state === "upcoming" && "text-muted-foreground"
                   )}
                 >
                   {step.label}
                 </span>
                 
-                {/* Active page indicator dot */}
-                {isViewing && (
+                {/* Current step indicator dot */}
+                {state === "current" && (
                   <motion.div
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
