@@ -464,6 +464,10 @@ export default function FDACuracao() {
       if (!response.ok) throw new Error(`Webhook error: ${response.status}`);
 
       setShowProcessing(true);
+      
+      // Refetch project to update wizard status
+      await fetchProjects();
+      
       toast({ title: "Verzonden", description: "Verwerking gestart..." });
 
     } catch (error) {
@@ -556,7 +560,10 @@ export default function FDACuracao() {
           {showProcessing && (
             <FDACuracaoProcessingStatus
               projectId={selectedProject.project_id}
-              onComplete={() => {}}
+              onComplete={async () => {
+                // Refetch to update wizard when processing completes
+                await fetchProjects();
+              }}
               onNavigateToEmail={() => navigate(`/fda-curacao/email/${selectedProject.project_id}`)}
             />
           )}
