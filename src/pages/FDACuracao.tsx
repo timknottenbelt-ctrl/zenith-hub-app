@@ -539,9 +539,8 @@ export default function FDACuracao() {
             </div>
           </div>
 
-          {/* Wizard Steps - Clickable navigation */}
+          {/* Wizard Steps - Shows actual project status, not page location */}
           <FDACuracaoWizardSteps 
-            currentStep={currentStep} 
             projectStatus={selectedProject.status}
             hasInvoices={invoices.length > 0}
             hasDraft={false}
