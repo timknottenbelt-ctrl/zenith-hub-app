@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTransitionNavigate } from "@/hooks/useTransitionNavigate";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -136,6 +137,22 @@ const WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/invoice-upload-cur
 export default function FDACuracao() {
   const { t } = useLanguage();
   const navigate = useTransitionNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const setProjectInUrl = useCallback(
+    (projectId: string) => {
+      const next = new URLSearchParams(searchParams);
+      next.set("project", projectId);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const clearProjectInUrl = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("project");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   
   const [projects, setProjects] = useState<FDAProject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,6 +171,18 @@ export default function FDACuracao() {
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  useEffect(() => {
+    const projectId = searchParams.get("project");
+    if (!projectId) return;
+
+    const found = projects.find((p) => p.project_id === projectId);
+    if (!found) return;
+
+    if (!selectedProject || selectedProject.project_id !== found.project_id) {
+      setSelectedProject(found);
+    }
+  }, [projects, searchParams, selectedProject]);
 
   useEffect(() => {
     if (selectedProject) {
@@ -305,7 +334,10 @@ export default function FDACuracao() {
       setShowCreateDialog(false);
       setFormData(INITIAL_FORM);
       await fetchProjects();
-      if (data) setSelectedProject(data);
+      if (data) {
+        setProjectInUrl(data.project_id);
+        setSelectedProject(data);
+      }
     }
     setSaving(false);
   }
@@ -358,6 +390,7 @@ export default function FDACuracao() {
       toast({ title: "Fout", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Verwijderd" });
+      clearProjectInUrl();
       setSelectedProject(null);
       await fetchProjects();
     }
@@ -468,7 +501,14 @@ export default function FDACuracao() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={() => setSelectedProject(null)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  clearProjectInUrl();
+                  setSelectedProject(null);
+                }}
+              >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
@@ -950,7 +990,10 @@ export default function FDACuracao() {
               <FDACuracaoProjectCard
                 key={project.id}
                 project={project}
-                onClick={() => setSelectedProject(project)}
+                onClick={() => {
+                  setProjectInUrl(project.project_id);
+                  setSelectedProject(project);
+                }}
                 isNew={i === 0 && new Date(project.created_at || "").getTime() > Date.now() - 60000}
               />
             ))}
