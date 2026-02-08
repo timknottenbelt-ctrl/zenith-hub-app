@@ -527,14 +527,6 @@ export default function FDACuracao() {
                 Opslaan
               </Button>
               
-              {/* Show "Naar E-mail" if already processed */}
-              {hasBeenProcessed && (
-                <Button variant="secondary" onClick={() => navigate(`/fda-curacao/email/${selectedProject.project_id}`)}>
-                  <Mail className="w-4 h-4 mr-2" />
-                  Naar E-mail
-                </Button>
-              )}
-              
               {/* Always show reprocess button if needed */}
               <Button onClick={() => handleSendFDA(!!hasBeenProcessed)} disabled={sending || invoices.length === 0}>
                 {sending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
