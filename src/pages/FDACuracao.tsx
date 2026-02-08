@@ -465,8 +465,8 @@ export default function FDACuracao() {
 
       setShowProcessing(true);
       
-      // Refetch project to update wizard status
-      await fetchProjects();
+      // Update local selectedProject status without full refetch to prevent screen flash
+      setSelectedProject(prev => prev ? { ...prev, status: "processing" } : null);
       
       toast({ title: "Verzonden", description: "Verwerking gestart..." });
 

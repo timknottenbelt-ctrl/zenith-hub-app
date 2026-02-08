@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
 import { Check, FileText, Settings, Mail, Send } from "lucide-react";
-import { motion } from "framer-motion";
 
 export type WizardStep = "setup" | "invoices" | "processing" | "email";
 
@@ -31,7 +30,7 @@ function getProjectCurrentStep(
   hasInvoices?: boolean,
   hasDraft?: boolean
 ): number {
-  // Project has been sent - email step is complete, show email as current
+  // Project has been sent - email step is complete
   if (projectStatus === "sent") return 3;
   
   // Draft exists or ready to send - at email step
@@ -98,7 +97,7 @@ export function FDACuracaoWizardSteps({
         
         {/* Animated progress overlay line */}
         <div 
-          className="absolute top-6 left-[12.5%] h-0.5 bg-primary transition-all duration-500 ease-out"
+          className="absolute top-6 left-[12.5%] h-0.5 bg-primary transition-all duration-300 ease-out"
           style={{
             width: `${(projectCurrentStep / (STEPS.length - 1)) * 75}%`,
           }}
@@ -112,50 +111,34 @@ export function FDACuracaoWizardSteps({
           
           return (
             <li key={step.id} className="flex-1 relative z-10">
-              <motion.button
+              <button
                 type="button"
                 onClick={() => clickable && onNavigate(step.id)}
                 disabled={!clickable}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
-                whileHover={clickable ? { scale: 1.02 } : {}}
-                whileTap={clickable ? { scale: 0.98 } : {}}
                 className={cn(
-                  "flex flex-col items-center relative w-full group",
-                  clickable && "cursor-pointer",
+                  "flex flex-col items-center relative w-full group transition-transform duration-150",
+                  clickable && "cursor-pointer hover:scale-[1.02] active:scale-[0.98]",
                   !clickable && "cursor-default opacity-50"
                 )}
               >
                 {/* Step circle */}
-                <motion.div
-                  initial={false}
-                  animate={{
-                    scale: state === "current" ? 1.1 : 1,
-                  }}
-                  transition={{ duration: 0.2, type: "spring", stiffness: 400, damping: 25 }}
+                <div
                   className={cn(
                     "w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 border-2",
                     // Completed steps - solid primary with checkmark
                     state === "complete" && "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20",
-                    // Current step - prominent ring style (this is where the project IS)
-                    state === "current" && "bg-primary/15 border-primary text-primary ring-4 ring-primary/20 shadow-lg shadow-primary/10",
+                    // Current step - prominent ring style
+                    state === "current" && "bg-primary/15 border-primary text-primary ring-4 ring-primary/20 shadow-lg shadow-primary/10 scale-110",
                     // Upcoming steps - muted
                     state === "upcoming" && "bg-muted border-muted-foreground/30 text-muted-foreground"
                   )}
                 >
                   {state === "complete" ? (
-                    <motion.div
-                      initial={{ scale: 0, rotate: -45 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ duration: 0.3, type: "spring", stiffness: 500, damping: 25 }}
-                    >
-                      <Check className="w-5 h-5" strokeWidth={2.5} />
-                    </motion.div>
+                    <Check className="w-5 h-5" strokeWidth={2.5} />
                   ) : (
                     <Icon className="w-5 h-5" />
                   )}
-                </motion.div>
+                </div>
                 
                 {/* Label */}
                 <span
@@ -171,14 +154,9 @@ export function FDACuracaoWizardSteps({
                 
                 {/* Current step indicator dot */}
                 {state === "current" && (
-                  <motion.div
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.2, delay: 0.1 }}
-                    className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-primary"
-                  />
+                  <div className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-primary" />
                 )}
-              </motion.button>
+              </button>
             </li>
           );
         })}
