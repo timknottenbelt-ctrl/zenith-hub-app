@@ -37,7 +37,7 @@ function getProjectCurrentStep(
   // Draft exists or ready to send - at email step
   if (hasDraft || projectStatus === "ready_to_send") return 3;
   
-  // Currently processing
+  // Currently processing - at processing step
   if (projectStatus === "processing") return 2;
   
   // Has invoices uploaded - at invoices step
@@ -90,30 +90,28 @@ export function FDACuracaoWizardSteps({
   return (
     <nav aria-label="Progress" className="mb-6">
       <ol className="flex items-center justify-between relative">
-        {/* Background connector line */}
-        <div className="absolute top-5 left-0 right-0 h-[2px] bg-border mx-[12.5%]" aria-hidden="true" />
+        {/* Static background connector line - always visible */}
+        <div 
+          className="absolute top-6 left-[12.5%] right-[12.5%] h-0.5 bg-border" 
+          aria-hidden="true" 
+        />
+        
+        {/* Animated progress overlay line */}
+        <div 
+          className="absolute top-6 left-[12.5%] h-0.5 bg-primary transition-all duration-500 ease-out"
+          style={{
+            width: `${(projectCurrentStep / (STEPS.length - 1)) * 75}%`,
+          }}
+          aria-hidden="true" 
+        />
         
         {STEPS.map((step, index) => {
           const state = getStepState(index, projectCurrentStep, projectStatus);
           const Icon = step.icon;
           const clickable = isStepClickable(index, projectCurrentStep) && onNavigate;
           
-          // Show progress line if this step is complete or current
-          const showProgressLine = index > 0 && index <= projectCurrentStep;
-          
           return (
             <li key={step.id} className="flex-1 relative z-10">
-              {/* Animated progress line */}
-              {index > 0 && (
-                <motion.div
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: showProgressLine ? 1 : 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1, ease: "easeOut" }}
-                  className="absolute top-5 right-1/2 w-full h-[2px] bg-primary origin-right"
-                  aria-hidden="true"
-                />
-              )}
-              
               <motion.button
                 type="button"
                 onClick={() => clickable && onNavigate(step.id)}
@@ -133,17 +131,17 @@ export function FDACuracaoWizardSteps({
                 <motion.div
                   initial={false}
                   animate={{
-                    scale: state === "current" ? 1.05 : 1,
+                    scale: state === "current" ? 1.1 : 1,
                   }}
                   transition={{ duration: 0.2, type: "spring", stiffness: 400, damping: 25 }}
                   className={cn(
-                    "w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300",
+                    "w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 border-2",
                     // Completed steps - solid primary with checkmark
-                    state === "complete" && "bg-primary text-primary-foreground shadow-md shadow-primary/20",
+                    state === "complete" && "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20",
                     // Current step - prominent ring style (this is where the project IS)
-                    state === "current" && "bg-primary/15 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background shadow-lg shadow-primary/10",
+                    state === "current" && "bg-primary/15 border-primary text-primary ring-4 ring-primary/20 shadow-lg shadow-primary/10",
                     // Upcoming steps - muted
-                    state === "upcoming" && "bg-muted text-muted-foreground"
+                    state === "upcoming" && "bg-muted border-muted-foreground/30 text-muted-foreground"
                   )}
                 >
                   {state === "complete" ? (
