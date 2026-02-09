@@ -464,6 +464,10 @@ export default function FDACuracao() {
       if (!response.ok) throw new Error(`Webhook error: ${response.status}`);
 
       setShowProcessing(true);
+      
+      // Update local selectedProject status without full refetch to prevent screen flash
+      setSelectedProject(prev => prev ? { ...prev, status: "processing" } : null);
+      
       toast({ title: "Verzonden", description: "Verwerking gestart..." });
 
     } catch (error) {
@@ -523,14 +527,6 @@ export default function FDACuracao() {
                 Opslaan
               </Button>
               
-              {/* Show "Naar E-mail" if already processed */}
-              {hasBeenProcessed && (
-                <Button variant="secondary" onClick={() => navigate(`/fda-curacao/email/${selectedProject.project_id}`)}>
-                  <Mail className="w-4 h-4 mr-2" />
-                  Naar E-mail
-                </Button>
-              )}
-              
               {/* Always show reprocess button if needed */}
               <Button onClick={() => handleSendFDA(!!hasBeenProcessed)} disabled={sending || invoices.length === 0}>
                 {sending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
@@ -539,9 +535,8 @@ export default function FDACuracao() {
             </div>
           </div>
 
-          {/* Wizard Steps - Clickable navigation */}
+          {/* Wizard Steps - Shows actual project status, not page location */}
           <FDACuracaoWizardSteps 
-            currentStep={currentStep} 
             projectStatus={selectedProject.status}
             hasInvoices={invoices.length > 0}
             hasDraft={false}
@@ -557,7 +552,10 @@ export default function FDACuracao() {
           {showProcessing && (
             <FDACuracaoProcessingStatus
               projectId={selectedProject.project_id}
-              onComplete={() => {}}
+              onComplete={async () => {
+                // Refetch to update wizard when processing completes
+                await fetchProjects();
+              }}
               onNavigateToEmail={() => navigate(`/fda-curacao/email/${selectedProject.project_id}`)}
             />
           )}
