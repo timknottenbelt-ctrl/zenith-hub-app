@@ -1082,7 +1082,7 @@ export default function FDACuracaoEmail() {
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
                     placeholder="Email body..."
-                    className="min-h-[200px]"
+                    className="min-h-[200px] whitespace-pre-wrap"
                   />
                 </div>
 
