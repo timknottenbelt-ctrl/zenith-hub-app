@@ -83,6 +83,11 @@ const SEND_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/send-to-urugu
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
 
+/** Convert literal escaped \n sequences to real newlines */
+function unescapeNewlines(text: string): string {
+  return text.replace(/\\n/g, "\n");
+}
+
 // Buckets that are explicitly public in this project.
 // (If you later make more buckets public, add them here so webhook URLs become permanent public links.)
 const PUBLIC_BUCKETS = new Set(["avatars", "fda-final-packages"]);
@@ -306,7 +311,7 @@ export default function FDACuracaoEmail() {
       }
 
       setSubject(draftData.email_subject);
-      setBody(draftData.email_body);
+      setBody(unescapeNewlines(draftData.email_body));
     } else if (projectData.status === "sent" || projectData.status === "completed" || projectData.status === "ready_to_send") {
       // For already sent projects, use the stored email data from project
       if (projectData.client_email) {
@@ -320,7 +325,7 @@ export default function FDACuracaoEmail() {
         setSubject(projectData.email_subject);
       }
       if (projectData.email_body) {
-        setBody(projectData.email_body);
+        setBody(unescapeNewlines(projectData.email_body));
       }
     }
   }, [projectId, navigate]);
@@ -374,7 +379,7 @@ export default function FDACuracaoEmail() {
           setCcEmails(ccList);
 
           setSubject(draftData.email_subject || "");
-          setBody(draftData.email_body || "");
+          setBody(unescapeNewlines(draftData.email_body || ""));
         }
       }
 
