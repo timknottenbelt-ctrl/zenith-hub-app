@@ -529,10 +529,35 @@ export default function FDACuracao() {
               </Button>
               
               {/* Always show reprocess button if needed */}
-              <Button onClick={() => handleSendFDA(!!hasBeenProcessed)} disabled={sending || invoices.length === 0}>
-                {sending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-                {hasBeenProcessed ? "Opnieuw verwerken" : "Verstuur FDA"}
-              </Button>
+              {hasBeenProcessed ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button disabled={sending || invoices.length === 0}>
+                      {sending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                      Opnieuw verwerken
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Opnieuw verwerken?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Dit project is al eerder verwerkt. Weet je zeker dat je alle facturen opnieuw wilt laten verwerken? Dit kan 1-2 minuten duren.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleSendFDA(true)}>
+                        Ja, opnieuw verwerken
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <Button onClick={() => handleSendFDA(false)} disabled={sending || invoices.length === 0}>
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                  Verstuur FDA
+                </Button>
+              )}
             </div>
           </div>
 
