@@ -445,6 +445,7 @@ export default function FDACuracao() {
           number: r.number,
           remark: r.remark,
           amount: r.amount ? parseFloat(r.amount) : null,
+          currency: formData.advanced_payment_currency || "USD",
         })),
         invoice_files: invoices.map(inv => ({
           file_name: inv.file_name,
@@ -483,7 +484,7 @@ export default function FDACuracao() {
   }
 
   const isProcessing = selectedProject?.status === "processing" || selectedProject?.status === "ready_to_send";
-  const isSent = selectedProject?.status === "sent";
+  const isSent = selectedProject?.status === "sent" || selectedProject?.status === "completed";
   const hasBeenProcessed = isProcessing || isSent || selectedProject?.google_sheet_url;
   const currentStep = !selectedProject ? "setup" : invoices.length === 0 ? "setup" : showProcessing ? "processing" : "invoices";
 
