@@ -412,6 +412,14 @@ export default function FDACuracao() {
       // Save everything first
       await handleSaveProject();
 
+      // If force resend, delete old processed invoices to prevent duplicates
+      if (forceResend) {
+        await supabase
+          .from("fda_curacao_processed_invoices")
+          .delete()
+          .eq("project_id", selectedProject.project_id);
+      }
+
       // Update status to processing
       await supabase
         .from("fda_curacao_projects")
