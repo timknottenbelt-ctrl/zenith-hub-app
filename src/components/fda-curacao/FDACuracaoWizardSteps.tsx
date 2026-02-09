@@ -52,30 +52,28 @@ export function FDACuracaoWizardSteps({
   onNavigate,
 }: WizardStepsProps) {
   const projectCurrentStep = getProjectCurrentStep(projectStatus, hasInvoices, hasDraft);
-  const progressWidth = (projectCurrentStep / (STEPS.length - 1)) * 75;
 
   return (
-    <nav aria-label="Progress" className="mb-6 bg-card rounded-xl border shadow-sm p-6">
+    <nav aria-label="Progress" className="mb-6 bg-card rounded-xl border shadow-sm px-8 py-6">
       <ol className="flex items-center justify-between relative">
         {/* Background line */}
         <div
-          className="absolute top-6 left-[12.5%] right-[12.5%] h-0.5 bg-border"
+          className="absolute top-5 left-[12.5%] right-[12.5%] h-[3px] bg-border rounded-full"
           aria-hidden="true"
         />
 
         {/* Animated progress line */}
         <motion.div
-          className="absolute top-6 left-[12.5%] h-0.5 bg-primary origin-left"
+          className="absolute top-5 left-[12.5%] h-[3px] bg-primary rounded-full origin-left"
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
-          style={{ width: `${progressWidth}%` }}
+          style={{ width: `${(projectCurrentStep / (STEPS.length - 1)) * 75}%` }}
           transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
           aria-hidden="true"
         />
 
         {STEPS.map((step, index) => {
           const state = getStepState(index, projectCurrentStep, projectStatus);
-          const Icon = step.icon;
           const clickable = isStepClickable(index, projectCurrentStep) && !!onNavigate;
 
           return (
@@ -94,25 +92,25 @@ export function FDACuracaoWizardSteps({
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{
-                    scale: state === "current" ? 1.15 : 1,
+                    scale: state === "current" ? 1.1 : 1,
                     opacity: 1,
                   }}
                   transition={{
                     type: "spring",
                     stiffness: 400,
                     damping: 25,
-                    delay: index * 0.08,
+                    delay: index * 0.06,
                   }}
-                  whileHover={clickable ? { scale: state === "current" ? 1.2 : 1.08 } : undefined}
+                  whileHover={clickable ? { scale: state === "current" ? 1.15 : 1.08 } : undefined}
                   whileTap={clickable ? { scale: 0.95 } : undefined}
                   className={cn(
-                    "w-12 h-12 rounded-full flex items-center justify-center border-2 relative",
+                    "w-10 h-10 rounded-full flex items-center justify-center transition-shadow",
                     state === "complete" &&
-                      "bg-primary border-primary text-primary-foreground shadow-md",
+                      "bg-primary text-primary-foreground shadow-md shadow-primary/25",
                     state === "current" &&
-                      "bg-primary/15 border-primary text-primary ring-4 ring-primary/20 shadow-lg",
+                      "bg-primary/15 border-2 border-primary text-primary shadow-lg shadow-primary/20",
                     state === "upcoming" &&
-                      "bg-muted border-muted-foreground/30 text-muted-foreground"
+                      "bg-muted border-2 border-muted-foreground/20 text-muted-foreground"
                   )}
                 >
                   {state === "complete" ? (
@@ -121,19 +119,10 @@ export function FDACuracaoWizardSteps({
                       animate={{ scale: 1, rotate: 0 }}
                       transition={{ type: "spring", stiffness: 500, damping: 20 }}
                     >
-                      <Check className="w-5 h-5" strokeWidth={2.5} />
+                      <Check className="w-4 h-4" strokeWidth={3} />
                     </motion.div>
                   ) : (
-                    <Icon className="w-5 h-5" />
-                  )}
-
-                  {/* Pulse ring on current step */}
-                  {state === "current" && (
-                    <motion.div
-                      className="absolute inset-0 rounded-full border-2 border-primary/40"
-                      animate={{ scale: [1, 1.4], opacity: [0.6, 0] }}
-                      transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
-                    />
+                    <step.icon className="w-4 h-4" />
                   )}
                 </motion.div>
 
@@ -141,7 +130,7 @@ export function FDACuracaoWizardSteps({
                 <motion.span
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.08 + 0.15 }}
+                  transition={{ delay: index * 0.06 + 0.1 }}
                   className={cn(
                     "mt-2 text-xs font-medium",
                     state === "current" && "text-primary font-semibold",
