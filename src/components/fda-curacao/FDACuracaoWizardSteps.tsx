@@ -55,7 +55,7 @@ export function FDACuracaoWizardSteps({
   const progressWidth = (projectCurrentStep / (STEPS.length - 1)) * 75;
 
   return (
-    <nav aria-label="Progress" className="mb-6">
+    <nav aria-label="Progress" className="mb-6 bg-card rounded-xl border shadow-sm p-6">
       <ol className="flex items-center justify-between relative">
         {/* Background line */}
         <div
