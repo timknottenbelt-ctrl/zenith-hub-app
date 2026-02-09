@@ -18,25 +18,53 @@ interface FDACuracaoProcessingStatusProps {
   projectId: string;
   onComplete: () => void;
   onNavigateToEmail: () => void;
+  initialSheetUrl?: string | null;
+  initialAgencyCostUrl?: string | null;
+  initialStatus?: string | null;
+}
+
+function getInitialSteps(
+  sheetUrl?: string | null,
+  agencyCostUrl?: string | null,
+  status?: string | null
+): ProcessingStep[] {
+  const alreadyDone = status === "ready_to_send" || status === "sent" || status === "completed";
+  const hasSheet = !!sheetUrl;
+  const hasAgency = !!agencyCostUrl;
+
+  return [
+    { id: "extract", label: "Facturen verwerken", icon: FileText, status: hasSheet || alreadyDone ? "complete" : "processing" },
+    { id: "sheet", label: "Excel genereren", icon: FileText, status: hasSheet || alreadyDone ? "complete" : "pending", url: sheetUrl },
+    { id: "agency", label: "Agency factuur", icon: Receipt, status: hasAgency || alreadyDone ? "complete" : hasSheet ? "processing" : "pending", url: agencyCostUrl },
+    { id: "email", label: "E-mail voorbereiden", icon: Mail, status: alreadyDone ? "complete" : hasAgency ? "processing" : "pending" },
+  ];
 }
 
 export function FDACuracaoProcessingStatus({
   projectId,
   onComplete,
   onNavigateToEmail,
+  initialSheetUrl,
+  initialAgencyCostUrl,
+  initialStatus,
 }: FDACuracaoProcessingStatusProps) {
-  const [steps, setSteps] = useState<ProcessingStep[]>([
-    { id: "extract", label: "Facturen verwerken", icon: FileText, status: "processing" },
-    { id: "sheet", label: "Excel genereren", icon: FileText, status: "pending" },
-    { id: "agency", label: "Agency factuur", icon: Receipt, status: "pending" },
-    { id: "email", label: "E-mail voorbereiden", icon: Mail, status: "pending" },
-  ]);
+  const initiallyComplete = initialStatus === "ready_to_send" || initialStatus === "sent" || initialStatus === "completed";
   
-  const [isComplete, setIsComplete] = useState(false);
+  const [steps, setSteps] = useState<ProcessingStep[]>(() =>
+    getInitialSteps(initialSheetUrl, initialAgencyCostUrl, initialStatus)
+  );
+  
+  const [isComplete, setIsComplete] = useState(initiallyComplete);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const triesRef = useRef(0);
 
   useEffect(() => {
+    // If already complete on mount, notify parent and skip polling
+    if (initiallyComplete) {
+      onComplete();
+      return;
+    }
+
     const poll = async () => {
       triesRef.current += 1;
       

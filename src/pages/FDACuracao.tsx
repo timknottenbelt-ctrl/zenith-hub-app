@@ -632,8 +632,10 @@ export default function FDACuracao() {
           {showProcessing && (
             <FDACuracaoProcessingStatus
               projectId={selectedProject.project_id}
+              initialSheetUrl={selectedProject.google_sheet_url}
+              initialAgencyCostUrl={selectedProject.agency_cost_url}
+              initialStatus={selectedProject.status}
               onComplete={async () => {
-                // Refetch to update wizard when processing completes
                 await fetchProjects();
               }}
               onNavigateToEmail={() => navigate(`/fda-curacao/email/${selectedProject.project_id}`)}
