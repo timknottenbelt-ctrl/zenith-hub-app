@@ -535,6 +535,48 @@ export default function FDACuracao() {
               <Button variant="ghost" size="icon" onClick={() => { fetchProjects(); if (selectedProject) loadProjectData(selectedProject); }} title="Vernieuwen">
                 <RefreshCw className="w-4 h-4" />
               </Button>
+
+              {/* Delete project */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon" title="Project verwijderen">
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Project verwijderen?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Dit verwijdert het project "{formData.ship_name}" ({formData.lbh_number}) inclusief alle facturen en gerelateerde data. Dit kan niet ongedaan worden gemaakt.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={async () => {
+                        try {
+                          // Delete related data first
+                          await supabase.from("fda_curacao_processed_invoices").delete().eq("project_id", selectedProject.project_id);
+                          await supabase.from("fda_curacao_agency_costs").delete().eq("project_id", selectedProject.id);
+                          await supabase.from("fda_email_drafts").delete().eq("project_id", selectedProject.id);
+                          // Delete the project
+                          await supabase.from("fda_curacao_projects").delete().eq("project_id", selectedProject.project_id);
+                          toast({ title: "Verwijderd", description: "Project is verwijderd" });
+                          clearProjectInUrl();
+                          setSelectedProject(null);
+                          fetchProjects(true);
+                        } catch (err) {
+                          toast({ title: "Fout", description: "Kon project niet verwijderen", variant: "destructive" });
+                        }
+                      }}
+                    >
+                      Ja, verwijderen
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
               <Button variant="outline" onClick={handleSaveProject} disabled={saving}>
                 {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 Opslaan
