@@ -40,6 +40,7 @@ import {
   Package,
   DollarSign,
   CreditCard,
+  RefreshCw,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -169,7 +170,7 @@ export default function FDACuracao() {
   const [formData, setFormData] = useState<FDAFormData>(INITIAL_FORM);
 
   useEffect(() => {
-    fetchProjects();
+    fetchProjects(true);
   }, []);
 
   useEffect(() => {
@@ -190,15 +191,15 @@ export default function FDACuracao() {
     }
   }, [selectedProject?.id]);
 
-  async function fetchProjects() {
-    setLoading(true);
+  async function fetchProjects(showLoader = false) {
+    if (showLoader) setLoading(true);
     const { data, error } = await supabase
       .from("fda_curacao_projects")
       .select("*")
       .order("created_at", { ascending: false });
 
     if (!error) setProjects(data || []);
-    setLoading(false);
+    if (showLoader) setLoading(false);
   }
 
   async function loadProjectData(project: FDAProject) {
@@ -523,6 +524,9 @@ export default function FDACuracao() {
             </div>
             
             <div className="flex gap-2">
+              <Button variant="ghost" size="icon" onClick={() => { fetchProjects(); if (selectedProject) loadProjectData(selectedProject); }} title="Vernieuwen">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
               <Button variant="outline" onClick={handleSaveProject} disabled={saving}>
                 {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 Opslaan
