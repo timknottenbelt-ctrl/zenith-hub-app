@@ -307,7 +307,7 @@ export default function FDACuracaoEmail() {
 
       setSubject(draftData.email_subject);
       setBody(draftData.email_body);
-    } else if (projectData.status === "sent") {
+    } else if (projectData.status === "sent" || projectData.status === "completed" || projectData.status === "ready_to_send") {
       // For already sent projects, use the stored email data from project
       if (projectData.client_email) {
         const toList = projectData.client_email
@@ -855,7 +855,7 @@ export default function FDACuracaoEmail() {
   }
 
   // Check what's still loading - also consider already sent projects as "ready"
-  const hasDraft = emailDraft?.status === "draft" || project?.status === "sent";
+  const hasDraft = emailDraft?.status === "draft" || project?.status === "sent" || project?.status === "completed" || project?.status === "ready_to_send";
   const hasGoogleSheet = !!project?.google_sheet_url;
 
   return (
