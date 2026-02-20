@@ -47,6 +47,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { TransitionLink } from '@/components/TransitionLink';
+import { WEBHOOKS, webhookPostJSON } from '@/lib/webhooks';
 
 type DateFilter = 'all' | 'today' | 'thisWeek' | 'older';
 
@@ -312,11 +313,11 @@ export default function AIInquiries() {
   const getWebhookUrl = (emailType: string | null): string | null => {
     switch (emailType) {
       case 'CARGO AGENT':
-        return 'https://lbhcuracao.app.n8n.cloud/webhook/Send-Email-Loading-Discharge';
+        return WEBHOOKS.SEND_EMAIL_LOADING_DISCHARGE;
       case 'OWNERS_AGENT':
-        return 'https://lbhcuracao.app.n8n.cloud/webhook/Send-Email-Owners-Agent';
+        return WEBHOOKS.SEND_EMAIL_OWNERS_AGENT;
       case 'Out of Scope':
-        return 'https://lbhcuracao.app.n8n.cloud/webhook/SEND-REFERRAL-EMAIL';
+        return WEBHOOKS.SEND_REFERRAL_EMAIL;
       default:
         return null;
     }
@@ -366,11 +367,7 @@ export default function AIInquiries() {
 
           console.log('Calling webhook:', webhookUrl, payload);
 
-          const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
+          const response = await webhookPostJSON(webhookUrl, payload);
 
           if (!response.ok) {
             throw new Error(`Webhook failed: ${response.statusText}`);

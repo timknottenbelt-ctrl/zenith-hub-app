@@ -51,6 +51,7 @@ import { FDACuracaoWizardSteps } from "@/components/fda-curacao/FDACuracaoWizard
 import { FDACuracaoProjectCard } from "@/components/fda-curacao/FDACuracaoProjectCard";
 import { FDACuracaoInvoiceUpload } from "@/components/fda-curacao/FDACuracaoInvoiceUpload";
 import { FDACuracaoProcessingStatus } from "@/components/fda-curacao/FDACuracaoProcessingStatus";
+import { WEBHOOKS, webhookPostJSON } from "@/lib/webhooks";
 
 interface FDAProject {
   id: string;
@@ -133,7 +134,7 @@ const INITIAL_FORM: FDAFormData = {
   advanced_payment_remark: "",
 };
 
-const WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/invoice-upload-curacao";
+// Webhook URL is now centralized in src/lib/webhooks.ts
 
 export default function FDACuracao() {
   const { t } = useLanguage();
@@ -465,11 +466,7 @@ export default function FDACuracao() {
         force_resend: forceResend,
       };
 
-      const response = await fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const response = await webhookPostJSON(WEBHOOKS.FDA_CURACAO_INVOICE_UPLOAD, payload);
 
       if (!response.ok) throw new Error(`Webhook error: ${response.status}`);
 

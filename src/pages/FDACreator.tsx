@@ -35,6 +35,7 @@ import { format, parseISO, isValid } from "date-fns";
 import { ClientSelector } from "@/components/ClientSelector";
 import { FDAWizardSteps, type FDAWizardStep } from "@/components/fda/FDAWizardSteps";
 import { FDAFrontPageStep } from "@/components/fda/FDAFrontPageStep";
+import { WEBHOOKS, webhookPostJSON } from "@/lib/webhooks";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface FDAProject {
@@ -100,7 +101,7 @@ const INITIAL_FORM: FDAFormData = {
   advanced_payment_reference: "", advanced_payment_status: "unpaid", advanced_payment_remark: "",
 };
 
-const WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/invoice-upload";
+// Webhook URL is now centralized in src/lib/webhooks.ts
 
 // ─── Invoice Row ─────────────────────────────────────────────────────────────
 function InvoiceRow({ invoice, index, isSent, onDelete, onUpdateNumber }: {
@@ -354,7 +355,7 @@ export default function FDACreator() {
       await supabase.from("fda_projects").update({ status: "processing" }).eq("project_id", selectedProject.project_id);
       setSelectedProject(prev => prev ? { ...prev, status: "processing" } : null);
       // Fire webhook in background
-      fetch(WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).catch(err => console.error("Webhook error:", err));
+      webhookPostJSON(WEBHOOKS.FDA_INVOICE_UPLOAD, payload).catch(err => console.error("Webhook error:", err));
       toast({ title: "Verzonden", description: "Verwerking gestart..." });
     } catch (error) {
       toast({ title: "Fout", description: error instanceof Error ? error.message : "Verzenden mislukt", variant: "destructive" });

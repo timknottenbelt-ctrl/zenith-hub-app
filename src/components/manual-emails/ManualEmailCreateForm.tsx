@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle, Send, Upload, X, Loader2, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { WEBHOOKS, webhookPostFormData } from "@/lib/webhooks";
 import { toast } from "@/hooks/use-toast";
 import type { ManualEmail } from "@/hooks/useManualEmails";
 
@@ -83,10 +84,7 @@ export function ManualEmailCreateForm({
       if (originalSubject) formData.append("subject", originalSubject);
       if (pdfFile) formData.append("pdf", pdfFile);
 
-      const response = await fetch("https://lbhcuracao.app.n8n.cloud/webhook/MANUAL-EMAIL-CREATION", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await webhookPostFormData(WEBHOOKS.MANUAL_EMAIL_CREATION, formData);
 
       if (!response.ok) throw new Error("Webhook request failed");
 

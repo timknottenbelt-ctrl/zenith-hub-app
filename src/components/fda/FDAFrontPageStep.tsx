@@ -24,6 +24,7 @@ import {
   Sparkles,
   Mail,
 } from "lucide-react";
+import { WEBHOOKS, webhookPostJSON } from "@/lib/webhooks";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,7 +59,7 @@ interface FDAFrontPageStepProps {
   onNavigateToEmail: () => void;
 }
 
-const MERGE_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/Merge-PDF";
+// Webhook URL is now centralized in src/lib/webhooks.ts
 
 export function FDAFrontPageStep({
   projectId,
@@ -203,7 +204,7 @@ export function FDAFrontPageStep({
           order: i + 1,
         })),
       };
-      const response = await fetch(MERGE_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const response = await webhookPostJSON(WEBHOOKS.FDA_MERGE_PDF, payload);
       if (!response.ok) throw new Error(`Merge mislukt: ${response.status}`);
       toast({ title: "Gestart", description: "PDFs worden samengevoegd..." });
       onNavigateToEmail();
