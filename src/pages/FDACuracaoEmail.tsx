@@ -29,6 +29,7 @@ import {
 import { useTransitionNavigate } from "@/hooks/useTransitionNavigate";
 import * as XLSX from "xlsx";
 import { FDACuracaoWizardSteps } from "@/components/fda-curacao/FDACuracaoWizardSteps";
+import { WEBHOOKS, webhookPostJSON } from "@/lib/webhooks";
 
 interface FDACuracaoProject {
   project_id: string;
@@ -79,7 +80,7 @@ interface ExtraAttachment {
   url: string;
 }
 
-const SEND_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/send-to-uruguay";
+// Webhook URL is now centralized in src/lib/webhooks.ts
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
 
@@ -813,11 +814,7 @@ export default function FDACuracaoEmail() {
         })),
       };
 
-      const response = await fetch(SEND_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const response = await webhookPostJSON(WEBHOOKS.SEND_TO_URUGUAY, payload);
 
       if (!response.ok) {
         throw new Error(`Send failed: ${response.status}`);

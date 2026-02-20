@@ -25,6 +25,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useTransitionNavigate } from "@/hooks/useTransitionNavigate";
+import { WEBHOOKS, webhookPostJSON } from "@/lib/webhooks";
 
 interface FDAProject {
   project_id: string;
@@ -59,7 +60,7 @@ interface ExtraAttachment {
   url: string;
 }
 
-const SEND_WEBHOOK_URL = "https://lbhcuracao.app.n8n.cloud/webhook/Send-FDA";
+// Webhook URL is now centralized in src/lib/webhooks.ts
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
 
@@ -417,11 +418,7 @@ export default function FDAEmailPreview() {
         extra_attachments: extraAttachments.map((a) => a.url),
       };
 
-      const response = await fetch(SEND_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const response = await webhookPostJSON(WEBHOOKS.SEND_FDA_EMAIL, payload);
 
       if (!response.ok) {
         throw new Error(`Send failed: ${response.status}`);
