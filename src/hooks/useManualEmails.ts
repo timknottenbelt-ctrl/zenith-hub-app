@@ -43,6 +43,8 @@ export function useManualEmails(filterAgentType: string) {
   const emailsRef = useRef<ManualEmail[]>([]);
   emailsRef.current = emails;
   const [selectedEmail, setSelectedEmail] = useState<ManualEmail | null>(null);
+  const selectedEmailRef = useRef<ManualEmail | null>(null);
+  selectedEmailRef.current = selectedEmail;
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -75,7 +77,7 @@ export function useManualEmails(filterAgentType: string) {
     return () => clearInterval(interval);
   }, [selectedEmail?.id, selectedEmail?.status]);
 
-  // Realtime subscription
+  // Realtime subscription — uses refs to avoid re-subscribing on selection changes
   useEffect(() => {
     const channel = supabase
       .channel("manual_emails_changes")
@@ -121,7 +123,7 @@ export function useManualEmails(filterAgentType: string) {
           });
 
           if ((eventType === "INSERT" || eventType === "UPDATE") && newRow) {
-            if (selectedEmail?.id === newRow.id) {
+            if (selectedEmailRef.current?.id === newRow.id) {
               setSelectedEmail(newRow);
             }
 
@@ -134,7 +136,7 @@ export function useManualEmails(filterAgentType: string) {
             }
           }
 
-          if (eventType === "DELETE" && oldRow?.id && selectedEmail?.id === oldRow.id) {
+          if (eventType === "DELETE" && oldRow?.id && selectedEmailRef.current?.id === oldRow.id) {
             setSelectedEmail(null);
           }
         },
@@ -142,7 +144,7 @@ export function useManualEmails(filterAgentType: string) {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [selectedEmail?.id, filterAgentType]);
+  }, [filterAgentType]);
 
   async function fetchManualEmails(options: { showLoading?: boolean } = {}) {
     const shouldShowLoading = options.showLoading ?? emails.length === 0;
