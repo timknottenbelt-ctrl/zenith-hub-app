@@ -40,6 +40,30 @@ export type Database = {
       }
       cargo_agent_knowledge: {
         Row: {
+          content: string | null
+          embedding: string | null
+          id: number
+          keywords: string[] | null
+          metadata: Json | null
+        }
+        Insert: {
+          content?: string | null
+          embedding?: string | null
+          id?: never
+          keywords?: string[] | null
+          metadata?: Json | null
+        }
+        Update: {
+          content?: string | null
+          embedding?: string | null
+          id?: never
+          keywords?: string[] | null
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
+      cargo_agent_knowledge_old: {
+        Row: {
           category: string
           content: string
           created_at: string | null
@@ -135,6 +159,27 @@ export type Database = {
         Relationships: []
       }
       curacao_knowledge: {
+        Row: {
+          content: string | null
+          embedding: string | null
+          id: number
+          metadata: Json | null
+        }
+        Insert: {
+          content?: string | null
+          embedding?: string | null
+          id?: never
+          metadata?: Json | null
+        }
+        Update: {
+          content?: string | null
+          embedding?: string | null
+          id?: never
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
+      curacao_knowledge_old: {
         Row: {
           category: string
           content: string
@@ -1002,6 +1047,7 @@ export type Database = {
           dwt: number | null
           email_content: string
           error_message: string | null
+          eta: string | null
           facility: string | null
           flag: string | null
           grt: number | null
@@ -1042,6 +1088,7 @@ export type Database = {
           dwt?: number | null
           email_content: string
           error_message?: string | null
+          eta?: string | null
           facility?: string | null
           flag?: string | null
           grt?: number | null
@@ -1082,6 +1129,7 @@ export type Database = {
           dwt?: number | null
           email_content?: string
           error_message?: string | null
+          eta?: string | null
           facility?: string | null
           flag?: string | null
           grt?: number | null
@@ -1429,10 +1477,10 @@ export type Database = {
       }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
       match_documents: {
-        Args: { filter?: Json; match_count?: number; query_embedding?: string }
+        Args: { filter?: Json; match_count?: number; query_embedding: string }
         Returns: {
           content: string
-          id: string
+          id: number
           metadata: Json
           similarity: number
         }[]
