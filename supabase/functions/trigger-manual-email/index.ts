@@ -1,7 +1,7 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const WEBHOOK_URL =
@@ -25,16 +25,20 @@ Deno.serve(async (req) => {
 
   const basicAuth = `Basic ${btoa(`${username}:${password}`)}`;
 
+  console.log("[trigger-manual-email] Forwarding request to n8n webhook:", WEBHOOK_URL);
+  console.log("[trigger-manual-email] Basic Auth user:", username);
+
   try {
-    // Read the incoming body and content-type to forward as-is
     const contentType = req.headers.get("content-type") || "";
     const body = await req.arrayBuffer();
+
+    console.log("[trigger-manual-email] Request content-type:", contentType);
+    console.log("[trigger-manual-email] Request body size:", body.byteLength, "bytes");
 
     const headers: Record<string, string> = {
       Authorization: basicAuth,
     };
 
-    // Preserve content-type so n8n can parse FormData or JSON
     if (contentType) {
       headers["Content-Type"] = contentType;
     }
@@ -47,7 +51,10 @@ Deno.serve(async (req) => {
 
     const responseBody = await webhookResponse.text();
 
-    // Try to parse as JSON, otherwise return as text
+    console.log("[trigger-manual-email] n8n response status:", webhookResponse.status);
+    console.log("[trigger-manual-email] n8n response headers:", JSON.stringify(Object.fromEntries(webhookResponse.headers.entries())));
+    console.log("[trigger-manual-email] n8n response body:", responseBody.substring(0, 2000));
+
     let parsedBody: unknown;
     try {
       parsedBody = JSON.parse(responseBody);
@@ -60,7 +67,10 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
-    console.error("Error proxying to n8n webhook:", error);
+    console.error("[trigger-manual-email] Error proxying to n8n webhook:", error);
+    console.error("[trigger-manual-email] Error name:", error?.name);
+    console.error("[trigger-manual-email] Error message:", error?.message);
+    console.error("[trigger-manual-email] Error stack:", error?.stack);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
