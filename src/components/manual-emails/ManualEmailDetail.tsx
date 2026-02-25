@@ -65,8 +65,11 @@ export function ManualEmailDetail({ email, onDelete, onEmailUpdated, onRefresh }
       });
 
       if (fnError) throw new Error(fnError.message || "Webhook request failed");
+      if (responseData?.upstream_status && responseData.upstream_status >= 400) {
+        console.warn("n8n upstream error:", responseData);
+      }
 
-      const webhookData: any = responseData ?? null;
+      const webhookData: any = responseData?.data ?? null;
 
       const respSubject = webhookData?.data?.subject ?? webhookData?.subject;
       const respBody = webhookData?.data?.body ?? webhookData?.body;

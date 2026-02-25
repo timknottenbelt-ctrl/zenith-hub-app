@@ -55,10 +55,10 @@ Deno.serve(async (req) => {
       parsedBody = { raw: responseBody };
     }
 
-    return new Response(JSON.stringify(parsedBody), {
-      status: webhookResponse.status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ upstream_status: webhookResponse.status, data: parsedBody }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (error) {
     console.error("Error proxying to n8n webhook:", error);
     return new Response(
