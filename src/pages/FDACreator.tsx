@@ -27,13 +27,14 @@ import {
   FileText, Trash2, Loader2, Send, Ship, User, Mail, Phone, Receipt,
   Plus, ArrowLeft, Calendar, History, Anchor, DollarSign, CreditCard,
   Upload, Eye, Download, CheckCircle, Clock, Edit, FileUp, RefreshCw,
+  Settings,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, parseISO, isValid } from "date-fns";
 import { ClientSelector } from "@/components/ClientSelector";
-import { FDAWizardSteps, type FDAWizardStep } from "@/components/fda/FDAWizardSteps";
+import { FDAStepSidebar, type StepConfig } from "@/components/fda/FDAStepSidebar";
 import { FDAFrontPageStep } from "@/components/fda/FDAFrontPageStep";
 import { WEBHOOKS, webhookPostJSON } from "@/lib/webhooks";
 
@@ -101,7 +102,7 @@ const INITIAL_FORM: FDAFormData = {
   advanced_payment_reference: "", advanced_payment_status: "unpaid", advanced_payment_remark: "",
 };
 
-// Webhook URL is now centralized in src/lib/webhooks.ts
+type FDAStep = "setup" | "invoices" | "frontpage" | "processing" | "email";
 
 // ─── Invoice Row ─────────────────────────────────────────────────────────────
 function InvoiceRow({ invoice, index, isSent, onDelete, onUpdateNumber }: {
@@ -152,14 +153,24 @@ export default function FDACreator() {
   const setProjectInUrl = useCallback((pid: string) => {
     const next = new URLSearchParams(searchParams);
     next.set("project", pid);
+    if (!next.has("step")) next.set("step", "setup");
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
   const clearProjectInUrl = useCallback(() => {
     const next = new URLSearchParams(searchParams);
     next.delete("project");
+    next.delete("step");
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
+
+  const setStepInUrl = useCallback((step: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("step", step);
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeStep = (searchParams.get("step") as FDAStep) || "setup";
 
   const [projects, setProjects] = useState<FDAProject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -242,7 +253,6 @@ export default function FDACreator() {
     if (error) {
       toast({ title: "Fout", description: error.message, variant: "destructive" });
     } else {
-      // Save to contacts
       if (formData.client_name) {
         const { data: existing } = await supabase.from("contacts").select("id").eq("name", formData.client_name).eq("role", "FDA Client").maybeSingle();
         if (!existing) await supabase.from("contacts").insert({ name: formData.client_name, email: formData.client_email || null, phone: formData.client_phone || null, company: formData.billing_company || null, function: formData.billing_address || null, role: "FDA Client" });
@@ -354,9 +364,9 @@ export default function FDACreator() {
       };
       await supabase.from("fda_projects").update({ status: "processing" }).eq("project_id", selectedProject.project_id);
       setSelectedProject(prev => prev ? { ...prev, status: "processing" } : null);
-      // Fire webhook in background
       webhookPostJSON(WEBHOOKS.FDA_INVOICE_UPLOAD, payload).catch(err => console.error("Webhook error:", err));
       toast({ title: "Verzonden", description: "Verwerking gestart..." });
+      setStepInUrl("frontpage");
     } catch (error) {
       toast({ title: "Fout", description: error instanceof Error ? error.message : "Verzenden mislukt", variant: "destructive" });
     } finally {
@@ -364,30 +374,29 @@ export default function FDACreator() {
     }
   }
 
-  // ─── Wizard Step Calculation ─────────────────────────────────────────────
-  function getCurrentStep(): number {
-    if (!selectedProject) return 0;
-    const s = selectedProject.status;
-    if (s === "sent" || s === "email_sent" || s === "completed") return 4;
-    // Check if email draft exists (final_pdf_url as proxy)
-    if (selectedProject.final_pdf_url) return 4;
-    // Has google sheet → front page step
-    if (selectedProject.google_sheet_url || s === "ready_to_send") return 2;
-    // Processing invoices
-    if (s === "processing") return 2; // Show front page step (with processing animation)
-    // Has invoices
-    if (invoices.length > 0) return 1;
-    return 0;
+  // ─── Step Status Calculation ────────────────────────────────────────────
+  function getStepStatuses(): StepConfig[] {
+    const s = selectedProject?.status;
+    const isSentStatus = s === "sent" || s === "email_sent" || s === "completed";
+    const hasSheet = !!selectedProject?.google_sheet_url;
+    const hasFinalPdf = !!selectedProject?.final_pdf_url;
+    const hasInvoices = invoices.length > 0;
+
+    const setupComplete = !!formData.lbh_number && !!formData.ship_name;
+    const invoicesComplete = hasInvoices;
+    const frontpageComplete = hasFinalPdf || isSentStatus;
+    const processingComplete = hasSheet || hasFinalPdf || isSentStatus;
+    const emailComplete = isSentStatus;
+
+    return [
+      { id: "setup", label: "Setup", icon: Settings, status: setupComplete ? "complete" : "warning" },
+      { id: "invoices", label: "Facturen", icon: FileText, status: invoicesComplete ? "complete" : "pending" },
+      { id: "frontpage", label: "Front Page", icon: FileUp, status: frontpageComplete ? "complete" : s === "processing" ? "processing" : hasInvoices ? "pending" : "pending" },
+      { id: "processing", label: "Verwerken", icon: Send, status: processingComplete ? "complete" : s === "processing" ? "processing" : "pending" },
+      { id: "email", label: "E-mail", icon: Mail, status: emailComplete ? "complete" : hasFinalPdf ? "warning" : "pending" },
+    ];
   }
 
-  function handleWizardNavigate(step: FDAWizardStep) {
-    if (step === "email" && selectedProject) {
-      navigate(`/fda/email/${selectedProject.project_id}`);
-    }
-    // Other steps are on this page, no navigation needed
-  }
-
-  const currentStep = getCurrentStep();
   const isSent = selectedProject?.status === "sent" || selectedProject?.status === "email_sent";
 
   // ─── Status Badge ────────────────────────────────────────────────────────
@@ -402,239 +411,280 @@ export default function FDACreator() {
     return <DashboardLayout title={t("fda.title")}><div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div></DashboardLayout>;
   }
 
-  // ─── Detail View (Wizard) ────────────────────────────────────────────────
+  // ─── Detail View (Sidebar Layout) ───────────────────────────────────────
   if (selectedProject) {
     return (
       <DashboardLayout title={t("fda.title")}>
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={() => { clearProjectInUrl(); setSelectedProject(null); }}>
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <div>
-                <h1 className="text-xl font-bold">{formData.ship_name || "Nieuw project"}</h1>
-                <p className="text-sm text-muted-foreground">{formData.lbh_number}</p>
+        <div className="flex h-[calc(100vh-4rem)] -m-6">
+          {/* Sidebar */}
+          <FDAStepSidebar
+            projectName={formData.ship_name}
+            lbhNumber={formData.lbh_number}
+            steps={getStepStatuses()}
+            activeStepId={activeStep}
+            onStepClick={(stepId) => {
+              if (stepId === "email" && selectedProject) {
+                navigate(`/fda/email/${selectedProject.project_id}`);
+              } else {
+                setStepInUrl(stepId);
+              }
+            }}
+            onBack={() => { clearProjectInUrl(); setSelectedProject(null); }}
+            projectStatus={selectedProject.status}
+          />
+
+          {/* Content Area */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="max-w-4xl mx-auto space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-bold">{formData.ship_name || "Nieuw project"}</h1>
+                  <p className="text-sm text-muted-foreground">{formData.lbh_number}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => { fetchProjects(); if (selectedProject) loadProjectData(selectedProject); }} title="Vernieuwen">
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" title="Verwijderen"><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Project verwijderen?</AlertDialogTitle>
+                        <AlertDialogDescription>Dit verwijdert het project en alle bijbehorende data permanent.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteProject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Verwijderen</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  <Button variant="outline" onClick={handleSaveProject} disabled={saving}>
+                    {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}Opslaan
+                  </Button>
+                  {activeStep === "invoices" && (
+                    <Button onClick={handleSendFDA} disabled={sending || invoices.length === 0}>
+                      {sending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                      Verstuur FDA
+                    </Button>
+                  )}
+                </div>
               </div>
-              {getStatusBadge(selectedProject.status)}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon" onClick={() => { fetchProjects(); if (selectedProject) loadProjectData(selectedProject); }} title="Vernieuwen">
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" title="Verwijderen"><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Project verwijderen?</AlertDialogTitle>
-                    <AlertDialogDescription>Dit verwijdert het project en alle bijbehorende data permanent.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annuleren</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteProject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Verwijderen</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              <Button variant="outline" onClick={handleSaveProject} disabled={saving}>
-                {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}Opslaan
-              </Button>
-              {currentStep < 2 && (
-                <Button onClick={handleSendFDA} disabled={sending || invoices.length === 0}>
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-                  Verstuur FDA
-                </Button>
+
+              {/* Step: Setup */}
+              {activeStep === "setup" && (
+                <div className="grid gap-6">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-medium flex items-center gap-2"><Ship className="w-4 h-4 text-primary" />Schip</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1"><Label className="text-xs">LBH Nummer *</Label><Input value={formData.lbh_number} onChange={(e) => handleInputChange("lbh_number", e.target.value)} /></div>
+                          <div className="space-y-1"><Label className="text-xs">Scheepsnaam *</Label><Input value={formData.ship_name} onChange={(e) => handleInputChange("ship_name", e.target.value)} /></div>
+                        </div>
+                        <div className="space-y-1"><Label className="text-xs">FDA Verantwoordelijke</Label><Input value={formData.fda_responsible} onChange={(e) => handleInputChange("fda_responsible", e.target.value)} /></div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-medium flex items-center justify-between">
+                          <div className="flex items-center gap-2"><User className="w-4 h-4 text-primary" />Klant</div>
+                          <ClientSelector onSelectClient={(c) => setFormData(prev => ({ ...prev, client_name: c.client_name, client_email: c.client_email, client_phone: c.client_phone, billing_company: c.billing_company, billing_email: c.billing_email, billing_address: c.billing_address, billing_phone: c.billing_phone }))} />
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="space-y-1"><Label className="text-xs">Naam</Label><Input value={formData.client_name} onChange={(e) => handleInputChange("client_name", e.target.value)} /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1"><Label className="text-xs">E-mail</Label><Input type="email" value={formData.client_email} onChange={(e) => handleInputChange("client_email", e.target.value)} /></div>
+                          <div className="space-y-1"><Label className="text-xs">Telefoon</Label><Input value={formData.client_phone} onChange={(e) => handleInputChange("client_phone", e.target.value)} /></div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader className="pb-3"><CardTitle className="text-base font-medium flex items-center gap-2"><Receipt className="w-4 h-4 text-primary" />Facturatie</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="space-y-1"><Label className="text-xs">Bedrijf</Label><Input value={formData.billing_company} onChange={(e) => handleInputChange("billing_company", e.target.value)} /></div>
+                        <div className="space-y-1"><Label className="text-xs">E-mail</Label><Input type="email" value={formData.billing_email} onChange={(e) => handleInputChange("billing_email", e.target.value)} /></div>
+                        <div className="space-y-1"><Label className="text-xs">Adres</Label><Input value={formData.billing_address} onChange={(e) => handleInputChange("billing_address", e.target.value)} /></div>
+                        <div className="space-y-1"><Label className="text-xs">Telefoon</Label><Input value={formData.billing_phone} onChange={(e) => handleInputChange("billing_phone", e.target.value)} /></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3"><CardTitle className="text-base font-medium flex items-center gap-2"><Anchor className="w-4 h-4 text-primary" />Haven informatie</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Aankomst *</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start h-9 text-sm">
+                                <Calendar className="mr-2 h-3.5 w-3.5" />
+                                {formData.vessel_arrived && isValid(parseISO(formData.vessel_arrived)) ? format(parseISO(formData.vessel_arrived), "d MMM yy") : <span className="text-muted-foreground">Datum</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <CalendarComponent mode="single" selected={formData.vessel_arrived ? parseISO(formData.vessel_arrived) : undefined} onSelect={(d) => handleInputChange("vessel_arrived", d ? format(d, "yyyy-MM-dd") : "")} />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Vertrek *</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start h-9 text-sm">
+                                <Calendar className="mr-2 h-3.5 w-3.5" />
+                                {formData.vessel_sailed && isValid(parseISO(formData.vessel_sailed)) ? format(parseISO(formData.vessel_sailed), "d MMM yy") : <span className="text-muted-foreground">Datum</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <CalendarComponent mode="single" selected={formData.vessel_sailed ? parseISO(formData.vessel_sailed) : undefined} onSelect={(d) => handleInputChange("vessel_sailed", d ? format(d, "yyyy-MM-dd") : "")} />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-1"><Label className="text-xs">Operatie *</Label><Input value={formData.operation} onChange={(e) => handleInputChange("operation", e.target.value)} placeholder="Laden / Lossen" /></div>
+                        <div className="space-y-1"><Label className="text-xs">Lading</Label><Input value={formData.commodity} onChange={(e) => handleInputChange("commodity", e.target.value)} /></div>
+                        <div className="space-y-1"><Label className="text-xs">Referentie</Label><Input value={formData.client_reference} onChange={(e) => handleInputChange("client_reference", e.target.value)} /></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3"><CardTitle className="text-base font-medium flex items-center gap-2"><CreditCard className="w-4 h-4 text-primary" />Voorschot</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Bedrag</Label>
+                          <div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" /><Input type="number" value={formData.advanced_payment_amount} onChange={(e) => handleInputChange("advanced_payment_amount", e.target.value)} className="pl-6" step="0.01" /></div>
+                        </div>
+                        <div className="space-y-1"><Label className="text-xs">Valuta</Label><Select value={formData.advanced_payment_currency} onValueChange={(v) => handleInputChange("advanced_payment_currency", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem><SelectItem value="ANG">ANG</SelectItem><SelectItem value="GBP">GBP</SelectItem><SelectItem value="CHF">CHF</SelectItem></SelectContent></Select></div>
+                        <div className="space-y-1"><Label className="text-xs">Status</Label><Select value={formData.advanced_payment_status} onValueChange={(v) => handleInputChange("advanced_payment_status", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="unpaid">Onbetaald</SelectItem><SelectItem value="paid">Betaald</SelectItem><SelectItem value="pending">Lopend</SelectItem><SelectItem value="partial">Deels</SelectItem></SelectContent></Select></div>
+                        <div className="space-y-1"><Label className="text-xs">Referentie</Label><Input value={formData.advanced_payment_reference} onChange={(e) => handleInputChange("advanced_payment_reference", e.target.value)} /></div>
+                        <div className="space-y-1"><Label className="text-xs">Opmerking</Label><Input value={formData.advanced_payment_remark} onChange={(e) => handleInputChange("advanced_payment_remark", e.target.value)} /></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="flex justify-end">
+                    <Button onClick={() => { handleSaveProject(); setStepInUrl("invoices"); }}>
+                      Opslaan & Volgende →
+                    </Button>
+                  </div>
+                </div>
               )}
-              {isSent && (
-                <Button onClick={() => navigate(`/fda/email/${selectedProject.project_id}`)}>
-                  <Mail className="w-4 h-4 mr-2" />E-mail bekijken
-                </Button>
+
+              {/* Step: Invoices */}
+              {activeStep === "invoices" && (
+                <div className="grid gap-6">
+                  <Card>
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2"><FileText className="w-4 h-4 text-primary" />Factuur PDFs ({invoices.length})</CardTitle>
+                        {!isSent && (
+                          <label className="cursor-pointer">
+                            <Button variant="outline" size="sm" asChild><span><Upload className="w-4 h-4 mr-2" />Upload PDF</span></Button>
+                            <input type="file" multiple accept=".pdf" className="hidden" onChange={handleFileUpload} disabled={uploadingFiles} />
+                          </label>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {uploadingFiles && <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4"><Loader2 className="w-4 h-4 animate-spin" />Uploaden...</div>}
+                      {invoices.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                          <FileUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">Nog geen bestanden geüpload</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {invoices.map((inv, i) => (
+                            <InvoiceRow key={inv.id} invoice={inv} index={i} isSent={!!isSent} onDelete={handleDeleteInvoice} onUpdateNumber={handleUpdateInvoiceNumber} />
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Step: Front Page */}
+              {activeStep === "frontpage" && selectedProject && (
+                <FDAFrontPageStep
+                  projectId={selectedProject.project_id}
+                  shipName={formData.ship_name}
+                  lbhNumber={formData.lbh_number}
+                  googleSheetUrl={selectedProject.google_sheet_url}
+                  frontPageUrl={selectedProject.front_page_url}
+                  agencyCostUrl={selectedProject.agency_cost_url}
+                  finalPdfUrl={selectedProject.final_pdf_url}
+                  status={selectedProject.status}
+                  onProjectUpdate={async () => {
+                    await fetchProjects();
+                    const { data } = await supabase.from("fda_projects").select("*").eq("project_id", selectedProject.project_id).single();
+                    if (data) setSelectedProject(data);
+                  }}
+                  onNavigateToEmail={() => navigate(`/fda/email/${selectedProject.project_id}`)}
+                />
+              )}
+
+              {/* Step: Processing */}
+              {activeStep === "processing" && (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="py-8">
+                    {selectedProject?.status === "processing" ? (
+                      <div className="flex flex-col items-center justify-center gap-4">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <div className="text-center">
+                          <h3 className="text-lg font-semibold">Bezig met verwerken...</h3>
+                          <p className="text-muted-foreground text-sm mt-1">Dit duurt meestal 30-60 seconden.</p>
+                        </div>
+                        <Button variant="outline" onClick={() => setStepInUrl("frontpage")}>
+                          Ga naar Front Page →
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-4">
+                        <CheckCircle className="w-8 h-8 text-success" />
+                        <div className="text-center">
+                          <h3 className="text-lg font-semibold">Verwerking voltooid</h3>
+                          <p className="text-muted-foreground text-sm mt-1">Ga naar de Front Page of E-mail stap.</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Step: Email */}
+              {activeStep === "email" && (
+                <Card className="border-success/50 bg-success/5">
+                  <CardContent className="py-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="w-5 h-5 text-success" />
+                        <div>
+                          <h3 className="font-semibold">E-mail klaar</h3>
+                          <p className="text-sm text-muted-foreground">De e-mail is gereed om te versturen of is al verstuurd.</p>
+                        </div>
+                      </div>
+                      <Button onClick={() => navigate(`/fda/email/${selectedProject.project_id}`)}>
+                        <Mail className="w-4 h-4 mr-2" />Naar E-mail
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </div>
           </div>
-
-          {/* Wizard Steps */}
-          <FDAWizardSteps currentStep={currentStep} onNavigate={handleWizardNavigate} />
-
-          {/* Step Content */}
-          {currentStep <= 1 && (
-            <div className="grid gap-6">
-              {/* Ship & Client */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-medium flex items-center gap-2"><Ship className="w-4 h-4 text-primary" />Schip</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1"><Label className="text-xs">LBH Nummer *</Label><Input value={formData.lbh_number} onChange={(e) => handleInputChange("lbh_number", e.target.value)} /></div>
-                      <div className="space-y-1"><Label className="text-xs">Scheepsnaam *</Label><Input value={formData.ship_name} onChange={(e) => handleInputChange("ship_name", e.target.value)} /></div>
-                    </div>
-                    <div className="space-y-1"><Label className="text-xs">FDA Verantwoordelijke</Label><Input value={formData.fda_responsible} onChange={(e) => handleInputChange("fda_responsible", e.target.value)} /></div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-medium flex items-center justify-between">
-                      <div className="flex items-center gap-2"><User className="w-4 h-4 text-primary" />Klant</div>
-                      <ClientSelector onSelectClient={(c) => setFormData(prev => ({ ...prev, client_name: c.client_name, client_email: c.client_email, client_phone: c.client_phone, billing_company: c.billing_company, billing_email: c.billing_email, billing_address: c.billing_address, billing_phone: c.billing_phone }))} />
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="space-y-1"><Label className="text-xs">Naam</Label><Input value={formData.client_name} onChange={(e) => handleInputChange("client_name", e.target.value)} /></div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1"><Label className="text-xs">E-mail</Label><Input type="email" value={formData.client_email} onChange={(e) => handleInputChange("client_email", e.target.value)} /></div>
-                      <div className="space-y-1"><Label className="text-xs">Telefoon</Label><Input value={formData.client_phone} onChange={(e) => handleInputChange("client_phone", e.target.value)} /></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Billing */}
-              <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-base font-medium flex items-center gap-2"><Receipt className="w-4 h-4 text-primary" />Facturatie</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="space-y-1"><Label className="text-xs">Bedrijf</Label><Input value={formData.billing_company} onChange={(e) => handleInputChange("billing_company", e.target.value)} /></div>
-                    <div className="space-y-1"><Label className="text-xs">E-mail</Label><Input type="email" value={formData.billing_email} onChange={(e) => handleInputChange("billing_email", e.target.value)} /></div>
-                    <div className="space-y-1"><Label className="text-xs">Adres</Label><Input value={formData.billing_address} onChange={(e) => handleInputChange("billing_address", e.target.value)} /></div>
-                    <div className="space-y-1"><Label className="text-xs">Telefoon</Label><Input value={formData.billing_phone} onChange={(e) => handleInputChange("billing_phone", e.target.value)} /></div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Port Call */}
-              <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-base font-medium flex items-center gap-2"><Anchor className="w-4 h-4 text-primary" />Haven informatie</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Aankomst *</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start h-9 text-sm">
-                            <Calendar className="mr-2 h-3.5 w-3.5" />
-                            {formData.vessel_arrived && isValid(parseISO(formData.vessel_arrived)) ? format(parseISO(formData.vessel_arrived), "d MMM yy") : <span className="text-muted-foreground">Datum</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <CalendarComponent mode="single" selected={formData.vessel_arrived ? parseISO(formData.vessel_arrived) : undefined} onSelect={(d) => handleInputChange("vessel_arrived", d ? format(d, "yyyy-MM-dd") : "")} />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Vertrek *</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start h-9 text-sm">
-                            <Calendar className="mr-2 h-3.5 w-3.5" />
-                            {formData.vessel_sailed && isValid(parseISO(formData.vessel_sailed)) ? format(parseISO(formData.vessel_sailed), "d MMM yy") : <span className="text-muted-foreground">Datum</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <CalendarComponent mode="single" selected={formData.vessel_sailed ? parseISO(formData.vessel_sailed) : undefined} onSelect={(d) => handleInputChange("vessel_sailed", d ? format(d, "yyyy-MM-dd") : "")} />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="space-y-1"><Label className="text-xs">Operatie *</Label><Input value={formData.operation} onChange={(e) => handleInputChange("operation", e.target.value)} placeholder="Laden / Lossen" /></div>
-                    <div className="space-y-1"><Label className="text-xs">Lading</Label><Input value={formData.commodity} onChange={(e) => handleInputChange("commodity", e.target.value)} /></div>
-                    <div className="space-y-1"><Label className="text-xs">Referentie</Label><Input value={formData.client_reference} onChange={(e) => handleInputChange("client_reference", e.target.value)} /></div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Advanced Payment */}
-              <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-base font-medium flex items-center gap-2"><CreditCard className="w-4 h-4 text-primary" />Voorschot</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Bedrag</Label>
-                      <div className="relative"><DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" /><Input type="number" value={formData.advanced_payment_amount} onChange={(e) => handleInputChange("advanced_payment_amount", e.target.value)} className="pl-6" step="0.01" /></div>
-                    </div>
-                    <div className="space-y-1"><Label className="text-xs">Valuta</Label><Select value={formData.advanced_payment_currency} onValueChange={(v) => handleInputChange("advanced_payment_currency", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem><SelectItem value="ANG">ANG</SelectItem><SelectItem value="GBP">GBP</SelectItem><SelectItem value="CHF">CHF</SelectItem></SelectContent></Select></div>
-                    <div className="space-y-1"><Label className="text-xs">Status</Label><Select value={formData.advanced_payment_status} onValueChange={(v) => handleInputChange("advanced_payment_status", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="unpaid">Onbetaald</SelectItem><SelectItem value="paid">Betaald</SelectItem><SelectItem value="pending">Lopend</SelectItem><SelectItem value="partial">Deels</SelectItem></SelectContent></Select></div>
-                    <div className="space-y-1"><Label className="text-xs">Referentie</Label><Input value={formData.advanced_payment_reference} onChange={(e) => handleInputChange("advanced_payment_reference", e.target.value)} /></div>
-                    <div className="space-y-1"><Label className="text-xs">Opmerking</Label><Input value={formData.advanced_payment_remark} onChange={(e) => handleInputChange("advanced_payment_remark", e.target.value)} /></div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Invoice Upload */}
-              <Card>
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2"><FileText className="w-4 h-4 text-primary" />Factuur PDFs ({invoices.length})</CardTitle>
-                    {!isSent && (
-                      <label className="cursor-pointer">
-                        <Button variant="outline" size="sm" asChild><span><Upload className="w-4 h-4 mr-2" />Upload PDF</span></Button>
-                        <input type="file" multiple accept=".pdf" className="hidden" onChange={handleFileUpload} disabled={uploadingFiles} />
-                      </label>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {uploadingFiles && <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4"><Loader2 className="w-4 h-4 animate-spin" />Uploaden...</div>}
-                  {invoices.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                      <FileUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Nog geen bestanden geüpload</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {invoices.map((inv, i) => (
-                        <InvoiceRow key={inv.id} invoice={inv} index={i} isSent={!!isSent} onDelete={handleDeleteInvoice} onUpdateNumber={handleUpdateInvoiceNumber} />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Front Page Step */}
-          {currentStep >= 2 && currentStep < 4 && selectedProject && (
-            <FDAFrontPageStep
-              projectId={selectedProject.project_id}
-              shipName={formData.ship_name}
-              lbhNumber={formData.lbh_number}
-              googleSheetUrl={selectedProject.google_sheet_url}
-              frontPageUrl={selectedProject.front_page_url}
-              agencyCostUrl={selectedProject.agency_cost_url}
-              finalPdfUrl={selectedProject.final_pdf_url}
-              status={selectedProject.status}
-              onProjectUpdate={async () => {
-                await fetchProjects();
-                // Re-select project to get updated data
-                const { data } = await supabase.from("fda_projects").select("*").eq("project_id", selectedProject.project_id).single();
-                if (data) setSelectedProject(data);
-              }}
-              onNavigateToEmail={() => navigate(`/fda/email/${selectedProject.project_id}`)}
-            />
-          )}
-
-          {/* Email Step - already sent */}
-          {currentStep === 4 && (
-            <Card className="border-success/50 bg-success/5">
-              <CardContent className="py-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-success" />
-                    <div>
-                      <h3 className="font-semibold">E-mail klaar</h3>
-                      <p className="text-sm text-muted-foreground">De e-mail is gereed om te versturen of is al verstuurd.</p>
-                    </div>
-                  </div>
-                  <Button onClick={() => navigate(`/fda/email/${selectedProject.project_id}`)}>
-                    <Mail className="w-4 h-4 mr-2" />Naar E-mail
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </DashboardLayout>
     );
@@ -702,7 +752,7 @@ export default function FDACreator() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {projects.map((project, i) => (
+            {projects.map((project) => (
               <Card key={project.id} className="cursor-pointer transition-all hover:shadow-lg hover:border-primary/30" onClick={() => { setProjectInUrl(project.project_id); setSelectedProject(project); }}>
                 <CardContent className="py-4">
                   <div className="flex items-center justify-between">
