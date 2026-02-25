@@ -60,14 +60,32 @@ export function ManualEmailCreateForm({
       if (originalSubject) formData.append("subject", originalSubject);
       if (pdfFile) formData.append("pdf", pdfFile);
 
-      const { data: responseData, error: fnError } = await supabase.functions.invoke("trigger-manual-email", {
-        body: formData,
-      });
+      let lastError: Error | null = null;
+      let success = false;
+      const maxRetries = 3;
 
-      if (fnError) throw new Error(fnError.message || "Webhook request failed");
-      if (responseData?.upstream_status && responseData.upstream_status >= 400) {
-        console.warn("n8n upstream error:", responseData);
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const { data: responseData, error: fnError } = await supabase.functions.invoke("trigger-manual-email", {
+            body: formData,
+          });
+
+          if (fnError) throw new Error(fnError.message || "Webhook request failed");
+          if (responseData?.upstream_status && responseData.upstream_status >= 400) {
+            console.warn("n8n upstream error:", responseData);
+          }
+          success = true;
+          break;
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          console.warn(`[ManualEmail] Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+          if (attempt < maxRetries) {
+            await new Promise((r) => setTimeout(r, 1500 * attempt));
+          }
+        }
       }
+
+      if (!success && lastError) throw lastError;
 
       // Clear form
       setEmailContent("");
