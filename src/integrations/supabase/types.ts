@@ -43,8 +43,10 @@ export type Database = {
           category: string
           content: string
           created_at: string | null
+          embedding: string | null
           id: string
           keywords: string[]
+          metadata: Json | null
           topic: string
           updated_at: string | null
         }
@@ -52,8 +54,10 @@ export type Database = {
           category: string
           content: string
           created_at?: string | null
+          embedding?: string | null
           id: string
           keywords: string[]
+          metadata?: Json | null
           topic: string
           updated_at?: string | null
         }
@@ -61,10 +65,33 @@ export type Database = {
           category?: string
           content?: string
           created_at?: string | null
+          embedding?: string | null
           id?: string
           keywords?: string[]
+          metadata?: Json | null
           topic?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      cargo_kb_embeddings: {
+        Row: {
+          content: string | null
+          embedding: string | null
+          id: number
+          metadata: Json | null
+        }
+        Insert: {
+          content?: string | null
+          embedding?: string | null
+          id?: number
+          metadata?: Json | null
+        }
+        Update: {
+          content?: string | null
+          embedding?: string | null
+          id?: number
+          metadata?: Json | null
         }
         Relationships: []
       }
@@ -1081,6 +1108,27 @@ export type Database = {
           vessel_2_loa?: number | null
           vessel_2_name?: string | null
           vessel_name?: string | null
+        }
+        Relationships: []
+      }
+      owners_kb_embeddings: {
+        Row: {
+          content: string | null
+          embedding: string | null
+          id: number
+          metadata: Json | null
+        }
+        Insert: {
+          content?: string | null
+          embedding?: string | null
+          id?: number
+          metadata?: Json | null
+        }
+        Update: {
+          content?: string | null
+          embedding?: string | null
+          id?: number
+          metadata?: Json | null
         }
         Relationships: []
       }
