@@ -30,18 +30,22 @@ export function ManualEmailCreateForm({
   const submitLockRef = useRef(false);
 
   async function handleSubmit() {
-    if (sending || submitLockRef.current) return;
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
+    setSending(true);
 
     if (!agentType) {
       toast({ title: "Error", description: "Selecteer eerst een agent type", variant: "destructive" });
+      submitLockRef.current = false;
+      setSending(false);
       return;
     }
     if (!emailContent.trim()) {
       toast({ title: "Error", description: "Plak een e-mailbericht", variant: "destructive" });
+      submitLockRef.current = false;
+      setSending(false);
       return;
     }
-
-    submitLockRef.current = true;
 
     const originalEmailContent = emailContent;
     const originalAgentType = agentType;
@@ -74,7 +78,6 @@ export function ManualEmailCreateForm({
 
     onEmailCreated(optimisticEmail);
     onSwitchToHistory();
-    setSending(true);
 
     try {
       const formData = new FormData();
