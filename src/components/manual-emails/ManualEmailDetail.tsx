@@ -241,14 +241,17 @@ export function ManualEmailDetail({ email, onDelete, onEmailUpdated, onRefresh }
             </div>
 
             {email.status === "processing" ? (
-              <div className="border rounded-lg bg-muted/20 p-4">
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <p className="text-sm">Bezig met verwerken…</p>
+              <div className="border rounded-lg bg-muted/20 p-5 space-y-3">
+                <div className="space-y-2.5">
+                  <div className="h-3.5 w-[90%] rounded-md bg-muted animate-pulse" />
+                  <div className="h-3.5 w-[75%] rounded-md bg-muted animate-pulse [animation-delay:150ms]" />
+                  <div className="h-3.5 w-[85%] rounded-md bg-muted animate-pulse [animation-delay:300ms]" />
+                  <div className="h-3.5 w-[60%] rounded-md bg-muted animate-pulse [animation-delay:450ms]" />
                 </div>
+                <p className="text-xs text-muted-foreground pt-1">AI is generating your email…</p>
               </div>
             ) : email.body ? (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-hidden animate-fade-in">
                 {email.subject && (
                   <div className="px-4 py-3 bg-primary/5 border-b">
                     <p className="text-xs text-muted-foreground mb-1">Onderwerp:</p>
