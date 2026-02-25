@@ -83,11 +83,15 @@ export function ManualEmailCreateForm({
       if (originalSubject) formData.append("subject", originalSubject);
       if (pdfFile) formData.append("pdf", pdfFile);
 
-      const { error: fnError } = await supabase.functions.invoke("trigger-manual-email", {
+      const { data: responseData, error: fnError } = await supabase.functions.invoke("trigger-manual-email", {
         body: formData,
       });
 
       if (fnError) throw new Error(fnError.message || "Webhook request failed");
+      if (responseData?.upstream_status && responseData.upstream_status >= 400) {
+        console.warn("n8n upstream error:", responseData);
+        // Don't throw — n8n will still process async; the email will appear via realtime
+      }
 
       toast({ title: "Verzonden" });
 
