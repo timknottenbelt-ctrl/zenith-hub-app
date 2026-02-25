@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -146,23 +147,6 @@ export default function ManualEmails() {
         </TabsContent>
 
         <TabsContent value="history" className="mt-4">
-          {waitingForAI ? (
-            <div className="flex flex-col items-center justify-center py-20 space-y-4">
-              <Loader2 className="w-10 h-10 animate-spin text-primary" />
-              <p className="text-lg font-medium text-foreground">AI is verwerking uw aanvraag...</p>
-              <p className="text-sm text-muted-foreground">
-                Dit kan enkele seconden duren. De email verschijnt automatisch.
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-4"
-                onClick={() => setWaitingForAI(false)}
-              >
-                Annuleren
-              </Button>
-            </div>
-          ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <ManualEmailList
                 emails={emails}
@@ -177,14 +161,38 @@ export default function ManualEmails() {
                 onSelectEmail={setSelectedEmail}
                 onRefresh={() => fetchManualEmails({ showLoading: false })}
               />
-              <ManualEmailDetail
-                email={selectedEmail}
-                onDelete={openDeleteDialog}
-                onEmailUpdated={handleEmailUpdated}
-                onRefresh={() => fetchManualEmails({ showLoading: false })}
-              />
+              {waitingForAI && !selectedEmail ? (
+                <Card className="card-premium lg:col-span-2 overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium">E-mail Details</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col items-center justify-center h-[400px] space-y-4">
+                      <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                      <p className="text-lg font-medium text-foreground">AI is verwerking uw aanvraag...</p>
+                      <p className="text-sm text-muted-foreground">
+                        Dit kan enkele seconden duren. De email verschijnt automatisch.
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-4"
+                        onClick={() => setWaitingForAI(false)}
+                      >
+                        Annuleren
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <ManualEmailDetail
+                  email={selectedEmail}
+                  onDelete={openDeleteDialog}
+                  onEmailUpdated={handleEmailUpdated}
+                  onRefresh={() => fetchManualEmails({ showLoading: false })}
+                />
+              )}
             </div>
-          )}
         </TabsContent>
       </Tabs>
 
