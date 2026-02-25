@@ -730,7 +730,7 @@ export default function AIInquiries() {
                         {showPreview && (selectedEmail.original_email || selectedEmail.orignal_email) && (
                           <div className="p-3 bg-muted/50 rounded-lg border">
                             <p className="text-xs font-medium mb-2 text-muted-foreground">{t('inquiries.originalEmail')}:</p>
-                            <div className="whitespace-pre-wrap text-sm font-sans leading-relaxed max-h-40 overflow-auto">{selectedEmail.original_email || selectedEmail.orignal_email}</div>
+                            <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed max-h-40 overflow-auto">{selectedEmail.original_email || selectedEmail.orignal_email}</pre>
                           </div>
                         )}
                       </CardContent>
