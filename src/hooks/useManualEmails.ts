@@ -63,6 +63,8 @@ const dedupeCloseDuplicates = (rows: ManualEmail[]) => {
 
 export function useManualEmails(filterAgentType: string) {
   const [emails, setEmails] = useState<ManualEmail[]>([]);
+  const emailsRef = useRef<ManualEmail[]>([]);
+  emailsRef.current = emails;
   const [selectedEmail, setSelectedEmail] = useState<ManualEmail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -162,6 +164,14 @@ export function useManualEmails(filterAgentType: string) {
               selectedEmail.agent_type === newRow.agent_type &&
               normalizeForKey(selectedEmail.email_content) === normalizeForKey(newRow.email_content);
             if (isSameSelected || isOptimisticMatch) setSelectedEmail(newRow);
+
+            // Show success toast when status transitions from processing to completed
+            if (eventType === "UPDATE" && newRow.status && newRow.status !== "processing") {
+              const prevInList = emailsRef.current.find((e) => e.id === newRow.id);
+              if (prevInList?.status === "processing") {
+                toast({ title: "Email gegenereerd!" });
+              }
+            }
           }
 
           if (eventType === "DELETE" && oldRow?.id && selectedEmail?.id === oldRow.id) {
