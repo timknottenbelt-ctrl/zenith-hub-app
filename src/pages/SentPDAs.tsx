@@ -612,7 +612,7 @@ function EmailDetailView({
           {showOriginal && (email.original_email || email.orignal_email) && (
             <div className="p-3 bg-muted/50 rounded-lg border mb-4">
               <p className="text-xs font-medium mb-2 text-muted-foreground">{t('inquiries.originalEmail')}:</p>
-              <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">{email.original_email || email.orignal_email}</pre>
+              <pre className="whitespace-pre-wrap text-sm font-sans leading-[1.6]">{email.original_email || email.orignal_email}</pre>
             </div>
           )}
 
@@ -797,7 +797,7 @@ function EmailDialogContent({
       {showOriginal && (email.original_email || email.orignal_email) && (
         <div className="p-3 bg-muted/50 rounded-lg border">
           <p className="text-xs font-medium mb-2 text-muted-foreground">{t('inquiries.originalEmail')}:</p>
-          <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed max-h-40 overflow-auto">{email.original_email || email.orignal_email}</pre>
+          <pre className="whitespace-pre-wrap text-sm font-sans leading-[1.6] max-h-40 overflow-auto">{email.original_email || email.orignal_email}</pre>
         </div>
       )}
 
