@@ -77,73 +77,13 @@ export function useManualEmails(filterAgentType: string) {
     return () => clearInterval(interval);
   }, [selectedEmail?.id, selectedEmail?.status]);
 
-  // Realtime subscription — uses refs to avoid re-subscribing on selection changes
+  // Auto-refresh polling every 3 seconds
   useEffect(() => {
-    const channel = supabase
-      .channel("manual_emails_changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "manual_emails" },
-        (payload) => {
-          const eventType = payload.eventType;
-          const newRow = payload.new as ManualEmail | undefined;
-          const oldRow = payload.old as { id?: number } | undefined;
+    const interval = setInterval(() => {
+      fetchManualEmails({ showLoading: false });
+    }, 3000);
 
-          setEmails((prev) => {
-            const matchesFilter = (agentType?: string | null) =>
-              filterAgentType === "all" || agentType === filterAgentType;
-
-            if (eventType === "INSERT" && newRow) {
-              if (!matchesFilter(newRow.agent_type)) return prev;
-              if (prev.some((e) => e.id === newRow.id)) return prev;
-              return [newRow, ...prev];
-            }
-
-            if (eventType === "UPDATE" && newRow) {
-              const idx = prev.findIndex((e) => e.id === newRow.id);
-              if (!matchesFilter(newRow.agent_type)) {
-                if (idx !== -1) {
-                  const next = [...prev];
-                  next.splice(idx, 1);
-                  return next;
-                }
-                return prev;
-              }
-              if (idx === -1) return [newRow, ...prev];
-              const next = [...prev];
-              next[idx] = newRow;
-              return next;
-            }
-
-            if (eventType === "DELETE") {
-              const idToRemove = oldRow?.id;
-              return typeof idToRemove === "number" ? prev.filter((e) => e.id !== idToRemove) : prev;
-            }
-            return prev;
-          });
-
-          if ((eventType === "INSERT" || eventType === "UPDATE") && newRow) {
-            if (selectedEmailRef.current?.id === newRow.id) {
-              setSelectedEmail(newRow);
-            }
-
-            // Show success toast when status transitions from processing to completed
-            if (eventType === "UPDATE" && newRow.status && newRow.status !== "processing") {
-              const prevInList = emailsRef.current.find((e) => e.id === newRow.id);
-              if (prevInList?.status === "processing") {
-                toast({ title: "Email gegenereerd!" });
-              }
-            }
-          }
-
-          if (eventType === "DELETE" && oldRow?.id && selectedEmailRef.current?.id === oldRow.id) {
-            setSelectedEmail(null);
-          }
-        },
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    return () => clearInterval(interval);
   }, [filterAgentType]);
 
   async function fetchManualEmails(options: { showLoading?: boolean } = {}) {
