@@ -7,17 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle, Send, Upload, X, Loader2, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import type { ManualEmail } from "@/hooks/useManualEmails";
 
 interface ManualEmailCreateFormProps {
-  onEmailCreated: (optimistic: ManualEmail) => void;
+  onSubmitted: () => void;
   onSwitchToHistory: () => void;
   filterAgentType: string;
   setFilterAgentType: (v: string) => void;
 }
 
 export function ManualEmailCreateForm({
-  onEmailCreated,
+  onSubmitted,
   onSwitchToHistory,
   filterAgentType,
   setFilterAgentType,
@@ -47,41 +46,16 @@ export function ManualEmailCreateForm({
       return;
     }
 
-    const originalEmailContent = emailContent;
     const originalAgentType = agentType;
     const originalSubject = subject.trim();
-
-    const optimisticId = -Date.now();
-    const optimisticEmail: ManualEmail = {
-      id: optimisticId,
-      created_at: new Date().toISOString(),
-      email_content: originalEmailContent,
-      agent_type: originalAgentType,
-      vessel_name: null,
-      imo: null,
-      port: null,
-      status: "processing",
-      subject: originalSubject || null,
-      body: null,
-      pda_link_1: null,
-      pda_link_2: null,
-      company_name: null,
-      contact_name: null,
-      pdf_path: null,
-      vessel_2_name: null,
-      vessel_2_imo: null,
-    };
 
     if (filterAgentType !== "all" && filterAgentType !== originalAgentType) {
       setFilterAgentType("all");
     }
 
-    onEmailCreated(optimisticEmail);
-    onSwitchToHistory();
-
     try {
       const formData = new FormData();
-      formData.append("email_content", originalEmailContent);
+      formData.append("email_content", emailContent);
       formData.append("agent_type", originalAgentType);
       if (originalSubject) formData.append("subject", originalSubject);
       if (pdfFile) formData.append("pdf", pdfFile);
@@ -93,17 +67,18 @@ export function ManualEmailCreateForm({
       if (fnError) throw new Error(fnError.message || "Webhook request failed");
       if (responseData?.upstream_status && responseData.upstream_status >= 400) {
         console.warn("n8n upstream error:", responseData);
-        // Don't throw — n8n will still process async; the email will appear via realtime
       }
 
-      // No immediate success toast — the realtime subscription in useManualEmails
-      // will show 'Email gegenereerd!' when status changes from processing to completed.
-
+      // Clear form
       setEmailContent("");
       setSubject("");
       setPdfFile(null);
       const fileInput = document.getElementById("manual-pdf-input") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
+
+      // Signal parent: webhook fired, switch to waiting state
+      onSubmitted();
+      onSwitchToHistory();
     } catch (error) {
       toast({
         title: "Error",
