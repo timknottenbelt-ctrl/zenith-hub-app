@@ -9,7 +9,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { ManualEmail } from "@/hooks/useManualEmails";
-import { WEBHOOKS, webhookPostFormData } from "@/lib/webhooks";
+
 
 interface ManualEmailDetailProps {
   email: ManualEmail | null;
@@ -60,12 +60,13 @@ export function ManualEmailDetail({ email, onDelete, onEmailUpdated, onRefresh }
       formData.append("agent_type", email.agent_type);
       if (email.id > 0) formData.append("email_id", String(email.id));
 
-      const response = await webhookPostFormData(WEBHOOKS.MANUAL_EMAIL_CREATION, formData);
+      const { data: responseData, error: fnError } = await supabase.functions.invoke("trigger-manual-email", {
+        body: formData,
+      });
 
-      if (!response.ok) throw new Error("Webhook request failed");
+      if (fnError) throw new Error(fnError.message || "Webhook request failed");
 
-      let webhookData: any = null;
-      try { webhookData = await response.json(); } catch { /* ignore */ }
+      const webhookData: any = responseData ?? null;
 
       const respSubject = webhookData?.data?.subject ?? webhookData?.subject;
       const respBody = webhookData?.data?.body ?? webhookData?.body;
