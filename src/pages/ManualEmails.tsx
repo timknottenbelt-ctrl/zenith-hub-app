@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Mail, ArrowLeft } from "lucide-react";
+import { PlusCircle, Mail, ArrowLeft, Loader2 } from "lucide-react";
 import { TransitionLink } from "@/components/TransitionLink";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -32,6 +32,8 @@ export default function ManualEmails() {
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [emailToDelete, setEmailToDelete] = useState<{ id: number; pdfPath: string | null } | null>(null);
+  const [waitingForAI, setWaitingForAI] = useState(false);
+  const waitingRef = useRef(false);
 
   const {
     emails,
@@ -42,9 +44,28 @@ export default function ManualEmails() {
     fetchManualEmails,
   } = useManualEmails(filterAgentType);
 
-  function handleEmailCreated(optimistic: ManualEmail) {
-    setEmails((prev) => [optimistic, ...prev]);
-    setSelectedEmail(optimistic);
+  // When waitingForAI is true, listen for new INSERTs and auto-select the first one
+  useEffect(() => {
+    waitingRef.current = waitingForAI;
+  }, [waitingForAI]);
+
+  // Track email count to detect new inserts while waiting
+  const prevEmailCountRef = useRef(emails.length);
+  useEffect(() => {
+    if (waitingRef.current && emails.length > prevEmailCountRef.current) {
+      // A new email appeared — select the newest one (first in the list)
+      const newest = emails[0];
+      if (newest) {
+        setSelectedEmail(newest);
+        setWaitingForAI(false);
+        toast({ title: "Email ontvangen", description: "AI verwerkt uw aanvraag..." });
+      }
+    }
+    prevEmailCountRef.current = emails.length;
+  }, [emails, setSelectedEmail]);
+
+  function handleSubmitted() {
+    setWaitingForAI(true);
   }
 
   function openDeleteDialog(emailId: number, pdfPath: string | null) {
@@ -117,7 +138,7 @@ export default function ManualEmails() {
 
         <TabsContent value="create" className="mt-4">
           <ManualEmailCreateForm
-            onEmailCreated={handleEmailCreated}
+            onSubmitted={handleSubmitted}
             onSwitchToHistory={() => setActiveTab("history")}
             filterAgentType={filterAgentType}
             setFilterAgentType={setFilterAgentType}
@@ -125,27 +146,45 @@ export default function ManualEmails() {
         </TabsContent>
 
         <TabsContent value="history" className="mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <ManualEmailList
-              emails={emails}
-              selectedEmail={selectedEmail}
-              loading={loading}
-              filterAgentType={filterAgentType}
-              setFilterAgentType={setFilterAgentType}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              dateFilter={dateFilter}
-              setDateFilter={setDateFilter}
-              onSelectEmail={setSelectedEmail}
-              onRefresh={() => fetchManualEmails({ showLoading: false })}
-            />
-            <ManualEmailDetail
-              email={selectedEmail}
-              onDelete={openDeleteDialog}
-              onEmailUpdated={handleEmailUpdated}
-              onRefresh={() => fetchManualEmails({ showLoading: false })}
-            />
-          </div>
+          {waitingForAI ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-4">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+              <p className="text-lg font-medium text-foreground">AI is verwerking uw aanvraag...</p>
+              <p className="text-sm text-muted-foreground">
+                Dit kan enkele seconden duren. De email verschijnt automatisch.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-4"
+                onClick={() => setWaitingForAI(false)}
+              >
+                Annuleren
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <ManualEmailList
+                emails={emails}
+                selectedEmail={selectedEmail}
+                loading={loading}
+                filterAgentType={filterAgentType}
+                setFilterAgentType={setFilterAgentType}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                dateFilter={dateFilter}
+                setDateFilter={setDateFilter}
+                onSelectEmail={setSelectedEmail}
+                onRefresh={() => fetchManualEmails({ showLoading: false })}
+              />
+              <ManualEmailDetail
+                email={selectedEmail}
+                onDelete={openDeleteDialog}
+                onEmailUpdated={handleEmailUpdated}
+                onRefresh={() => fetchManualEmails({ showLoading: false })}
+              />
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
