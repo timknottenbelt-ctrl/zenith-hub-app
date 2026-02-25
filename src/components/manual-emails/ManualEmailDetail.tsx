@@ -85,7 +85,7 @@ export function ManualEmailDetail({ email, onDelete, onEmailUpdated, onRefresh }
         });
       }
 
-      toast({ title: "Opnieuw verzonden", description: "Email is opnieuw naar AI gestuurd." });
+      // No immediate success toast — realtime subscription handles it
       setTimeout(onRefresh, 2000);
     } catch (error) {
       onEmailUpdated({ ...email, status: "error" });

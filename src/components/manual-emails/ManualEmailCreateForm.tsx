@@ -93,50 +93,8 @@ export function ManualEmailCreateForm({
         // Don't throw — n8n will still process async; the email will appear via realtime
       }
 
-      toast({ title: "Verzonden" });
-
-      // Poll for result (single call — bug fix: was called twice before)
-      const startedAt = Date.now();
-      const normalizeMatch = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
-      const target = normalizeMatch(originalEmailContent);
-
-      const pollForResult = async () => {
-        const tryFindEmail = async (): Promise<ManualEmail | null> => {
-          const { data } = await supabase
-            .from("manual_emails")
-            .select("*")
-            .eq("agent_type", originalAgentType)
-            .order("created_at", { ascending: false })
-            .limit(50);
-
-          if (!data?.length) return null;
-          const rows = data as ManualEmail[];
-          const snippet = target.slice(0, 160);
-
-          return rows.find((e) => {
-            const content = normalizeMatch(e.email_content ?? "");
-            const isSame = content === target || (snippet && content.includes(snippet)) || target.includes(content);
-            const isDone = !!e.subject && !!e.body && e.status !== "processing";
-            return isSame && isDone;
-          }) ?? null;
-        };
-
-        const poll = async () => {
-          const result = await tryFindEmail();
-          if (result) {
-            // Will be picked up by realtime/parent state
-            toast({ title: "Klaar", description: "Email is bijgewerkt." });
-            return;
-          }
-          const elapsedMs = Date.now() - startedAt;
-          const intervalMs = elapsedMs < 3 * 60_000 ? 2000 : elapsedMs < 10 * 60_000 ? 5000 : 15000;
-          setTimeout(poll, intervalMs);
-        };
-
-        poll();
-      };
-
-      pollForResult();
+      // No immediate success toast — the realtime subscription in useManualEmails
+      // will show 'Email gegenereerd!' when status changes from processing to completed.
 
       setEmailContent("");
       setSubject("");
