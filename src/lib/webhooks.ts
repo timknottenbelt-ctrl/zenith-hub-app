@@ -39,7 +39,7 @@ export const WEBHOOKS = {
   SEND_REFERRAL_EMAIL: `${WEBHOOK_BASE}/SEND-REFERRAL-EMAIL`,
 
   /** Manual Email – creation / PDA */
-  MANUAL_EMAIL_CREATION: `${WEBHOOK_BASE}/MANUAL-EMAIL-CREATION`,
+  MANUAL_EMAIL_CREATION: "https://lbhcuracao.app.n8n.cloud/webhook/MANUAL-EMAIL-CREATION",
 } as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
