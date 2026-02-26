@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import {
   Search, Plus, Pencil, Trash2, BookOpen, Package, Ship,
-  X, Loader2, ChevronRight, ChevronDown, Tag, FileText, Save, ArrowLeft,
-  Hash, Zap, Database,
+  X, Loader2, ChevronRight, Tag, FileText, Save, ArrowLeft,
+  Hash, Zap, Database, Shield, Anchor, MapPin, ClipboardList, DollarSign,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────
@@ -24,7 +23,6 @@ interface KBEntry {
   category?: string;
   topic?: string;
   metadata?: Record<string, unknown>;
-  created_at?: string;
 }
 
 type SortMode = "newest" | "oldest" | "alpha";
@@ -34,21 +32,40 @@ const TABLE = "cargo_agent_knowledge" as const;
 
 const CATEGORIES = [
   { id: "all", label: "All Knowledge", icon: BookOpen },
+  { id: "cargo_operations", label: "Cargo & Terminals", icon: Package },
   { id: "crew_change", label: "Crew Change", icon: Ship },
-  { id: "cargo", label: "Cargo & Terminals", icon: Package },
-  { id: "port_formalities", label: "Port Formalities", icon: FileText },
-  { id: "spares", label: "Spares & Provisions", icon: Database },
+  { id: "owners_agent_tariffs", label: "Tariffs & Rates", icon: DollarSign },
   { id: "other", label: "Other", icon: Tag },
+  { id: "documentation", label: "Documentation", icon: FileText },
+  { id: "terminals", label: "Terminals", icon: Anchor },
+  { id: "port_restrictions", label: "Port Restrictions", icon: Shield },
+  { id: "safety", label: "Safety", icon: Shield },
+  { id: "operational_planning", label: "Operational Planning", icon: ClipboardList },
+  { id: "port_formalities", label: "Port Formalities", icon: MapPin },
 ];
+
+const CATEGORY_COLORS: Record<string, string> = {
+  cargo_operations: "#fbbf24",
+  crew_change: "#67e8f9",
+  owners_agent_tariffs: "#e879f9",
+  other: "#94a3b8",
+  documentation: "#a78bfa",
+  terminals: "#34d399",
+  port_restrictions: "#f87171",
+  safety: "#fb923c",
+  operational_planning: "#60a5fa",
+  port_formalities: "#4ade80",
+};
 
 function getCat(entry: KBEntry): string {
   if (entry.category) return entry.category;
   if (entry.metadata?.category) return String(entry.metadata.category);
   const c = entry.content.toLowerCase();
-  if (c.includes("crew") || c.includes("visa") || c.includes("immigration") || c.includes("launch") || c.includes("cash to master") || c.includes("garbage")) return "crew_change";
-  if (c.includes("terminal") || c.includes("loading") || c.includes("isla") || c.includes("bitumen") || c.includes("cargo") || c.includes("discharge")) return "cargo";
-  if (c.includes("port") || c.includes("customs") || c.includes("clearance") || c.includes("formali")) return "port_formalities";
-  if (c.includes("spare") || c.includes("provision") || c.includes("delivery") || c.includes("dhl") || c.includes("fedex")) return "spares";
+  if (c.includes("crew change") || c.includes("cash to master") || c.includes("garbage") || c.includes("visa")) return "crew_change";
+  if (c.includes("isla") || c.includes("bitumen") || c.includes("terminal") || c.includes("bunkering") || c.includes("bulk")) return "cargo_operations";
+  if (c.includes("pilotage") || c.includes("tug") || c.includes("anchorage") || c.includes("loa limit")) return "port_restrictions";
+  if (c.includes("safety") || c.includes("isgott") || c.includes("hse") || c.includes("ppe")) return "safety";
+  if (c.includes("fee") || c.includes("tariff") || c.includes("coordination fee")) return "owners_agent_tariffs";
   return "other";
 }
 
@@ -67,17 +84,6 @@ function truncate(str: string, n: number) {
   return str.length > n ? str.slice(0, n) + "…" : str;
 }
 
-function timeAgo(dateStr?: string): string {
-  if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 30) return `${days}d ago`;
-  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
-}
-
 // ─────────────────────────────────────────────────────────
 export default function KnowledgeBase() {
   const { t } = useLanguage();
@@ -94,6 +100,7 @@ export default function KnowledgeBase() {
   const [formCategory, setFormCategory] = useState("other");
   const [formTopic, setFormTopic] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingStatus, setSavingStatus] = useState("");
 
   // Detail
   const [detailEntry, setDetailEntry] = useState<KBEntry | null>(null);
@@ -110,7 +117,7 @@ export default function KnowledgeBase() {
     try {
       const { data, error } = await supabase
         .from(TABLE)
-        .select("*")
+        .select("id, content, metadata")
         .order("id", { ascending: false });
       if (error) throw error;
       const mapped: KBEntry[] = (data || []).map((row) => ({
@@ -119,7 +126,6 @@ export default function KnowledgeBase() {
         metadata: row.metadata as Record<string, unknown> | undefined,
         category: (row.metadata as Record<string, unknown> | null)?.category as string | undefined,
         topic: (row.metadata as Record<string, unknown> | null)?.topic as string | undefined,
-        created_at: undefined,
       }));
       setEntries(mapped);
     } catch {
@@ -172,20 +178,24 @@ export default function KnowledgeBase() {
   const handleSave = async () => {
     if (!formContent.trim()) { toast.error("Content cannot be empty"); return; }
     setSaving(true);
+    setSavingStatus("Generating embedding...");
     try {
-      const payload = { content: formContent.trim(), metadata: { category: formCategory, topic: formTopic } };
-      if (editEntry) {
-        const { error } = await supabase.from(TABLE).update(payload).eq("id", Number(editEntry.id));
-        if (error) throw error;
-        toast.success("Entry updated");
-      } else {
-        const { error } = await supabase.from(TABLE).insert(payload);
-        if (error) throw error;
-        toast.success("Entry added");
-      }
+      const { error } = await supabase.functions.invoke("upsert-kb-entry", {
+        body: {
+          id: editEntry?.id ? Number(editEntry.id) : null,
+          content: formContent.trim(),
+          metadata: { category: formCategory, topic: formTopic || null },
+        },
+      });
+      if (error) throw error;
+      toast.success("Entry saved + embedding generated ✓");
       setViewMode("list"); fetchEntries();
-    } catch { toast.error("Failed to save"); }
-    finally { setSaving(false); }
+    } catch {
+      toast.error("Failed to save");
+    } finally {
+      setSaving(false);
+      setSavingStatus("");
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -253,7 +263,7 @@ export default function KnowledgeBase() {
               <div className="flex items-center gap-3 pt-2">
                 <Button onClick={handleSave} disabled={saving || !formContent.trim()} className="gap-2">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  {editEntry ? "Save Changes" : "Add to Library"}
+                  {saving ? savingStatus : editEntry ? "Save Changes" : "Add to Library"}
                 </Button>
                 <Button variant="ghost" onClick={backToList}>Cancel</Button>
               </div>
@@ -289,9 +299,6 @@ export default function KnowledgeBase() {
                     <Badge variant="outline" className="gap-1 text-xs">
                       <Hash className="w-3 h-3" />{topic}
                     </Badge>
-                  )}
-                  {detailEntry.created_at && (
-                    <span className="text-xs text-muted-foreground ml-auto">{timeAgo(detailEntry.created_at)}</span>
                   )}
                 </div>
                 <h2 className="text-xl font-semibold leading-snug">{getTitle(detailEntry.content)}</h2>
@@ -404,7 +411,8 @@ export default function KnowledgeBase() {
                       <span>{cat.label}</span><span>{n}</span>
                     </div>
                     <div className="h-1 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full rounded-full bg-primary/60 transition-all duration-500" style={{ width: `${pct}%` }} />
+                      <div className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, backgroundColor: CATEGORY_COLORS[cat.id] || "hsl(var(--primary))" }} />
                     </div>
                   </div>
                 );
@@ -413,7 +421,7 @@ export default function KnowledgeBase() {
           </div>
 
           {/* Mobile category selector */}
-          <div className="lg:hidden flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mt-2 mb-2 w-full absolute left-0 px-6" style={{ position: 'relative', left: 'auto', padding: 0 }}>
+          <div className="lg:hidden flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mt-2 mb-2 w-full" style={{ position: 'relative' }}>
             {CATEGORIES.map((cat) => (
               <Button key={cat.id} variant={activeCategory === cat.id ? "default" : "outline"} size="sm"
                 onClick={() => setActiveCategory(cat.id)} className="gap-1.5 whitespace-nowrap text-xs shrink-0">
@@ -476,9 +484,6 @@ export default function KnowledgeBase() {
                       <CardContent className="p-4 flex flex-col h-full">
                         <div className="flex items-center justify-between mb-3">
                           <Badge variant="secondary" className="text-xs">{catLabel}</Badge>
-                          {entry.created_at && (
-                            <span className="text-xs text-muted-foreground">{timeAgo(entry.created_at)}</span>
-                          )}
                         </div>
 
                         <h3 className="text-sm font-semibold leading-snug mb-2 line-clamp-2">{title}</h3>
