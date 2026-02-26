@@ -304,6 +304,15 @@ export default function FDACuracao() {
       return;
     }
 
+    if (!formData.vessel_arrived || !formData.vessel_sailed || !formData.operation) {
+      toast({
+        title: "Velden ontbreken",
+        description: "Vul aankomst, vertrek en operatie in voordat je verder gaat.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSending(true);
     try {
       await handleSaveProject();
