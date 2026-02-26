@@ -1,9 +1,17 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import {
   Search, Plus, Pencil, Trash2, BookOpen, Package, Ship,
-  X, Loader2, ChevronRight, Tag, FileText, Save, ArrowLeft,
+  X, Loader2, ChevronRight, ChevronDown, Tag, FileText, Save, ArrowLeft,
   Hash, Zap, Database,
 } from "lucide-react";
 
@@ -20,25 +28,18 @@ interface KBEntry {
 }
 
 type SortMode = "newest" | "oldest" | "alpha";
+type ViewMode = "list" | "editor" | "detail";
 
 const TABLE = "cargo_agent_knowledge" as const;
 
 const CATEGORIES = [
-  { id: "all", label: "All Knowledge", icon: BookOpen, color: "#6ee7b7" },
-  { id: "crew_change", label: "Crew Change", icon: Ship, color: "#67e8f9" },
-  { id: "cargo", label: "Cargo & Terminals", icon: Package, color: "#fbbf24" },
-  { id: "port_formalities", label: "Port Formalities", icon: FileText, color: "#a78bfa" },
-  { id: "spares", label: "Spares & Provisions", icon: Database, color: "#fb923c" },
-  { id: "other", label: "Other", icon: Tag, color: "#94a3b8" },
+  { id: "all", label: "All Knowledge", icon: BookOpen },
+  { id: "crew_change", label: "Crew Change", icon: Ship },
+  { id: "cargo", label: "Cargo & Terminals", icon: Package },
+  { id: "port_formalities", label: "Port Formalities", icon: FileText },
+  { id: "spares", label: "Spares & Provisions", icon: Database },
+  { id: "other", label: "Other", icon: Tag },
 ];
-
-const CATEGORY_COLORS: Record<string, string> = {
-  crew_change: "#67e8f9",
-  cargo: "#fbbf24",
-  port_formalities: "#a78bfa",
-  spares: "#fb923c",
-  other: "#94a3b8",
-};
 
 function getCat(entry: KBEntry): string {
   if (entry.category) return entry.category;
@@ -79,14 +80,15 @@ function timeAgo(dateStr?: string): string {
 
 // ─────────────────────────────────────────────────────────
 export default function KnowledgeBase() {
+  const { t } = useLanguage();
   const [entries, setEntries] = useState<KBEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   // Editor
-  const [editorOpen, setEditorOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<KBEntry | null>(null);
   const [formContent, setFormContent] = useState("");
   const [formCategory, setFormCategory] = useState("other");
@@ -96,7 +98,7 @@ export default function KnowledgeBase() {
   // Detail
   const [detailEntry, setDetailEntry] = useState<KBEntry | null>(null);
 
-  // Delete confirm
+  // Delete
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -130,7 +132,7 @@ export default function KnowledgeBase() {
   useEffect(() => { fetchEntries(); }, []);
 
   // ── Filter + sort ──────────────────────────────────
-  const filtered = entries
+  const filtered = useMemo(() => entries
     .filter((e) => {
       const matchCat = activeCategory === "all" || getCat(e) === activeCategory;
       const matchSearch = !search ||
@@ -142,20 +144,29 @@ export default function KnowledgeBase() {
       if (sortMode === "newest") return Number(b.id) - Number(a.id);
       if (sortMode === "oldest") return Number(a.id) - Number(b.id);
       return getTitle(a.content).localeCompare(getTitle(b.content));
-    });
+    }), [entries, activeCategory, search, sortMode]);
 
-  const counts: Record<string, number> = { all: entries.length };
-  entries.forEach((e) => { const c = getCat(e); counts[c] = (counts[c] || 0) + 1; });
+  const counts: Record<string, number> = useMemo(() => {
+    const c: Record<string, number> = { all: entries.length };
+    entries.forEach((e) => { const cat = getCat(e); c[cat] = (c[cat] || 0) + 1; });
+    return c;
+  }, [entries]);
 
   // ── Editor actions ─────────────────────────────────
   const openAdd = () => {
     setEditEntry(null); setFormContent(""); setFormCategory("other"); setFormTopic("");
-    setDetailEntry(null); setEditorOpen(true);
+    setDetailEntry(null); setViewMode("editor");
   };
   const openEdit = (entry: KBEntry) => {
     setEditEntry(entry); setFormContent(entry.content);
     setFormCategory(getCat(entry)); setFormTopic(getTopic(entry));
-    setDetailEntry(null); setEditorOpen(true);
+    setDetailEntry(null); setViewMode("editor");
+  };
+  const openDetail = (entry: KBEntry) => {
+    setDetailEntry(entry); setViewMode("detail");
+  };
+  const backToList = () => {
+    setViewMode("list"); setDetailEntry(null); setEditEntry(null); setConfirmDeleteId(null);
   };
 
   const handleSave = async () => {
@@ -166,13 +177,13 @@ export default function KnowledgeBase() {
       if (editEntry) {
         const { error } = await supabase.from(TABLE).update(payload).eq("id", Number(editEntry.id));
         if (error) throw error;
-        toast.success("Entry updated ✓");
+        toast.success("Entry updated");
       } else {
         const { error } = await supabase.from(TABLE).insert(payload);
         if (error) throw error;
-        toast.success("Entry added to library ✓");
+        toast.success("Entry added");
       }
-      setEditorOpen(false); fetchEntries();
+      setViewMode("list"); fetchEntries();
     } catch { toast.error("Failed to save"); }
     finally { setSaving(false); }
   };
@@ -183,7 +194,7 @@ export default function KnowledgeBase() {
       const { error } = await supabase.from(TABLE).delete().eq("id", Number(id));
       if (error) throw error;
       toast.success("Entry removed");
-      setConfirmDeleteId(null); setDetailEntry(null); fetchEntries();
+      setConfirmDeleteId(null); backToList(); fetchEntries();
     } catch { toast.error("Failed to delete"); }
     finally { setDeleting(false); }
   };
@@ -191,142 +202,141 @@ export default function KnowledgeBase() {
   // ─────────────────────────────────────────────────────
   // EDITOR VIEW
   // ─────────────────────────────────────────────────────
-  if (editorOpen) return (
-    <div className="min-h-screen bg-[#07090f] text-white" style={{ fontFamily: "'IBM Plex Mono', 'Fira Code', monospace" }}>
-      <div className="max-w-3xl mx-auto px-6 py-10">
-        <button onClick={() => setEditorOpen(false)} className="flex items-center gap-2 text-[11px] text-white/35 hover:text-white/65 mb-10 transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" /> BACK TO LIBRARY
-        </button>
+  if (viewMode === "editor") {
+    return (
+      <DashboardLayout title={t('knowledge.title')}>
+        <div className="max-w-3xl mx-auto space-y-6">
+          <Button variant="ghost" size="sm" onClick={backToList} className="gap-2 text-muted-foreground">
+            <ArrowLeft className="w-4 h-4" /> Back to library
+          </Button>
 
-        <div className="mb-8">
-          <h1 className="text-xl font-bold">{editEntry ? "Edit Entry" : "New Knowledge Entry"}</h1>
-          <p className="text-xs text-white/25 mt-1">The AI reads this verbatim when answering client questions</p>
-        </div>
+          <Card className="card-premium">
+            <CardContent className="p-6 space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold">{editEntry ? "Edit Entry" : "New Knowledge Entry"}</h2>
+                <p className="text-sm text-muted-foreground mt-1">The AI reads this verbatim when answering client questions</p>
+              </div>
 
-        {/* Category */}
-        <div className="mb-6">
-          <label className="text-[10px] text-white/30 tracking-widest block mb-2">Category</label>
-          <div className="flex flex-wrap gap-2">
-            {CATEGORIES.filter(c => c.id !== "all").map((cat) => (
-              <button key={cat.id} onClick={() => setFormCategory(cat.id)}
-                className="px-3 py-1.5 text-[11px] border transition-all"
-                style={{
-                  borderColor: formCategory === cat.id ? cat.color : "rgba(255,255,255,0.08)",
-                  color: formCategory === cat.id ? cat.color : "rgba(255,255,255,0.35)",
-                  backgroundColor: formCategory === cat.id ? `${cat.color}12` : "transparent",
-                }}>
-                {cat.label}
-              </button>
-            ))}
-          </div>
-        </div>
+              {/* Category */}
+              <div className="space-y-2">
+                <label className="label-small">Category</label>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORIES.filter(c => c.id !== "all").map((cat) => (
+                    <Button key={cat.id} variant={formCategory === cat.id ? "default" : "outline"} size="sm"
+                      onClick={() => setFormCategory(cat.id)} className="gap-1.5 text-xs">
+                      <cat.icon className="w-3.5 h-3.5" />
+                      {cat.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
-        {/* Topic */}
-        <div className="mb-6">
-          <label className="text-[10px] text-white/30 tracking-widest block mb-2">Topic tag (optional)</label>
-          <input value={formTopic} onChange={(e) => setFormTopic(e.target.value)}
-            placeholder="e.g. visa_requirements, loading_rates, crew_change_fees"
-            className="w-full bg-white/[0.04] border border-white/[0.08] text-white/80 text-xs px-3 py-2.5 outline-none focus:border-emerald-500/40 placeholder:text-white/15" />
-        </div>
+              {/* Topic */}
+              <div className="space-y-2">
+                <label className="label-small">Topic tag (optional)</label>
+                <Input value={formTopic} onChange={(e) => setFormTopic(e.target.value)}
+                  placeholder="e.g. visa_requirements, loading_rates" className="h-9" />
+              </div>
 
-        {/* Content */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-[10px] text-white/30 tracking-widest">Knowledge Content</label>
-            <span className="text-[9px] text-white/15">{formContent.length} chars</span>
-          </div>
-          <textarea value={formContent} onChange={(e) => setFormContent(e.target.value)} autoFocus rows={18}
-            placeholder={"Write knowledge here. Be specific and factual.\n\nExample:\nCuracao crew change coordination fee is $940 USD for up to 10 passengers including 2 crew members. Each additional crew member is $85 USD. Launch boat service included for vessels at anchorage. All visa and immigration coordination is handled by the agent..."}
-            className="w-full bg-white/[0.04] border border-white/[0.08] text-white/85 text-sm px-4 py-3 outline-none focus:border-emerald-500/40 placeholder:text-white/[0.12] leading-[1.8] resize-none" />
-          <p className="text-[10px] text-white/20 mt-1.5">Include specific prices, procedures, limits, and requirements. The more specific, the better the AI answers.</p>
-        </div>
+              {/* Content */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="label-small">Knowledge Content</label>
+                  <span className="text-xs text-muted-foreground">{formContent.length} chars</span>
+                </div>
+                <Textarea value={formContent} onChange={(e) => setFormContent(e.target.value)} autoFocus rows={14}
+                  placeholder="Write knowledge here. Be specific and factual. Include prices, procedures, limits, and requirements."
+                  className="leading-relaxed resize-none" />
+                <p className="text-xs text-muted-foreground">The more specific, the better the AI answers.</p>
+              </div>
 
-        <div className="flex items-center gap-3">
-          <button onClick={handleSave} disabled={saving || !formContent.trim()}
-            className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold tracking-wider disabled:opacity-40 transition-colors">
-            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-            {editEntry ? "SAVE CHANGES" : "ADD TO LIBRARY"}
-          </button>
-          <button onClick={() => setEditorOpen(false)} className="px-4 py-2.5 text-white/25 hover:text-white/55 text-xs tracking-widest transition-colors">CANCEL</button>
+              <div className="flex items-center gap-3 pt-2">
+                <Button onClick={handleSave} disabled={saving || !formContent.trim()} className="gap-2">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {editEntry ? "Save Changes" : "Add to Library"}
+                </Button>
+                <Button variant="ghost" onClick={backToList}>Cancel</Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
-    </div>
-  );
+      </DashboardLayout>
+    );
+  }
 
   // ─────────────────────────────────────────────────────
   // DETAIL VIEW
   // ─────────────────────────────────────────────────────
-  if (detailEntry) {
+  if (viewMode === "detail" && detailEntry) {
     const cat = getCat(detailEntry);
-    const catColor = CATEGORY_COLORS[cat] || "#94a3b8";
     const catLabel = CATEGORIES.find(c => c.id === cat)?.label || cat;
     const topic = getTopic(detailEntry);
 
     return (
-      <div className="min-h-screen bg-[#07090f] text-white" style={{ fontFamily: "'IBM Plex Mono', 'Fira Code', monospace" }}>
-        <div className="max-w-3xl mx-auto px-6 py-10">
-          <button onClick={() => setDetailEntry(null)} className="flex items-center gap-2 text-[11px] text-white/35 hover:text-white/65 mb-10 transition-colors">
-            <ArrowLeft className="w-3.5 h-3.5" /> BACK TO LIBRARY
-          </button>
+      <DashboardLayout title={t('knowledge.title')}>
+        <div className="max-w-3xl mx-auto space-y-6">
+          <Button variant="ghost" size="sm" onClick={backToList} className="gap-2 text-muted-foreground">
+            <ArrowLeft className="w-4 h-4" /> Back to library
+          </Button>
 
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-[9px] tracking-widest px-2 py-1" style={{ color: catColor, backgroundColor: `${catColor}15`, border: `1px solid ${catColor}25` }}>
-                {catLabel.toUpperCase()}
-              </span>
-              {topic && (
-                <span className="text-[9px] text-white/25 flex items-center gap-1">
-                  <Hash className="w-2.5 h-2.5" />{topic}
-                </span>
-              )}
-              <span className="text-[9px] text-white/20 ml-auto">{timeAgo(detailEntry.created_at)}</span>
-            </div>
-            <h1 className="text-xl font-bold leading-snug">{getTitle(detailEntry.content)}</h1>
-            <p className="text-[11px] text-white/25 mt-1">{detailEntry.content.length} characters</p>
-          </div>
-
-          {/* Content box */}
-          <div className="border border-white/[0.08] bg-white/[0.025] p-6 mb-6">
-            <p className="text-sm text-white/75 leading-[1.9] whitespace-pre-wrap">{detailEntry.content}</p>
-          </div>
-
-          {/* AI notice */}
-          <div className="border border-emerald-500/20 bg-emerald-500/[0.04] p-4 mb-8 flex items-start gap-3">
-            <Zap className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-[10px] text-emerald-400 tracking-widest font-bold mb-1">USED BY AI</p>
-              <p className="text-xs text-emerald-200/50 leading-relaxed">
-                When a client asks about <span className="text-emerald-300">{catLabel.toLowerCase()}</span>, the AI reads this entry and uses it to answer their question.
-              </p>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-3">
-            <button onClick={() => openEdit(detailEntry)}
-              className="flex items-center gap-2 px-5 py-2.5 border border-white/[0.12] text-white/55 hover:text-white hover:border-white/25 text-xs tracking-widest transition-colors">
-              <Pencil className="w-3.5 h-3.5" /> EDIT
-            </button>
-
-            {confirmDeleteId === detailEntry.id ? (
-              <div className="flex items-center gap-2">
-                <button onClick={() => handleDelete(detailEntry.id)} disabled={deleting}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-400 text-white text-xs tracking-widest transition-colors">
-                  {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  CONFIRM DELETE
-                </button>
-                <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2.5 text-white/30 text-xs">CANCEL</button>
+          <Card className="card-premium">
+            <CardContent className="p-6 space-y-6">
+              {/* Header */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge variant="secondary">{catLabel}</Badge>
+                  {topic && (
+                    <Badge variant="outline" className="gap-1 text-xs">
+                      <Hash className="w-3 h-3" />{topic}
+                    </Badge>
+                  )}
+                  {detailEntry.created_at && (
+                    <span className="text-xs text-muted-foreground ml-auto">{timeAgo(detailEntry.created_at)}</span>
+                  )}
+                </div>
+                <h2 className="text-xl font-semibold leading-snug">{getTitle(detailEntry.content)}</h2>
+                <p className="text-xs text-muted-foreground mt-1">{detailEntry.content.length} characters</p>
               </div>
-            ) : (
-              <button onClick={() => setConfirmDeleteId(detailEntry.id)}
-                className="flex items-center gap-2 px-5 py-2.5 border border-white/[0.08] text-white/25 hover:text-red-400 hover:border-red-500/30 text-xs tracking-widest transition-colors">
-                <Trash2 className="w-3.5 h-3.5" /> DELETE
-              </button>
-            )}
-          </div>
+
+              {/* Content */}
+              <div className="bg-muted/30 border border-border/50 rounded-lg p-5">
+                <p className="text-sm text-foreground/80 leading-[1.9] whitespace-pre-wrap">{detailEntry.content}</p>
+              </div>
+
+              {/* AI notice */}
+              <div className="border border-primary/20 bg-primary/5 rounded-lg p-4 flex items-start gap-3">
+                <Zap className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-primary mb-0.5">Used by AI</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    When a client asks about <span className="font-medium text-foreground">{catLabel.toLowerCase()}</span>, the AI reads this entry and uses it to answer their question.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 pt-2">
+                <Button variant="outline" onClick={() => openEdit(detailEntry)} className="gap-2">
+                  <Pencil className="w-4 h-4" /> Edit
+                </Button>
+                {confirmDeleteId === detailEntry.id ? (
+                  <div className="flex items-center gap-2">
+                    <Button variant="destructive" onClick={() => handleDelete(detailEntry.id)} disabled={deleting} className="gap-2">
+                      {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      Confirm Delete
+                    </Button>
+                    <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+                  </div>
+                ) : (
+                  <Button variant="ghost" onClick={() => setConfirmDeleteId(detailEntry.id)} className="gap-2 text-muted-foreground hover:text-destructive">
+                    <Trash2 className="w-4 h-4" /> Delete
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
@@ -334,183 +344,177 @@ export default function KnowledgeBase() {
   // MAIN LIBRARY
   // ─────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#07090f] text-white" style={{ fontFamily: "'IBM Plex Mono', 'Fira Code', monospace" }}>
-
-      {/* Sticky topbar */}
-      <div className="border-b border-white/[0.08] sticky top-0 z-20 bg-[#07090f]/95 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-6 py-3.5 flex items-center gap-4">
-          <div className="flex items-center gap-3 mr-2">
-            <div className="w-8 h-8 bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div>
-              <div className="text-[11px] font-bold tracking-widest text-white">AI KNOWLEDGE LIBRARY</div>
-              <div className="text-[9px] text-white/20">LBH Curacao · {entries.length} entries</div>
-            </div>
+    <DashboardLayout title={t('knowledge.title')}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">AI Knowledge Library</h1>
+            <p className="text-muted-foreground text-sm">LBH Curacao · {entries.length} entries</p>
           </div>
-
-          {/* Search */}
-          <div className="flex-1 relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20" />
-            <input ref={searchRef} value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search knowledge base..."
-              className="w-full bg-white/[0.04] border border-white/[0.08] text-white text-xs pl-9 pr-8 py-2 outline-none focus:border-emerald-500/35 placeholder:text-white/[0.18]" />
-            {search && (
-              <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/45">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+          <div className="flex items-center gap-3">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input ref={searchRef} value={search} onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search knowledge base..." className="pl-9 pr-9 h-9" />
+              {search && (
+                <Button variant="ghost" size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                  onClick={() => setSearch("")}>
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            <Button onClick={openAdd} className="gap-2 whitespace-nowrap">
+              <Plus className="w-4 h-4" /> Add Entry
+            </Button>
           </div>
-
-          {/* Sort */}
-          <select value={sortMode} onChange={(e) => setSortMode(e.target.value as SortMode)}
-            className="bg-white/[0.04] border border-white/[0.08] text-white/45 text-[11px] px-3 py-2 outline-none cursor-pointer">
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="alpha">Alphabetical</option>
-          </select>
-
-          <button onClick={openAdd}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-[11px] font-bold tracking-wider transition-colors whitespace-nowrap">
-            <Plus className="w-3.5 h-3.5" /> ADD ENTRY
-          </button>
         </div>
-      </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-7 flex gap-7">
-
-        {/* Sidebar */}
-        <div className="w-52 shrink-0 space-y-1 hidden md:block">
-          <div className="text-[9px] text-white/20 tracking-widest mb-3 uppercase px-1">Categories</div>
-          {CATEGORIES.map((cat) => {
-            const Icon = cat.icon;
-            const count = counts[cat.id] || 0;
-            const isActive = activeCategory === cat.id;
-            return (
-              <button key={cat.id} onClick={() => setActiveCategory(cat.id)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all text-[11px]"
-                style={{
-                  backgroundColor: isActive ? `${cat.color}10` : "transparent",
-                  borderLeft: isActive ? `2px solid ${cat.color}` : "2px solid transparent",
-                  color: isActive ? cat.color : "rgba(255,255,255,0.32)",
-                }}>
-                <Icon className="w-3.5 h-3.5 shrink-0" />
-                <span className="flex-1 truncate">{cat.label}</span>
-                <span className="text-[9px] tabular-nums opacity-50">{count}</span>
-              </button>
-            );
-          })}
-
-          {/* Distribution bars */}
-          <div className="mt-8 pt-6 border-t border-white/[0.06] space-y-3">
-            <div className="text-[9px] text-white/20 tracking-widest uppercase">Distribution</div>
-            {CATEGORIES.filter(c => c.id !== "all" && (counts[c.id] || 0) > 0).map(cat => {
-              const n = counts[cat.id] || 0;
-              const pct = entries.length ? Math.round(n / entries.length * 100) : 0;
+        <div className="flex gap-6">
+          {/* Sidebar categories */}
+          <div className="w-52 shrink-0 hidden lg:block space-y-1">
+            <p className="label-small px-2 mb-3">Categories</p>
+            {CATEGORIES.map((cat) => {
+              const Icon = cat.icon;
+              const count = counts[cat.id] || 0;
+              const isActive = activeCategory === cat.id;
               return (
-                <div key={cat.id}>
-                  <div className="flex justify-between text-[9px] text-white/20 mb-1">
-                    <span>{cat.label}</span><span>{n}</span>
-                  </div>
-                  <div className="h-1 bg-white/[0.05] overflow-hidden">
-                    <div className="h-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: cat.color + "99" }} />
-                  </div>
-                </div>
+                <button key={cat.id} onClick={() => setActiveCategory(cat.id)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all
+                    ${isActive
+                      ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+                      : "text-muted-foreground hover:bg-muted/50 border-l-2 border-transparent"}`}>
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="flex-1 text-left truncate">{cat.label}</span>
+                  <span className="text-xs tabular-nums opacity-60">{count}</span>
+                </button>
               );
             })}
-          </div>
-        </div>
 
-        {/* Cards grid */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-5">
-            <div className="text-xs text-white/25">
-              {loading ? "Loading…" : `${filtered.length}${entries.length !== filtered.length ? ` of ${entries.length}` : ""} entries`}
-            </div>
-            {(search || activeCategory !== "all") && (
-              <button onClick={() => { setSearch(""); setActiveCategory("all"); }}
-                className="text-[10px] text-white/25 hover:text-white/55 flex items-center gap-1 transition-colors">
-                <X className="w-3 h-3" /> clear filters
-              </button>
-            )}
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-36 text-white/[0.18]">
-              <Loader2 className="w-5 h-5 animate-spin mr-2" />
-              <span className="text-xs tracking-widest">LOADING KNOWLEDGE BASE...</span>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="border border-white/[0.08] py-24 text-center">
-              <BookOpen className="w-9 h-9 text-white/[0.08] mx-auto mb-4" />
-              <p className="text-xs text-white/[0.22] tracking-widest">{search ? "NO MATCHING ENTRIES" : "NO ENTRIES YET"}</p>
-              <button onClick={openAdd} className="mt-5 text-xs text-emerald-400/70 hover:text-emerald-400 transition-colors">
-                ADD FIRST ENTRY →
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {filtered.map((entry) => {
-                const cat = getCat(entry);
-                const catColor = CATEGORY_COLORS[cat] || "#94a3b8";
-                const catLabel = CATEGORIES.find(c => c.id === cat)?.label || cat;
-                const topic = getTopic(entry);
-                const title = getTitle(entry.content);
-                const bodyStart = entry.content.slice(title.length).replace(/^[.\s]+/, "");
-                const preview = truncate(bodyStart, 115);
-
+            {/* Distribution */}
+            <div className="mt-6 pt-4 border-t border-border/50 space-y-3">
+              <p className="label-small px-2">Distribution</p>
+              {CATEGORIES.filter(c => c.id !== "all" && (counts[c.id] || 0) > 0).map(cat => {
+                const n = counts[cat.id] || 0;
+                const pct = entries.length ? Math.round(n / entries.length * 100) : 0;
                 return (
-                  <div key={entry.id}
-                    className="group border border-white/[0.07] bg-white/[0.018] hover:bg-white/[0.035] hover:border-white/[0.14] transition-all duration-150 cursor-pointer flex flex-col"
-                    onClick={() => setDetailEntry(entry)}>
-                    {/* Color strip */}
-                    <div className="h-[2px]" style={{ backgroundColor: catColor + "80" }} />
-
-                    <div className="p-4 flex-1 flex flex-col">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[9px] tracking-widest px-1.5 py-0.5" style={{ color: catColor, backgroundColor: `${catColor}12` }}>
-                          {catLabel.toUpperCase()}
-                        </span>
-                        <span className="text-[9px] text-white/[0.18]">{timeAgo(entry.created_at)}</span>
-                      </div>
-
-                      <h3 className="text-xs font-semibold text-white/[0.82] leading-snug mb-2 line-clamp-2">{title}</h3>
-
-                      {preview && (
-                        <p className="text-[11px] text-white/[0.28] leading-relaxed flex-1 line-clamp-3">{preview}</p>
-                      )}
-
-                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.05]">
-                        {topic ? (
-                          <span className="text-[9px] text-white/[0.18] flex items-center gap-1">
-                            <Hash className="w-2.5 h-2.5" />{topic}
-                          </span>
-                        ) : <span />}
-
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openEdit(entry); }}
-                            className="p-1.5 text-white/25 hover:text-emerald-400 transition-colors"
-                            title="Edit">
-                            <Pencil className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(entry.id); handleDelete(entry.id); }}
-                            className="p-1.5 text-white/25 hover:text-red-400 transition-colors"
-                            title="Delete">
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                          <ChevronRight className="w-3.5 h-3.5 text-white/[0.18]" />
-                        </div>
-                      </div>
+                  <div key={cat.id} className="px-2">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>{cat.label}</span><span>{n}</span>
+                    </div>
+                    <div className="h-1 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-primary/60 transition-all duration-500" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );
               })}
             </div>
-          )}
+          </div>
+
+          {/* Mobile category selector */}
+          <div className="lg:hidden flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mt-2 mb-2 w-full absolute left-0 px-6" style={{ position: 'relative', left: 'auto', padding: 0 }}>
+            {CATEGORIES.map((cat) => (
+              <Button key={cat.id} variant={activeCategory === cat.id ? "default" : "outline"} size="sm"
+                onClick={() => setActiveCategory(cat.id)} className="gap-1.5 whitespace-nowrap text-xs shrink-0">
+                <cat.icon className="w-3.5 h-3.5" />
+                {cat.label} ({counts[cat.id] || 0})
+              </Button>
+            ))}
+          </div>
+
+          {/* Cards grid */}
+          <div className="flex-1 min-w-0">
+            {/* Sort + filter info */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-sm text-muted-foreground">
+                {loading ? "Loading…" : `${filtered.length}${entries.length !== filtered.length ? ` of ${entries.length}` : ""} entries`}
+              </div>
+              <div className="flex items-center gap-2">
+                {(search || activeCategory !== "all") && (
+                  <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setActiveCategory("all"); }} className="gap-1 text-xs h-7">
+                    <X className="w-3 h-3" /> Clear
+                  </Button>
+                )}
+                <select value={sortMode} onChange={(e) => setSortMode(e.target.value as SortMode)}
+                  className="bg-background border border-input text-foreground text-xs px-2 py-1.5 rounded-md outline-none cursor-pointer">
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="alpha">Alphabetical</option>
+                </select>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-32">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <Card className="card-premium">
+                <CardContent className="py-20 text-center">
+                  <BookOpen className="w-10 h-10 text-muted-foreground/30 mx-auto mb-4" />
+                  <p className="text-sm text-muted-foreground">{search ? "No matching entries" : "No entries yet"}</p>
+                  <Button variant="link" onClick={openAdd} className="mt-2 text-primary">
+                    Add first entry →
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {filtered.map((entry) => {
+                  const cat = getCat(entry);
+                  const catLabel = CATEGORIES.find(c => c.id === cat)?.label || cat;
+                  const topic = getTopic(entry);
+                  const title = getTitle(entry.content);
+                  const bodyStart = entry.content.slice(title.length).replace(/^[.\s]+/, "");
+                  const preview = truncate(bodyStart, 115);
+
+                  return (
+                    <Card key={entry.id}
+                      className="card-premium group cursor-pointer hover:border-primary/30 transition-all duration-150"
+                      onClick={() => openDetail(entry)}>
+                      <CardContent className="p-4 flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-3">
+                          <Badge variant="secondary" className="text-xs">{catLabel}</Badge>
+                          {entry.created_at && (
+                            <span className="text-xs text-muted-foreground">{timeAgo(entry.created_at)}</span>
+                          )}
+                        </div>
+
+                        <h3 className="text-sm font-semibold leading-snug mb-2 line-clamp-2">{title}</h3>
+
+                        {preview && (
+                          <p className="text-xs text-muted-foreground leading-relaxed flex-1 line-clamp-3">{preview}</p>
+                        )}
+
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+                          {topic ? (
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <Hash className="w-2.5 h-2.5" />{topic}
+                            </Badge>
+                          ) : <span />}
+
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                              onClick={(e) => { e.stopPropagation(); openEdit(entry); }}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:text-destructive"
+                              onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
