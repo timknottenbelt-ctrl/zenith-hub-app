@@ -240,7 +240,7 @@ export default function FDACuracao() {
     }).select().single();
 
     if (error) {
-      toast({ title: "Fout", description: error.message, variant: "destructive" });
+      toast({ title: "Fout", description: "Kon het project niet aanmaken. Probeer het opnieuw.", variant: "destructive" });
     } else {
       toast({ title: "Aangemaakt", description: "Project is aangemaakt" });
       setShowCreateDialog(false);
@@ -271,7 +271,7 @@ export default function FDACuracao() {
     }).eq("id", selectedProject.id);
 
     if (error) {
-      toast({ title: "Fout", description: error.message, variant: "destructive" });
+      toast({ title: "Fout", description: "Kon de wijzigingen niet opslaan. Probeer het opnieuw.", variant: "destructive" });
     } else {
       await saveAgencyCosts(selectedProject.project_id);
       toast({ title: "Opgeslagen" });
@@ -349,7 +349,7 @@ export default function FDACuracao() {
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) throw new Error(`Webhook error: ${response.status}`);
+      if (!response.ok) throw new Error("server_error");
 
       setSelectedProject(prev => prev ? { ...prev, status: "processing" } : null);
       toast({ title: "Verzonden", description: "Verwerking gestart..." });
@@ -359,18 +359,22 @@ export default function FDACuracao() {
 
       if (error?.name === "AbortError") {
         toast({
-          title: "Timeout",
-          description: "Processing is taking longer than expected. Please wait 2 minutes and refresh the page to check if your invoices were processed.",
+          title: "Even geduld",
+          description: "De verwerking duurt langer dan verwacht. Wacht 2 minuten en ververs de pagina om te controleren of je facturen zijn verwerkt.",
           variant: "destructive",
         });
       } else if (error instanceof TypeError && error.message === "Failed to fetch") {
         toast({
-          title: "Verbindingsfout",
-          description: "Could not reach the processing server. Please check your connection and try again, or contact support if the problem persists.",
+          title: "Geen verbinding",
+          description: "Kan de verwerkingsserver niet bereiken. Controleer je internetverbinding en probeer het opnieuw.",
           variant: "destructive",
         });
       } else {
-        toast({ title: "Fout", description: error instanceof Error ? error.message : "Verzenden mislukt", variant: "destructive" });
+        toast({
+          title: "Fout bij verzenden",
+          description: "Er ging iets mis bij het verwerken van je facturen. Probeer het opnieuw of neem contact op met support.",
+          variant: "destructive",
+        });
       }
       // Keep uploaded files visible — don't clear invoices on error
     } finally {
