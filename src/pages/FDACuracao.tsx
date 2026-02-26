@@ -334,15 +334,45 @@ export default function FDACuracao() {
         invoice_count: invoices.length, force_resend: forceResend,
       };
 
-      const response = await webhookPostJSON(WEBHOOKS.FDA_CURACAO_INVOICE_UPLOAD, payload);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+      const response = await fetch(WEBHOOKS.FDA_CURACAO_INVOICE_UPLOAD, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Authorization": `Basic ${btoa("lbh-webhook-2026:L@bh_W3bh00k_C!2026")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      clearTimeout(timeoutId);
+
       if (!response.ok) throw new Error(`Webhook error: ${response.status}`);
 
       setSelectedProject(prev => prev ? { ...prev, status: "processing" } : null);
       toast({ title: "Verzonden", description: "Verwerking gestart..." });
       setStepInUrl("processing");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Send error:", error);
-      toast({ title: "Fout", description: error instanceof Error ? error.message : "Verzenden mislukt", variant: "destructive" });
+
+      if (error?.name === "AbortError") {
+        toast({
+          title: "Timeout",
+          description: "Processing is taking longer than expected. Please wait 2 minutes and refresh the page to check if your invoices were processed.",
+          variant: "destructive",
+        });
+      } else if (error instanceof TypeError && error.message === "Failed to fetch") {
+        toast({
+          title: "Verbindingsfout",
+          description: "Could not reach the processing server. Please check your connection and try again, or contact support if the problem persists.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Fout", description: error instanceof Error ? error.message : "Verzenden mislukt", variant: "destructive" });
+      }
+      // Keep uploaded files visible — don't clear invoices on error
     } finally {
       setSending(false);
     }
