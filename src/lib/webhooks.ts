@@ -5,7 +5,7 @@
  * URLs and authentication are defined in a single place.
  */
 
-const WEBHOOK_BASE = "https://n8n.srv1016311.hstgr.cloud/webhook";
+const WEBHOOK_BASE = "https://lbhcuracao.app.n8n.cloud/webhook";
 
 const BASIC_AUTH_USER = "lbh-webhook-2026";
 const BASIC_AUTH_PASS = "L@bh_W3bh00k_C!2026";
