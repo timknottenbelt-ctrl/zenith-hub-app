@@ -15,12 +15,14 @@ import {
   LogOut,
   Send,
   ShieldCheck,
+  Anchor,
 } from 'lucide-react';
 
 const navItems = [
   { key: 'overview', icon: LayoutDashboard, path: '/' },
   { key: 'aiInquiries', icon: MessageSquare, path: '/inquiries' },
   { key: 'sentPDAs', icon: Send, path: '/inquiries/sent' },
+  { key: 'pdaCreator', icon: Anchor, path: '/pda-creator' },
   { key: 'fdaCreator', icon: FileText, path: '/fda' },
   { key: 'fdaCuracao', icon: FileText, path: '/fda-curacao' },
   { key: 'knowledgeBase', icon: BookOpen, path: '/knowledge' },
@@ -74,7 +76,7 @@ export const Sidebar = memo(function Sidebar() {
         {navItems.map((item) => {
           const Icon = item.icon;
           // Use exact matching for routes that have child routes
-          const needsExactMatch = item.path === '/inquiries' || item.path === '/fda' || item.path === '/fda-curacao';
+          const needsExactMatch = item.path === '/inquiries' || item.path === '/fda' || item.path === '/fda-curacao' || item.path === '/pda-creator';
           return (
             <TransitionLink
               key={item.key}
