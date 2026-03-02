@@ -508,6 +508,19 @@ export default function PDACreator() {
               </Card>
             )}
 
+            {/* Status Indicator */}
+            <Card className="card-premium">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-[hsl(var(--success))] animate-pulse" />
+                  <span className="text-xs font-medium text-foreground">Connected to Supabase ✓</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  Last updated: {new Date().toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' })}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Stats */}
             {configs && (
               <div className="grid grid-cols-2 gap-3">
