@@ -22,11 +22,10 @@ const navItems = [
   { key: 'overview', icon: LayoutDashboard, path: '/' },
   { key: 'aiInquiries', icon: MessageSquare, path: '/inquiries' },
   { key: 'sentPDAs', icon: Send, path: '/inquiries/sent' },
-  { key: 'pdaCreator', icon: Anchor, path: '/pda-creator' },
+  { key: 'pdaAdmin', icon: Anchor, path: '/pda-admin' },
   { key: 'fdaCreator', icon: FileText, path: '/fda' },
   { key: 'fdaCuracao', icon: FileText, path: '/fda-curacao' },
   { key: 'knowledgeBase', icon: BookOpen, path: '/knowledge' },
-  { key: 'vessels', icon: Ship, path: '/vessels' },
   { key: 'contacts', icon: Users, path: '/contacts' },
   { key: 'settings', icon: Settings, path: '/settings' },
 ];
@@ -76,7 +75,7 @@ export const Sidebar = memo(function Sidebar() {
         {navItems.map((item) => {
           const Icon = item.icon;
           // Use exact matching for routes that have child routes
-          const needsExactMatch = item.path === '/inquiries' || item.path === '/fda' || item.path === '/fda-curacao' || item.path === '/pda-creator';
+          const needsExactMatch = item.path === '/inquiries' || item.path === '/fda' || item.path === '/fda-curacao' || item.path === '/pda-admin';
           return (
             <TransitionLink
               key={item.key}

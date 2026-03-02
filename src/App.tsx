@@ -20,7 +20,7 @@ const FDACuracaoHistory = lazy(() => import("./pages/FDACuracaoHistory"));
 const FDAEmailPreview = lazy(() => import("./pages/FDAEmailPreview"));
 const FDACuracaoEmail = lazy(() => import("./pages/FDACuracaoEmail"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
-const Vessels = lazy(() => import("./pages/Vessels"));
+
 const Contacts = lazy(() => import("./pages/Contacts"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Auth = lazy(() => import("./pages/Auth"));
@@ -59,7 +59,7 @@ const App = () => {
                   <Route path="/inquiries" element={<ProtectedRoute><AIInquiries /></ProtectedRoute>} />
                   <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
                   <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
-                  <Route path="/pda-creator" element={<ProtectedRoute><PDACreator /></ProtectedRoute>} />
+                  <Route path="/pda-admin" element={<ProtectedRoute><PDACreator /></ProtectedRoute>} />
                   <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
                   <Route path="/fda-curacao" element={<ProtectedRoute><FDACuracao /></ProtectedRoute>} />
                   <Route path="/fda-curacao/history" element={<ProtectedRoute><FDACuracaoHistory /></ProtectedRoute>} />
@@ -67,7 +67,7 @@ const App = () => {
                   <Route path="/fda/history" element={<ProtectedRoute><FDAEmailHistory /></ProtectedRoute>} />
                   <Route path="/fda/email/:projectId" element={<ProtectedRoute><FDAEmailPreview /></ProtectedRoute>} />
                   <Route path="/knowledge" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
-                  <Route path="/vessels" element={<ProtectedRoute><Vessels /></ProtectedRoute>} />
+                  
                   <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
                   <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                   <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
