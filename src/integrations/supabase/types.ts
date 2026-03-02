@@ -1180,6 +1180,162 @@ export type Database = {
         }
         Relationships: []
       }
+      pda_loading_rates: {
+        Row: {
+          cargo_type: string
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          operation: string
+          rate_mt_per_day: number
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          cargo_type: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          operation?: string
+          rate_mt_per_day: number
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          cargo_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          operation?: string
+          rate_mt_per_day?: number
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      pda_port_stay_formulas: {
+        Row: {
+          buffer_hours: number
+          created_at: string
+          id: string
+          is_active: boolean
+          min_stay_hours: number
+          notes: string | null
+          positioning_hours: number
+          terminal_code: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          buffer_hours?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          min_stay_hours?: number
+          notes?: string | null
+          positioning_hours?: number
+          terminal_code: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          buffer_hours?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          min_stay_hours?: number
+          notes?: string | null
+          positioning_hours?: number
+          terminal_code?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      pda_terminal_assignments: {
+        Row: {
+          cargo_type: string
+          created_at: string
+          id: string
+          is_active: boolean
+          loa_max: number | null
+          loa_min: number
+          notes: string | null
+          port_code: string
+          terminal_code: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          cargo_type: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          loa_max?: number | null
+          loa_min?: number
+          notes?: string | null
+          port_code?: string
+          terminal_code: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          cargo_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          loa_max?: number | null
+          loa_min?: number
+          notes?: string | null
+          port_code?: string
+          terminal_code?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      pda_tug_rules: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          loa_max: number | null
+          loa_min: number
+          notes: string | null
+          terminal_code: string
+          tugs_required: number
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          loa_max?: number | null
+          loa_min?: number
+          notes?: string | null
+          terminal_code: string
+          tugs_required?: number
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          loa_max?: number | null
+          loa_min?: number
+          notes?: string | null
+          terminal_code?: string
+          tugs_required?: number
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       pdf_documents: {
         Row: {
           category: string | null
