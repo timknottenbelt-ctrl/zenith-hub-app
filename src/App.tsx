@@ -28,6 +28,7 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
+const PDACreator = lazy(() => import("./pages/PDACreator"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +59,7 @@ const App = () => {
                   <Route path="/inquiries" element={<ProtectedRoute><AIInquiries /></ProtectedRoute>} />
                   <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
                   <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
+                  <Route path="/pda-creator" element={<ProtectedRoute><PDACreator /></ProtectedRoute>} />
                   <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
                   <Route path="/fda-curacao" element={<ProtectedRoute><FDACuracao /></ProtectedRoute>} />
                   <Route path="/fda-curacao/history" element={<ProtectedRoute><FDACuracaoHistory /></ProtectedRoute>} />
