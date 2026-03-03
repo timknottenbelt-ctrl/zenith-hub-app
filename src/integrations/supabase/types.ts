@@ -1354,6 +1354,72 @@ export type Database = {
         }
         Relationships: []
       }
+      pda_email_log: {
+        Row: {
+          bcc_emails: string[] | null
+          body: string | null
+          cc_emails: string[] | null
+          created_at: string | null
+          email_id: string | null
+          from_email: string
+          id: string
+          is_archived: boolean | null
+          notes: string | null
+          pda_calculated: boolean | null
+          pda_results: Json | null
+          received_at: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string | null
+          subject: string | null
+          to_email: string
+          updated_at: string | null
+          vessel_data: Json | null
+        }
+        Insert: {
+          bcc_emails?: string[] | null
+          body?: string | null
+          cc_emails?: string[] | null
+          created_at?: string | null
+          email_id?: string | null
+          from_email: string
+          id?: string
+          is_archived?: boolean | null
+          notes?: string | null
+          pda_calculated?: boolean | null
+          pda_results?: Json | null
+          received_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email: string
+          updated_at?: string | null
+          vessel_data?: Json | null
+        }
+        Update: {
+          bcc_emails?: string[] | null
+          body?: string | null
+          cc_emails?: string[] | null
+          created_at?: string | null
+          email_id?: string | null
+          from_email?: string
+          id?: string
+          is_archived?: boolean | null
+          notes?: string | null
+          pda_calculated?: boolean | null
+          pda_results?: Json | null
+          received_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string
+          updated_at?: string | null
+          vessel_data?: Json | null
+        }
+        Relationships: []
+      }
       pda_loading_rates: {
         Row: {
           cargo_type: string
