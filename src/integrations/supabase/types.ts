@@ -1772,6 +1772,7 @@ export type Database = {
       }
       terminal_assignments: {
         Row: {
+          allowed_operations: string[] | null
           area_name: string | null
           cargo_type: string
           created_at: string | null
@@ -1793,6 +1794,7 @@ export type Database = {
           version: number | null
         }
         Insert: {
+          allowed_operations?: string[] | null
           area_name?: string | null
           cargo_type: string
           created_at?: string | null
@@ -1814,6 +1816,7 @@ export type Database = {
           version?: number | null
         }
         Update: {
+          allowed_operations?: string[] | null
           area_name?: string | null
           cargo_type?: string
           created_at?: string | null

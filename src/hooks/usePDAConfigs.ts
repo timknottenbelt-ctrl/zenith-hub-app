@@ -49,6 +49,7 @@ export interface TerminalAssignment {
   has_pipeline: boolean;
   has_crane: boolean;
   has_repair_berth: boolean;
+  allowed_operations: string[] | null;
   notes: string | null;
   is_active: boolean;
   priority: number | null;

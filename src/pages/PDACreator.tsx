@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import {
   Settings2, Plus, Trash2, Download, Upload,
-  AlertTriangle, Loader2, Navigation, BarChart3, Anchor, ChevronDown, ChevronRight, X, Check,
+  AlertTriangle, Loader2, Navigation, BarChart3, Anchor, ChevronDown, ChevronRight, X, Check, Pencil,
 } from 'lucide-react';
 import {
   usePDAConfigs,
@@ -25,6 +25,8 @@ const CARGO_TYPE_OPTIONS = [
   'crude oil', 'bitumen', 'fuel oil', 'gasoline', 'cement',
   'limestone', 'coal', 'breakbulk', 'heavy equipment', 'fuel', 'hfo',
 ];
+
+const OPERATION_OPTIONS = ['loading', 'discharge', 'both'];
 
 export default function PDACreator() {
   const {
@@ -45,6 +47,7 @@ export default function PDACreator() {
   const [showNewRate, setShowNewRate] = useState(false);
   const [showNewTerminal, setShowNewTerminal] = useState(false);
   const [expandedTerminals, setExpandedTerminals] = useState<Set<string>>(new Set());
+  const [expandedAreas, setExpandedAreas] = useState<Set<string>>(new Set());
   const [newTugForTerminal, setNewTugForTerminal] = useState<string | null>(null);
 
   // Group tug rules by terminal
@@ -62,6 +65,45 @@ export default function PDACreator() {
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [configs?.tugRules]);
 
+  // Group terminal assignments by area, then by terminal_name
+  const terminalAreaGroups = useMemo(() => {
+    if (!configs?.terminalAssignments) return [];
+    const areaMap = new Map<string, Map<string, TerminalAssignment[]>>();
+    for (const ta of configs.terminalAssignments) {
+      const area = ta.area_name || 'Uncategorized';
+      if (!areaMap.has(area)) areaMap.set(area, new Map());
+      const termMap = areaMap.get(area)!;
+      const termKey = ta.terminal_name;
+      if (!termMap.has(termKey)) termMap.set(termKey, []);
+      termMap.get(termKey)!.push(ta);
+    }
+    return Array.from(areaMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([area, termMap]) => ({
+        area,
+        terminals: Array.from(termMap.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([name, assignments]) => ({
+            name,
+            assignments,
+            // Aggregate info from first assignment or across all
+            portCode: assignments[0]?.port_code || '',
+            facility: assignments[0]?.facility_name || '',
+            maxLoa: assignments[0]?.max_loa,
+            maxDraft: assignments[0]?.max_draft,
+            cargoTypes: [...new Set(assignments.map(a => a.cargo_type))],
+            operations: [...new Set(assignments.flatMap(a => a.allowed_operations || []))],
+          })),
+      }));
+  }, [configs?.terminalAssignments]);
+
+  // Start areas expanded
+  useMemo(() => {
+    if (terminalAreaGroups.length > 0 && expandedAreas.size === 0) {
+      setExpandedAreas(new Set(terminalAreaGroups.map(g => g.area)));
+    }
+  }, [terminalAreaGroups]);
+
   const existingTerminals = useMemo(() => {
     if (!configs?.tugRules) return [];
     return [...new Set(configs.tugRules.map(r => r.terminal))].sort();
@@ -76,7 +118,16 @@ export default function PDACreator() {
     });
   };
 
-  // Start expanded
+  const toggleArea = (area: string) => {
+    setExpandedAreas(prev => {
+      const next = new Set(prev);
+      if (next.has(area)) next.delete(area);
+      else next.add(area);
+      return next;
+    });
+  };
+
+  // Start tug terminals expanded
   useMemo(() => {
     if (tugGroups.length > 0 && expandedTerminals.size === 0) {
       setExpandedTerminals(new Set(tugGroups.map(([t]) => t)));
@@ -117,9 +168,14 @@ export default function PDACreator() {
 
   const saveTerminal = async (t: TerminalAssignment) => {
     try {
-      await updateTerminalAssignment(t.id, { cargo_type: t.cargo_type, loa_min: t.loa_min, loa_max: t.loa_max, terminal_name: t.terminal_name, facility_name: t.facility_name, area_name: t.area_name, port_code: t.port_code, notes: t.notes });
+      await updateTerminalAssignment(t.id, {
+        cargo_type: t.cargo_type, terminal_name: t.terminal_name,
+        facility_name: t.facility_name, area_name: t.area_name,
+        port_code: t.port_code, max_loa: t.max_loa, max_draft: t.max_draft,
+        allowed_operations: t.allowed_operations, priority: t.priority, notes: t.notes,
+      });
       setEditingTerminal(null);
-      toast({ title: 'Terminal assignment opgeslagen' });
+      toast({ title: 'Terminal opgeslagen' });
     } catch { toast({ title: 'Opslaan mislukt', variant: 'destructive' }); }
   };
 
@@ -238,7 +294,6 @@ export default function PDACreator() {
                       const isExpanded = expandedTerminals.has(terminal);
                       return (
                         <div key={terminal} className="border border-border rounded-lg overflow-hidden">
-                          {/* Terminal header */}
                           <button
                             className="w-full flex items-center gap-2 px-4 py-2.5 bg-muted/50 hover:bg-muted/80 transition-colors text-left"
                             onClick={() => toggleTerminal(terminal)}
@@ -250,7 +305,6 @@ export default function PDACreator() {
                             <span className="font-semibold text-sm text-foreground">{terminal}</span>
                             <span className="ml-auto text-xs text-muted-foreground">{rules.length} rule{rules.length !== 1 ? 's' : ''}</span>
                           </button>
-                          {/* Sub-rows */}
                           {isExpanded && (
                             <>
                               <Table>
@@ -362,50 +416,103 @@ export default function PDACreator() {
             </Card>
           </TabsContent>
 
-          {/* ── Terminal Assignments ──────── */}
+          {/* ── Terminals (Grouped by Area) ──────── */}
           <TabsContent value="terminals" className="mt-4">
             <Card className="card-premium">
               <CardHeader className="pb-3 flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="text-base">Terminal Assignments</CardTitle>
-                  <CardDescription>Cargo type + LOA → terminal, facility & area</CardDescription>
+                  <CardTitle className="text-base">Terminals</CardTitle>
+                  <CardDescription>Terminal configuratie gegroepeerd per area — klik om te bewerken</CardDescription>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => setShowNewTerminal(true)}>
                   <Plus className="w-4 h-4 mr-1" /> Nieuw
                 </Button>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="max-h-[500px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Cargo Type</TableHead>
-                        <TableHead>LOA Range</TableHead>
-                        <TableHead>Terminal</TableHead>
-                        <TableHead>Facility</TableHead>
-                        <TableHead>Area</TableHead>
-                        <TableHead>Port</TableHead>
-                        <TableHead className="w-16"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {configs?.terminalAssignments.map((ta) => (
-                        <TableRow key={ta.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditingTerminal({ ...ta })}>
-                          <TableCell className="font-medium">{ta.cargo_type}</TableCell>
-                          <TableCell>{ta.loa_min ?? 0}m – {ta.loa_max ? `${ta.loa_max}m` : '∞'}</TableCell>
-                          <TableCell><Badge variant="outline">{ta.terminal_name}</Badge></TableCell>
-                          <TableCell>{ta.facility_name || '-'}</TableCell>
-                          <TableCell>{ta.area_name || '-'}</TableCell>
-                          <TableCell>{ta.port_code}</TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deactivateRule('terminal_assignments', ta.id); }}>
-                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+              <CardContent className="p-0">
+                <ScrollArea className="h-[calc(100vh-380px)] min-h-[300px]">
+                  <div className="space-y-2 p-6 pt-0">
+                    {terminalAreaGroups.map(({ area, terminals }) => {
+                      const isExpanded = expandedAreas.has(area);
+                      return (
+                        <div key={area} className="border border-border rounded-lg overflow-hidden">
+                          <button
+                            className="w-full flex items-center gap-2 px-4 py-2.5 bg-muted/50 hover:bg-muted/80 transition-colors text-left"
+                            onClick={() => toggleArea(area)}
+                          >
+                            {isExpanded
+                              ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                              : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                            }
+                            <span className="font-semibold text-sm text-foreground">{area}</span>
+                            <span className="ml-auto text-xs text-muted-foreground">{terminals.length} terminal{terminals.length !== 1 ? 's' : ''}</span>
+                          </button>
+                          {isExpanded && (
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="text-xs">
+                                  <TableHead className="pl-6">Terminal</TableHead>
+                                  <TableHead>Port</TableHead>
+                                  <TableHead>Max LOA</TableHead>
+                                  <TableHead>Max Draft</TableHead>
+                                  <TableHead>Cargo Types</TableHead>
+                                  <TableHead>Operations</TableHead>
+                                  <TableHead className="w-20"></TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {terminals.map((term) => (
+                                  <TableRow
+                                    key={term.name}
+                                    className="cursor-pointer hover:bg-muted/30 transition-colors"
+                                    onClick={() => setEditingTerminal({ ...term.assignments[0] })}
+                                  >
+                                    <TableCell className="pl-6">
+                                      <div>
+                                        <span className="font-medium text-sm text-foreground">{term.name}</span>
+                                        {term.facility && (
+                                          <p className="text-[11px] text-muted-foreground">{term.facility}</p>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-xs font-mono">{term.portCode}</TableCell>
+                                    <TableCell className="text-xs">{term.maxLoa ? `${term.maxLoa}m` : '—'}</TableCell>
+                                    <TableCell className="text-xs">{term.maxDraft ? `${term.maxDraft}m` : '—'}</TableCell>
+                                    <TableCell>
+                                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                        {term.cargoTypes.map(ct => (
+                                          <Badge key={ct} variant="secondary" className="text-[10px] py-0 px-1.5 capitalize">{ct}</Badge>
+                                        ))}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex flex-wrap gap-1">
+                                        {term.operations.length > 0 ? term.operations.map(op => (
+                                          <Badge key={op} variant="outline" className="text-[10px] py-0 px-1.5 capitalize">{op}</Badge>
+                                        )) : <span className="text-xs text-muted-foreground">—</span>}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex gap-1">
+                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); setEditingTerminal({ ...term.assignments[0] }); }}>
+                                          <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                                        </Button>
+                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); deactivateRule('terminal_assignments', term.assignments[0].id); }}>
+                                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {terminalAreaGroups.length === 0 && (
+                      <p className="text-center text-sm text-muted-foreground py-8">Geen terminals gevonden</p>
+                    )}
+                  </div>
                 </ScrollArea>
               </CardContent>
             </Card>
@@ -458,22 +565,43 @@ export default function PDACreator() {
       </EditDialog>
 
       {/* ── Edit Terminal Assignment Dialog ─────────── */}
-      <EditDialog open={!!editingTerminal} onClose={() => setEditingTerminal(null)} title="Terminal Assignment Bewerken" onSave={() => editingTerminal && saveTerminal(editingTerminal)}>
-        {editingTerminal && (
-          <div className="space-y-3">
-            <Field label="Cargo Type"><Input className="h-9" value={editingTerminal.cargo_type} onChange={(e) => setEditingTerminal({ ...editingTerminal, cargo_type: e.target.value })} /></Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="LOA Min"><Input className="h-9" type="number" value={editingTerminal.loa_min ?? ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, loa_min: e.target.value ? Number(e.target.value) : null })} /></Field>
-              <Field label="LOA Max"><Input className="h-9" type="number" value={editingTerminal.loa_max ?? ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, loa_max: e.target.value ? Number(e.target.value) : null })} /></Field>
+      <Dialog open={!!editingTerminal} onOpenChange={(o) => !o && setEditingTerminal(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Terminal Bewerken</DialogTitle></DialogHeader>
+          {editingTerminal && (
+            <div className="space-y-3">
+              <Field label="Terminal Name"><Input className="h-9" value={editingTerminal.terminal_name} onChange={(e) => setEditingTerminal({ ...editingTerminal, terminal_name: e.target.value })} /></Field>
+              <Field label="Facility Name"><Input className="h-9" value={editingTerminal.facility_name || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, facility_name: e.target.value || null })} /></Field>
+              <Field label="Area Name"><Input className="h-9" value={editingTerminal.area_name || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, area_name: e.target.value || null })} /></Field>
+              <Field label="Port Code">
+                <Input className="h-9 uppercase" value={editingTerminal.port_code} onChange={(e) => setEditingTerminal({ ...editingTerminal, port_code: e.target.value.toUpperCase() })} />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Max LOA (m)"><Input className="h-9" type="number" value={editingTerminal.max_loa ?? ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, max_loa: e.target.value ? Number(e.target.value) : null })} /></Field>
+                <Field label="Max Draft (m)"><Input className="h-9" type="number" value={editingTerminal.max_draft ?? ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, max_draft: e.target.value ? Number(e.target.value) : null })} /></Field>
+              </div>
+              <Field label="Accepted Cargo Types">
+                <CargoTypesMultiSelect
+                  value={editingTerminal.cargo_type ? [editingTerminal.cargo_type] : []}
+                  onChange={(types) => setEditingTerminal({ ...editingTerminal, cargo_type: types[0] || '' })}
+                />
+              </Field>
+              <Field label="Allowed Operations">
+                <OperationsMultiSelect
+                  value={editingTerminal.allowed_operations || []}
+                  onChange={(ops) => setEditingTerminal({ ...editingTerminal, allowed_operations: ops })}
+                />
+              </Field>
+              <Field label="Priority"><Input className="h-9" type="number" value={editingTerminal.priority ?? 1} onChange={(e) => setEditingTerminal({ ...editingTerminal, priority: Number(e.target.value) || 1 })} /></Field>
+              <Field label="Notes"><Input className="h-9" value={editingTerminal.notes || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, notes: e.target.value })} /></Field>
             </div>
-            <Field label="Terminal Name"><Input className="h-9" value={editingTerminal.terminal_name} onChange={(e) => setEditingTerminal({ ...editingTerminal, terminal_name: e.target.value })} /></Field>
-            <Field label="Facility"><Input className="h-9" value={editingTerminal.facility_name || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, facility_name: e.target.value || null })} /></Field>
-            <Field label="Area"><Input className="h-9" value={editingTerminal.area_name || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, area_name: e.target.value || null })} /></Field>
-            <Field label="Port Code"><Input className="h-9" value={editingTerminal.port_code} onChange={(e) => setEditingTerminal({ ...editingTerminal, port_code: e.target.value })} /></Field>
-            <Field label="Notes"><Input className="h-9" value={editingTerminal.notes || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, notes: e.target.value })} /></Field>
-          </div>
-        )}
-      </EditDialog>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingTerminal(null)}>Annuleren</Button>
+            <Button onClick={() => editingTerminal && saveTerminal(editingTerminal)}>Opslaan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── New Tug Rule Dialog (global) ────────────── */}
       <NewTugRuleDialog
@@ -525,24 +653,31 @@ export default function PDACreator() {
         ]}
       />
 
-      {/* ── New Terminal Assignment Dialog ─────────── */}
-      <NewRuleDialog
-        open={showNewTerminal} onClose={() => setShowNewTerminal(false)} title="Nieuwe Terminal Assignment"
-        onSave={async (form) => {
-          await createTerminalAssignment({ cargo_type: form.cargo_type, loa_min: form.loa_min ? Number(form.loa_min) : 0, loa_max: form.loa_max ? Number(form.loa_max) : null, terminal_name: form.terminal_name, facility_name: form.facility_name || null, area_name: form.area_name || null, port_code: form.port_code || 'WILLEMSTAD', max_loa: null, max_draft: null, has_pipeline: false, has_crane: false, has_repair_berth: false, notes: form.notes || null, priority: 1 } as any);
+      {/* ── New Terminal Dialog ─────────────────────── */}
+      <NewTerminalDialog
+        open={showNewTerminal}
+        onClose={() => setShowNewTerminal(false)}
+        onSave={async (data) => {
+          await createTerminalAssignment({
+            cargo_type: data.cargo_type,
+            terminal_name: data.terminal_name,
+            facility_name: data.facility_name || null,
+            area_name: data.area_name || null,
+            port_code: data.port_code || 'WILLEMSTAD',
+            loa_min: 0,
+            loa_max: null,
+            max_loa: data.max_loa ? Number(data.max_loa) : null,
+            max_draft: data.max_draft ? Number(data.max_draft) : null,
+            has_pipeline: false,
+            has_crane: false,
+            has_repair_berth: false,
+            allowed_operations: data.allowed_operations || [],
+            notes: data.notes || null,
+            priority: data.priority ? Number(data.priority) : 1,
+          } as any);
           setShowNewTerminal(false);
-          toast({ title: 'Terminal assignment aangemaakt' });
+          toast({ title: 'Terminal aangemaakt' });
         }}
-        fields={[
-          { key: 'cargo_type', label: 'Cargo Type', required: true },
-          { key: 'loa_min', label: 'LOA Min', type: 'number' },
-          { key: 'loa_max', label: 'LOA Max', type: 'number' },
-          { key: 'terminal_name', label: 'Terminal Name', required: true },
-          { key: 'facility_name', label: 'Facility' },
-          { key: 'area_name', label: 'Area' },
-          { key: 'port_code', label: 'Port Code' },
-          { key: 'notes', label: 'Notes' },
-        ]}
       />
     </DashboardLayout>
   );
@@ -582,7 +717,6 @@ function CargoTypesMultiSelect({ value, onChange }: { value: string[]; onChange:
 
   return (
     <div className="space-y-2">
-      {/* Selected chips */}
       {value.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {value.map((tag) => (
@@ -595,7 +729,6 @@ function CargoTypesMultiSelect({ value, onChange }: { value: string[]; onChange:
           ))}
         </div>
       )}
-      {/* Dropdown trigger */}
       <div className="relative">
         <button
           type="button"
@@ -632,6 +765,39 @@ function CargoTypesMultiSelect({ value, onChange }: { value: string[]; onChange:
   );
 }
 
+/** Multi-select for operations */
+function OperationsMultiSelect({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const toggleOption = (option: string) => {
+    if (value.includes(option)) {
+      onChange(value.filter(v => v !== option));
+    } else {
+      onChange([...value, option]);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {OPERATION_OPTIONS.map((op) => {
+        const selected = value.includes(op);
+        return (
+          <button
+            key={op}
+            type="button"
+            className={`px-3 py-1.5 rounded-md border text-sm transition-colors capitalize ${
+              selected
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background text-foreground border-input hover:bg-muted/50'
+            }`}
+            onClick={() => toggleOption(op)}
+          >
+            {op}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function EditDialog({ open, onClose, title, onSave, children }: {
   open: boolean; onClose: () => void; title: string; onSave: () => void; children: React.ReactNode;
 }) {
@@ -649,7 +815,7 @@ function EditDialog({ open, onClose, title, onSave, children }: {
   );
 }
 
-/** New Tug Rule dialog with terminal picker (existing or new) */
+/** New Tug Rule dialog with terminal picker */
 function NewTugRuleDialog({ open, onClose, existingTerminals, onSave }: {
   open: boolean; onClose: () => void;
   existingTerminals: string[];
@@ -674,9 +840,7 @@ function NewTugRuleDialog({ open, onClose, existingTerminals, onSave }: {
     try {
       const submitForm = { ...form, cargo_types_arr: cargoTypes.length ? JSON.stringify(cargoTypes) : '' };
       await onSave(submitForm);
-      setForm({});
-      setCargoTypes([]);
-      setUseNewTerminal(false);
+      setForm({}); setCargoTypes([]); setUseNewTerminal(false);
     } catch { toast({ title: 'Aanmaken mislukt', variant: 'destructive' }); } finally { setSaving(false); }
   };
 
@@ -698,11 +862,7 @@ function NewTugRuleDialog({ open, onClose, existingTerminals, onSave }: {
                   <option value="">Selecteer bestaande terminal…</option>
                   {existingTerminals.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <button
-                  type="button"
-                  className="text-xs text-primary hover:underline"
-                  onClick={() => { setUseNewTerminal(true); setForm(p => ({ ...p, terminal: '' })); }}
-                >
+                <button type="button" className="text-xs text-primary hover:underline" onClick={() => { setUseNewTerminal(true); setForm(p => ({ ...p, terminal: '' })); }}>
                   + Nieuwe terminal aanmaken
                 </button>
               </div>
@@ -710,13 +870,7 @@ function NewTugRuleDialog({ open, onClose, existingTerminals, onSave }: {
               <div className="space-y-2">
                 <Input className="h-9" placeholder="Naam nieuwe terminal" value={form.terminal || ''} onChange={(e) => setForm(p => ({ ...p, terminal: e.target.value }))} />
                 {existingTerminals.length > 0 && (
-                  <button
-                    type="button"
-                    className="text-xs text-primary hover:underline"
-                    onClick={() => setUseNewTerminal(false)}
-                  >
-                    ← Kies bestaande terminal
-                  </button>
+                  <button type="button" className="text-xs text-primary hover:underline" onClick={() => setUseNewTerminal(false)}>← Kies bestaande terminal</button>
                 )}
               </div>
             )}
@@ -751,18 +905,13 @@ function NewTugRuleForTerminalDialog({ open, terminal, onClose, onSave }: {
   const [cargoTypes, setCargoTypes] = useState<string[]>([]);
 
   const handleSave = async () => {
-    if (!form.rule_name) {
-      toast({ title: 'Naam is verplicht', variant: 'destructive' }); return;
-    }
-    if (!form.tug_count) {
-      toast({ title: 'Tug Count is verplicht', variant: 'destructive' }); return;
-    }
+    if (!form.rule_name) { toast({ title: 'Naam is verplicht', variant: 'destructive' }); return; }
+    if (!form.tug_count) { toast({ title: 'Tug Count is verplicht', variant: 'destructive' }); return; }
     setSaving(true);
     try {
       const submitForm = { ...form, cargo_types_arr: cargoTypes.length ? JSON.stringify(cargoTypes) : '' };
       await onSave(submitForm);
-      setForm({});
-      setCargoTypes([]);
+      setForm({}); setCargoTypes([]);
     } catch { toast({ title: 'Aanmaken mislukt', variant: 'destructive' }); } finally { setSaving(false); }
   };
 
@@ -783,6 +932,72 @@ function NewTugRuleForTerminalDialog({ open, terminal, onClose, onSave }: {
           <Field label="Cargo Types">
             <CargoTypesMultiSelect value={cargoTypes} onChange={setCargoTypes} />
           </Field>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose}>Annuleren</Button>
+          <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Aanmaken'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** New Terminal dialog with full fields */
+function NewTerminalDialog({ open, onClose, onSave }: {
+  open: boolean; onClose: () => void;
+  onSave: (data: { terminal_name: string; facility_name: string; area_name: string; port_code: string; max_loa: string; max_draft: string; cargo_type: string; allowed_operations: string[]; priority: string; notes: string }) => Promise<void>;
+}) {
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [cargoTypes, setCargoTypes] = useState<string[]>([]);
+  const [operations, setOperations] = useState<string[]>([]);
+
+  const handleSave = async () => {
+    if (!form.terminal_name) { toast({ title: 'Terminal Name is verplicht', variant: 'destructive' }); return; }
+    if (cargoTypes.length === 0) { toast({ title: 'Selecteer minstens 1 cargo type', variant: 'destructive' }); return; }
+    setSaving(true);
+    try {
+      await onSave({
+        terminal_name: form.terminal_name,
+        facility_name: form.facility_name || '',
+        area_name: form.area_name || '',
+        port_code: (form.port_code || 'WILLEMSTAD').toUpperCase(),
+        max_loa: form.max_loa || '',
+        max_draft: form.max_draft || '',
+        cargo_type: cargoTypes[0] || '',
+        allowed_operations: operations,
+        priority: form.priority || '1',
+        notes: form.notes || '',
+      });
+      setForm({}); setCargoTypes([]); setOperations([]);
+    } catch { toast({ title: 'Aanmaken mislukt', variant: 'destructive' }); } finally { setSaving(false); }
+  };
+
+  const handleClose = () => { onClose(); setForm({}); setCargoTypes([]); setOperations([]); };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Nieuwe Terminal</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <Field label="Terminal Name"><Input className="h-9" value={form.terminal_name || ''} onChange={(e) => setForm(p => ({ ...p, terminal_name: e.target.value }))} /></Field>
+          <Field label="Facility Name"><Input className="h-9" value={form.facility_name || ''} onChange={(e) => setForm(p => ({ ...p, facility_name: e.target.value }))} /></Field>
+          <Field label="Area Name"><Input className="h-9" value={form.area_name || ''} onChange={(e) => setForm(p => ({ ...p, area_name: e.target.value }))} placeholder="e.g. ISLA, Fuik Bay, Offshore" /></Field>
+          <Field label="Port Code">
+            <Input className="h-9 uppercase" value={form.port_code || ''} onChange={(e) => setForm(p => ({ ...p, port_code: e.target.value.toUpperCase() }))} placeholder="WILLEMSTAD" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Max LOA (m)"><Input className="h-9" type="number" value={form.max_loa || ''} onChange={(e) => setForm(p => ({ ...p, max_loa: e.target.value }))} /></Field>
+            <Field label="Max Draft (m)"><Input className="h-9" type="number" value={form.max_draft || ''} onChange={(e) => setForm(p => ({ ...p, max_draft: e.target.value }))} /></Field>
+          </div>
+          <Field label="Accepted Cargo Types">
+            <CargoTypesMultiSelect value={cargoTypes} onChange={setCargoTypes} />
+          </Field>
+          <Field label="Allowed Operations">
+            <OperationsMultiSelect value={operations} onChange={setOperations} />
+          </Field>
+          <Field label="Priority"><Input className="h-9" type="number" value={form.priority || '1'} onChange={(e) => setForm(p => ({ ...p, priority: e.target.value }))} /></Field>
+          <Field label="Notes"><Input className="h-9" value={form.notes || ''} onChange={(e) => setForm(p => ({ ...p, notes: e.target.value }))} /></Field>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>Annuleren</Button>
