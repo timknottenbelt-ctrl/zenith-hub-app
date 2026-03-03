@@ -429,21 +429,21 @@ export default function PDACreator() {
                 </Button>
               </CardHeader>
               <CardContent className="p-0">
-                <ScrollArea className="h-[calc(100vh-380px)] min-h-[300px]">
-                  <div className="space-y-2 p-6 pt-0">
+                <ScrollArea className="h-[calc(100vh-340px)] min-h-[400px]">
+                  <div className="space-y-1.5 p-4 pt-0">
                     {terminalAreaGroups.map(({ area, terminals }) => {
                       const isExpanded = expandedAreas.has(area);
                       return (
                         <div key={area} className="border border-border rounded-lg overflow-hidden">
-                          <button
-                            className="w-full flex items-center gap-2 px-4 py-2.5 bg-muted/50 hover:bg-muted/80 transition-colors text-left"
+                         <button
+                            className="w-full flex items-center gap-2 px-4 py-3 bg-muted/70 hover:bg-muted transition-colors text-left border-b border-border"
                             onClick={() => toggleArea(area)}
                           >
                             {isExpanded
                               ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                               : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                             }
-                            <span className="font-semibold text-sm text-foreground">{area}</span>
+                            <span className="font-bold text-sm text-foreground tracking-wide">{area}</span>
                             <span className="ml-auto text-xs text-muted-foreground">{terminals.length} terminal{terminals.length !== 1 ? 's' : ''}</span>
                           </button>
                           {isExpanded && (
@@ -462,10 +462,10 @@ export default function PDACreator() {
                               <TableBody>
                                 {terminals.map((term) => (
                                   <TableRow
-                                    key={term.name}
-                                    className="cursor-pointer hover:bg-muted/30 transition-colors"
-                                    onClick={() => setEditingTerminal({ ...term.assignments[0] })}
-                                  >
+                                     key={term.name}
+                                     className="cursor-pointer hover:bg-muted/30 transition-colors [&>td]:py-2"
+                                     onClick={() => setEditingTerminal({ ...term.assignments[0] })}
+                                   >
                                     <TableCell className="pl-6">
                                       <div>
                                         <span className="font-medium text-sm text-foreground">{term.name}</span>
@@ -478,17 +478,20 @@ export default function PDACreator() {
                                     <TableCell className="text-xs">{term.maxLoa ? `${term.maxLoa}m` : '—'}</TableCell>
                                     <TableCell className="text-xs">{term.maxDraft ? `${term.maxDraft}m` : '—'}</TableCell>
                                     <TableCell>
-                                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                      <div className="flex flex-wrap gap-0.5 max-w-[200px]">
                                         {term.cargoTypes.map(ct => (
-                                          <Badge key={ct} variant="secondary" className="text-[10px] py-0 px-1.5 capitalize">{ct}</Badge>
+                                          <span key={ct} className="inline-block text-[9px] leading-tight py-0.5 px-1.5 rounded bg-secondary text-secondary-foreground capitalize">{ct}</span>
                                         ))}
                                       </div>
                                     </TableCell>
                                     <TableCell>
-                                      <div className="flex flex-wrap gap-1">
-                                        {term.operations.length > 0 ? term.operations.map(op => (
-                                          <Badge key={op} variant="outline" className="text-[10px] py-0 px-1.5 capitalize">{op}</Badge>
-                                        )) : <span className="text-xs text-muted-foreground">—</span>}
+                                      <div className="flex flex-wrap gap-0.5">
+                                        {term.operations.length > 0 ? term.operations.map(op => {
+                                          const color = op === 'loading' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                            : op === 'discharge' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+                                          return <span key={op} className={`inline-block text-[9px] leading-tight py-0.5 px-1.5 rounded capitalize font-medium ${color}`}>{op}</span>;
+                                        }) : <span className="text-xs text-muted-foreground">—</span>}
                                       </div>
                                     </TableCell>
                                     <TableCell>
@@ -578,7 +581,7 @@ export default function PDACreator() {
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Max LOA (m)"><Input className="h-9" type="number" value={editingTerminal.max_loa ?? ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, max_loa: e.target.value ? Number(e.target.value) : null })} /></Field>
-                <Field label="Max Draft (m)"><Input className="h-9" type="number" value={editingTerminal.max_draft ?? ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, max_draft: e.target.value ? Number(e.target.value) : null })} /></Field>
+                <Field label="Max Draft (m) *"><Input className="h-9" type="number" required value={editingTerminal.max_draft ?? ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, max_draft: e.target.value ? Number(e.target.value) : null })} placeholder="Required" /></Field>
               </div>
               <Field label="Accepted Cargo Types">
                 <CargoTypesMultiSelect
@@ -598,7 +601,13 @@ export default function PDACreator() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingTerminal(null)}>Annuleren</Button>
-            <Button onClick={() => editingTerminal && saveTerminal(editingTerminal)}>Opslaan</Button>
+            <Button onClick={() => {
+              if (editingTerminal && (editingTerminal.max_draft === null || editingTerminal.max_draft === undefined)) {
+                toast({ title: 'Max Draft is verplicht', variant: 'destructive' });
+                return;
+              }
+              editingTerminal && saveTerminal(editingTerminal);
+            }}>Opslaan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
