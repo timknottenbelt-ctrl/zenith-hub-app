@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import {
   Settings2, Plus, Trash2, Download, Upload,
-  AlertTriangle, Loader2, Navigation, BarChart3, Anchor, ChevronDown, ChevronRight, X,
+  AlertTriangle, Loader2, Navigation, BarChart3, Anchor, ChevronDown, ChevronRight, X, Check,
 } from 'lucide-react';
 import {
   usePDAConfigs,
@@ -20,6 +20,11 @@ import {
   type LoadingRate,
   type TerminalAssignment,
 } from '@/hooks/usePDAConfigs';
+
+const CARGO_TYPE_OPTIONS = [
+  'crude oil', 'bitumen', 'fuel oil', 'gasoline', 'cement',
+  'limestone', 'coal', 'breakbulk', 'heavy equipment', 'fuel', 'hfo',
+];
 
 export default function PDACreator() {
   const {
@@ -40,6 +45,7 @@ export default function PDACreator() {
   const [showNewRate, setShowNewRate] = useState(false);
   const [showNewTerminal, setShowNewTerminal] = useState(false);
   const [expandedTerminals, setExpandedTerminals] = useState<Set<string>>(new Set());
+  const [newTugForTerminal, setNewTugForTerminal] = useState<string | null>(null);
 
   // Group tug rules by terminal
   const tugGroups = useMemo(() => {
@@ -50,14 +56,12 @@ export default function PDACreator() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(rule);
     }
-    // Sort sub-rows by loa_min
     for (const rules of map.values()) {
       rules.sort((a, b) => (a.loa_min ?? 0) - (b.loa_min ?? 0));
     }
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [configs?.tugRules]);
 
-  // Get unique terminal names for the "new" dialog dropdown
   const existingTerminals = useMemo(() => {
     if (!configs?.tugRules) return [];
     return [...new Set(configs.tugRules.map(r => r.terminal))].sort();
@@ -117,6 +121,25 @@ export default function PDACreator() {
       setEditingTerminal(null);
       toast({ title: 'Terminal assignment opgeslagen' });
     } catch { toast({ title: 'Opslaan mislukt', variant: 'destructive' }); }
+  };
+
+  const handleAddRangeToTerminal = async (form: Record<string, string>, terminal: string) => {
+    const cargoArr = form.cargo_types_arr
+      ? JSON.parse(form.cargo_types_arr) as string[]
+      : null;
+    await createTugRule({
+      rule_name: form.rule_name,
+      terminal,
+      port_code: form.port_code || 'WILLEMSTAD',
+      loa_min: form.loa_min ? Number(form.loa_min) : 0,
+      loa_max: form.loa_max ? Number(form.loa_max) : null,
+      tug_count: Number(form.tug_count),
+      tug_type: null,
+      operation_types: null,
+      cargo_types: cargoArr,
+    } as any);
+    setNewTugForTerminal(null);
+    toast({ title: 'Tug rule aangemaakt' });
   };
 
   if (loading) {
@@ -208,16 +231,16 @@ export default function PDACreator() {
                   <Plus className="w-4 h-4 mr-1" /> Nieuw
                 </Button>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="max-h-[600px]">
-                  <div className="space-y-2">
+              <CardContent className="p-0">
+                <ScrollArea className="h-[calc(100vh-380px)] min-h-[300px]">
+                  <div className="space-y-2 p-6 pt-0">
                     {tugGroups.map(([terminal, rules]) => {
                       const isExpanded = expandedTerminals.has(terminal);
                       return (
                         <div key={terminal} className="border border-border rounded-lg overflow-hidden">
                           {/* Terminal header */}
                           <button
-                            className="w-full flex items-center gap-2 px-4 py-3 bg-muted/50 hover:bg-muted/80 transition-colors text-left"
+                            className="w-full flex items-center gap-2 px-4 py-2.5 bg-muted/50 hover:bg-muted/80 transition-colors text-left"
                             onClick={() => toggleTerminal(terminal)}
                           >
                             {isExpanded
@@ -225,42 +248,58 @@ export default function PDACreator() {
                               : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                             }
                             <span className="font-semibold text-sm text-foreground">{terminal}</span>
-                            <Badge variant="secondary" className="ml-auto text-[10px]">{rules.length} rule{rules.length !== 1 ? 's' : ''}</Badge>
+                            <span className="ml-auto text-xs text-muted-foreground">{rules.length} rule{rules.length !== 1 ? 's' : ''}</span>
                           </button>
                           {/* Sub-rows */}
                           {isExpanded && (
-                            <Table>
-                              <TableHeader>
-                                <TableRow className="text-xs">
-                                  <TableHead className="pl-10">LOA Range</TableHead>
-                                  <TableHead>Tugs</TableHead>
-                                  <TableHead>Naam</TableHead>
-                                  <TableHead>Cargo Types</TableHead>
-                                  <TableHead className="w-12"></TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {rules.map((rule) => (
-                                  <TableRow key={rule.id} className="cursor-pointer hover:bg-muted/30" onClick={() => setEditingTugRule({ ...rule })}>
-                                    <TableCell className="pl-10 font-mono text-sm">
-                                      {rule.loa_min ?? 0}m – {rule.loa_max ? `${rule.loa_max}m` : '∞'}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge className="min-w-[2.5rem] justify-center">{rule.tug_count}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground">{rule.rule_name}</TableCell>
-                                    <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
-                                      {rule.cargo_types?.length ? rule.cargo_types.join(', ') : '—'}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deactivateRule('tug_rules', rule.id); }}>
-                                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                                      </Button>
-                                    </TableCell>
+                            <>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="text-xs">
+                                    <TableHead className="pl-10">LOA Range</TableHead>
+                                    <TableHead>Tugs</TableHead>
+                                    <TableHead>Naam</TableHead>
+                                    <TableHead>Cargo Types</TableHead>
+                                    <TableHead className="w-10"></TableHead>
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+                                </TableHeader>
+                                <TableBody>
+                                  {rules.map((rule) => (
+                                    <TableRow
+                                      key={rule.id}
+                                      className="cursor-pointer hover:bg-muted/30 transition-colors"
+                                      onClick={() => setEditingTugRule({ ...rule })}
+                                    >
+                                      <TableCell className="pl-10 font-mono text-sm">
+                                        {rule.loa_min ?? 0}m – {rule.loa_max ? `${rule.loa_max}m` : '∞'}
+                                      </TableCell>
+                                      <TableCell>
+                                        <span className="text-sm font-semibold text-foreground">{rule.tug_count} tug{rule.tug_count !== 1 ? 's' : ''}</span>
+                                      </TableCell>
+                                      <TableCell className="text-xs text-muted-foreground">{rule.rule_name}</TableCell>
+                                      <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
+                                        {rule.cargo_types?.length ? rule.cargo_types.join(', ') : '—'}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); deactivateRule('tug_rules', rule.id); }}>
+                                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                              <div className="px-4 py-2 border-t border-border bg-muted/20">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
+                                  onClick={() => setNewTugForTerminal(terminal)}
+                                >
+                                  <Plus className="w-3 h-3" /> Add range
+                                </Button>
+                              </div>
+                            </>
                           )}
                         </div>
                       );
@@ -389,7 +428,7 @@ export default function PDACreator() {
               </div>
               <Field label="Tug Count"><Input className="h-9" type="number" value={editingTugRule.tug_count} onChange={(e) => setEditingTugRule({ ...editingTugRule, tug_count: Number(e.target.value) })} /></Field>
               <Field label="Cargo Types">
-                <CargoTypesInput
+                <CargoTypesMultiSelect
                   value={editingTugRule.cargo_types || []}
                   onChange={(cargo_types) => setEditingTugRule({ ...editingTugRule, cargo_types })}
                 />
@@ -436,14 +475,14 @@ export default function PDACreator() {
         )}
       </EditDialog>
 
-      {/* ── New Tug Rule Dialog ─────────────────────── */}
+      {/* ── New Tug Rule Dialog (global) ────────────── */}
       <NewTugRuleDialog
         open={showNewTug}
         onClose={() => setShowNewTug(false)}
         existingTerminals={existingTerminals}
         onSave={async (form) => {
-          const cargoArr = form.cargo_types
-            ? form.cargo_types.split(',').map((s: string) => s.trim()).filter(Boolean)
+          const cargoArr = form.cargo_types_arr
+            ? JSON.parse(form.cargo_types_arr) as string[]
             : null;
           await createTugRule({
             rule_name: form.rule_name,
@@ -459,6 +498,14 @@ export default function PDACreator() {
           setShowNewTug(false);
           toast({ title: 'Tug rule aangemaakt' });
         }}
+      />
+
+      {/* ── New Tug Rule for specific terminal ─────── */}
+      <NewTugRuleForTerminalDialog
+        open={!!newTugForTerminal}
+        terminal={newTugForTerminal || ''}
+        onClose={() => setNewTugForTerminal(null)}
+        onSave={(form) => handleAddRangeToTerminal(form, newTugForTerminal!)}
       />
 
       {/* ── New Loading Rate Dialog ────────────────── */}
@@ -521,39 +568,65 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-/** Tag-style cargo types input */
-function CargoTypesInput({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
-  const [input, setInput] = useState('');
+/** Multi-select dropdown for cargo types with chips */
+function CargoTypesMultiSelect({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [open, setOpen] = useState(false);
 
-  const addTag = () => {
-    const trimmed = input.trim();
-    if (trimmed && !value.includes(trimmed)) {
-      onChange([...value, trimmed]);
+  const toggleOption = (option: string) => {
+    if (value.includes(option)) {
+      onChange(value.filter(v => v !== option));
+    } else {
+      onChange([...value, option]);
     }
-    setInput('');
   };
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-1.5 min-h-[2rem]">
-        {value.map((tag) => (
-          <Badge key={tag} variant="secondary" className="gap-1 text-xs">
-            {tag}
-            <button type="button" onClick={() => onChange(value.filter(t => t !== tag))} className="hover:text-destructive">
-              <X className="w-3 h-3" />
-            </button>
-          </Badge>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <Input
-          className="h-8 text-xs"
-          placeholder="Type cargo en druk Enter..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
-        />
-        <Button type="button" size="sm" variant="outline" className="h-8 text-xs px-2" onClick={addTag}>+</Button>
+      {/* Selected chips */}
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {value.map((tag) => (
+            <Badge key={tag} variant="secondary" className="gap-1 text-xs py-0.5 px-2">
+              {tag}
+              <button type="button" onClick={() => onChange(value.filter(t => t !== tag))} className="hover:text-destructive ml-0.5">
+                <X className="w-3 h-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+      {/* Dropdown trigger */}
+      <div className="relative">
+        <button
+          type="button"
+          className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-left flex items-center justify-between hover:bg-muted/50 transition-colors"
+          onClick={() => setOpen(!open)}
+        >
+          <span className="text-muted-foreground">
+            {value.length === 0 ? 'Selecteer cargo types…' : `${value.length} geselecteerd`}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md max-h-48 overflow-y-auto">
+            {CARGO_TYPE_OPTIONS.map((option) => {
+              const selected = value.includes(option);
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+                  onClick={() => toggleOption(option)}
+                >
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${selected ? 'bg-primary border-primary' : 'border-input'}`}>
+                    {selected && <Check className="w-3 h-3 text-primary-foreground" />}
+                  </div>
+                  <span className="capitalize">{option}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -585,6 +658,7 @@ function NewTugRuleDialog({ open, onClose, existingTerminals, onSave }: {
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [useNewTerminal, setUseNewTerminal] = useState(false);
+  const [cargoTypes, setCargoTypes] = useState<string[]>([]);
 
   const handleSave = async () => {
     if (!form.terminal && !useNewTerminal) {
@@ -597,10 +671,16 @@ function NewTugRuleDialog({ open, onClose, existingTerminals, onSave }: {
       toast({ title: 'Tug Count is verplicht', variant: 'destructive' }); return;
     }
     setSaving(true);
-    try { await onSave(form); setForm({}); setUseNewTerminal(false); } catch { toast({ title: 'Aanmaken mislukt', variant: 'destructive' }); } finally { setSaving(false); }
+    try {
+      const submitForm = { ...form, cargo_types_arr: cargoTypes.length ? JSON.stringify(cargoTypes) : '' };
+      await onSave(submitForm);
+      setForm({});
+      setCargoTypes([]);
+      setUseNewTerminal(false);
+    } catch { toast({ title: 'Aanmaken mislukt', variant: 'destructive' }); } finally { setSaving(false); }
   };
 
-  const handleClose = () => { onClose(); setForm({}); setUseNewTerminal(false); };
+  const handleClose = () => { onClose(); setForm({}); setCargoTypes([]); setUseNewTerminal(false); };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
@@ -648,7 +728,61 @@ function NewTugRuleDialog({ open, onClose, existingTerminals, onSave }: {
             <Field label="LOA Max"><Input className="h-9" type="number" value={form.loa_max || ''} onChange={(e) => setForm(p => ({ ...p, loa_max: e.target.value }))} /></Field>
           </div>
           <Field label="Tug Count"><Input className="h-9" type="number" value={form.tug_count || ''} onChange={(e) => setForm(p => ({ ...p, tug_count: e.target.value }))} /></Field>
-          <Field label="Cargo Types (komma-gescheiden)"><Input className="h-9" value={form.cargo_types || ''} onChange={(e) => setForm(p => ({ ...p, cargo_types: e.target.value }))} placeholder="CPP, DPP, Fuel Oil" /></Field>
+          <Field label="Cargo Types">
+            <CargoTypesMultiSelect value={cargoTypes} onChange={setCargoTypes} />
+          </Field>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose}>Annuleren</Button>
+          <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Aanmaken'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** New tug rule for a specific terminal (add range) */
+function NewTugRuleForTerminalDialog({ open, terminal, onClose, onSave }: {
+  open: boolean; terminal: string; onClose: () => void;
+  onSave: (form: Record<string, string>) => Promise<void>;
+}) {
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [cargoTypes, setCargoTypes] = useState<string[]>([]);
+
+  const handleSave = async () => {
+    if (!form.rule_name) {
+      toast({ title: 'Naam is verplicht', variant: 'destructive' }); return;
+    }
+    if (!form.tug_count) {
+      toast({ title: 'Tug Count is verplicht', variant: 'destructive' }); return;
+    }
+    setSaving(true);
+    try {
+      const submitForm = { ...form, cargo_types_arr: cargoTypes.length ? JSON.stringify(cargoTypes) : '' };
+      await onSave(submitForm);
+      setForm({});
+      setCargoTypes([]);
+    } catch { toast({ title: 'Aanmaken mislukt', variant: 'destructive' }); } finally { setSaving(false); }
+  };
+
+  const handleClose = () => { onClose(); setForm({}); setCargoTypes([]); };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Nieuwe LOA Range — {terminal}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <Field label="Naam"><Input className="h-9" value={form.rule_name || ''} onChange={(e) => setForm(p => ({ ...p, rule_name: e.target.value }))} /></Field>
+          <Field label="Port Code"><Input className="h-9" value={form.port_code || ''} onChange={(e) => setForm(p => ({ ...p, port_code: e.target.value }))} placeholder="WILLEMSTAD" /></Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="LOA Min"><Input className="h-9" type="number" value={form.loa_min || ''} onChange={(e) => setForm(p => ({ ...p, loa_min: e.target.value }))} /></Field>
+            <Field label="LOA Max"><Input className="h-9" type="number" value={form.loa_max || ''} onChange={(e) => setForm(p => ({ ...p, loa_max: e.target.value }))} /></Field>
+          </div>
+          <Field label="Tug Count"><Input className="h-9" type="number" value={form.tug_count || ''} onChange={(e) => setForm(p => ({ ...p, tug_count: e.target.value }))} /></Field>
+          <Field label="Cargo Types">
+            <CargoTypesMultiSelect value={cargoTypes} onChange={setCargoTypes} />
+          </Field>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>Annuleren</Button>
