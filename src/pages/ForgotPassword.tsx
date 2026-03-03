@@ -37,8 +37,8 @@ export default function ForgotPassword() {
 
     if (error) {
       toast({ 
-        title: 'Niet gelukt', 
-        description: 'Het versturen van de reset link is niet gelukt. Controleer je emailadres en probeer het opnieuw.', 
+        title: 'Fout', 
+        description: error.message, 
         variant: 'destructive' 
       });
     } else {

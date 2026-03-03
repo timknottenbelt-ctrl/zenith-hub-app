@@ -134,8 +134,8 @@ export default function ResetPassword() {
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session?.user) {
       toast({
-        title: 'Sessie verlopen',
-        description: 'De reset link is niet meer geldig. Vraag een nieuwe link aan via "Wachtwoord vergeten".',
+        title: 'Fout',
+        description: 'Auth session missing! Open de wachtwoord-reset link opnieuw of log opnieuw in.',
         variant: 'destructive',
       });
       return;
@@ -149,12 +149,9 @@ export default function ResetPassword() {
       });
 
       if (updateError) {
-        const msg = updateError.message?.toLowerCase().includes('same password')
-          ? 'Je nieuwe wachtwoord mag niet hetzelfde zijn als je huidige wachtwoord.'
-          : 'Het wijzigen van je wachtwoord is niet gelukt. Probeer het opnieuw of vraag een nieuwe reset link aan.';
         toast({ 
-          title: 'Niet gelukt', 
-          description: msg, 
+          title: 'Fout', 
+          description: updateError.message, 
           variant: 'destructive' 
         });
         setLoading(false);

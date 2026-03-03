@@ -11,11 +11,8 @@ import { toast } from "@/components/ui/sonner";
 import {
   Search, Plus, Pencil, Trash2, BookOpen, Package, Ship,
   X, Loader2, ChevronRight, Tag, FileText, Save, ArrowLeft,
-  Hash, Zap, Database, Shield, Anchor, MapPin, ClipboardList, DollarSign, Clock,
+  Hash, Zap, Database, Shield, Anchor, MapPin, ClipboardList, DollarSign,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -26,7 +23,6 @@ interface KBEntry {
   category?: string;
   topic?: string;
   metadata?: Record<string, unknown>;
-  last_edited?: string;
 }
 
 type SortMode = "newest" | "oldest" | "alpha";
@@ -124,17 +120,13 @@ export default function KnowledgeBase() {
         .select("id, content, metadata")
         .order("id", { ascending: false });
       if (error) throw error;
-      const mapped: KBEntry[] = (data || []).map((row) => {
-        const meta = row.metadata as Record<string, unknown> | null;
-        return {
-          id: String(row.id),
-          content: row.content || "",
-          metadata: meta || undefined,
-          category: meta?.category as string | undefined,
-          topic: meta?.topic as string | undefined,
-          last_edited: meta?.last_edited as string | undefined,
-        };
-      });
+      const mapped: KBEntry[] = (data || []).map((row) => ({
+        id: String(row.id),
+        content: row.content || "",
+        metadata: row.metadata as Record<string, unknown> | undefined,
+        category: (row.metadata as Record<string, unknown> | null)?.category as string | undefined,
+        topic: (row.metadata as Record<string, unknown> | null)?.topic as string | undefined,
+      }));
       setEntries(mapped);
     } catch {
       toast.error("Could not load knowledge base");
@@ -192,7 +184,7 @@ export default function KnowledgeBase() {
         body: {
           id: editEntry?.id ? Number(editEntry.id) : null,
           content: formContent.trim(),
-          metadata: { category: formCategory, topic: formTopic || null, last_edited: new Date().toISOString() },
+          metadata: { category: formCategory, topic: formTopic || null },
         },
       });
       if (error) throw error;
@@ -282,7 +274,79 @@ export default function KnowledgeBase() {
     );
   }
 
-  // Detail is now a dialog overlay — rendered inside main library below
+  // ─────────────────────────────────────────────────────
+  // DETAIL VIEW
+  // ─────────────────────────────────────────────────────
+  if (viewMode === "detail" && detailEntry) {
+    const cat = getCat(detailEntry);
+    const catLabel = CATEGORIES.find(c => c.id === cat)?.label || cat;
+    const topic = getTopic(detailEntry);
+
+    return (
+      <DashboardLayout title={t('knowledge.title')}>
+        <div className="max-w-3xl mx-auto space-y-6">
+          <Button variant="ghost" size="sm" onClick={backToList} className="gap-2 text-muted-foreground">
+            <ArrowLeft className="w-4 h-4" /> Back to library
+          </Button>
+
+          <Card className="card-premium">
+            <CardContent className="p-6 space-y-6">
+              {/* Header */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge variant="secondary">{catLabel}</Badge>
+                  {topic && (
+                    <Badge variant="outline" className="gap-1 text-xs">
+                      <Hash className="w-3 h-3" />{topic}
+                    </Badge>
+                  )}
+                </div>
+                <h2 className="text-xl font-semibold leading-snug">{getTitle(detailEntry.content)}</h2>
+                <p className="text-xs text-muted-foreground mt-1">{detailEntry.content.length} characters</p>
+              </div>
+
+              {/* Content */}
+              <div className="bg-muted/30 border border-border/50 rounded-lg p-5">
+                <p className="text-sm text-foreground/80 leading-[1.9] whitespace-pre-wrap">{detailEntry.content}</p>
+              </div>
+
+              {/* AI notice */}
+              <div className="border border-primary/20 bg-primary/5 rounded-lg p-4 flex items-start gap-3">
+                <Zap className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-primary mb-0.5">Used by AI</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    When a client asks about <span className="font-medium text-foreground">{catLabel.toLowerCase()}</span>, the AI reads this entry and uses it to answer their question.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 pt-2">
+                <Button variant="outline" onClick={() => openEdit(detailEntry)} className="gap-2">
+                  <Pencil className="w-4 h-4" /> Edit
+                </Button>
+                {confirmDeleteId === detailEntry.id ? (
+                  <div className="flex items-center gap-2">
+                    <Button variant="destructive" onClick={() => handleDelete(detailEntry.id)} disabled={deleting} className="gap-2">
+                      {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      Confirm Delete
+                    </Button>
+                    <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+                  </div>
+                ) : (
+                  <Button variant="ghost" onClick={() => setConfirmDeleteId(detailEntry.id)} className="gap-2 text-muted-foreground hover:text-destructive">
+                    <Trash2 className="w-4 h-4" /> Delete
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   // ─────────────────────────────────────────────────────
   // MAIN LIBRARY
   // ─────────────────────────────────────────────────────
@@ -428,31 +492,23 @@ export default function KnowledgeBase() {
                           <p className="text-xs text-muted-foreground leading-relaxed flex-1 line-clamp-3">{preview}</p>
                         )}
 
-                        <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
-                          {entry.last_edited && (
-                            <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
-                              <Clock className="w-2.5 h-2.5" />
-                              {format(new Date(entry.last_edited), "d MMM yyyy, HH:mm", { locale: nl })}
-                            </p>
-                          )}
-                          <div className="flex items-center justify-between">
-                            {topic ? (
-                              <Badge variant="outline" className="text-xs gap-1">
-                                <Hash className="w-2.5 h-2.5" />{topic}
-                              </Badge>
-                            ) : <span />}
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+                          {topic ? (
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <Hash className="w-2.5 h-2.5" />{topic}
+                            </Badge>
+                          ) : <span />}
 
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
-                                onClick={(e) => { e.stopPropagation(); openEdit(entry); }}>
-                                <Pencil className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:text-destructive"
-                                onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                            </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                              onClick={(e) => { e.stopPropagation(); openEdit(entry); }}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:text-destructive"
+                              onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
                           </div>
                         </div>
                       </CardContent>
@@ -464,79 +520,6 @@ export default function KnowledgeBase() {
           </div>
         </div>
       </div>
-
-      {/* ── Detail Dialog Overlay ── */}
-      <Dialog open={viewMode === "detail" && !!detailEntry} onOpenChange={(open) => { if (!open) backToList(); }}>
-        <DialogContent className="max-w-2xl bg-background/80 backdrop-blur-xl border-border/50 shadow-2xl p-0 gap-0 overflow-hidden">
-          <DialogTitle className="sr-only">Knowledge Entry Detail</DialogTitle>
-          {detailEntry && (() => {
-            const cat = getCat(detailEntry);
-            const catLabel = CATEGORIES.find(c => c.id === cat)?.label || cat;
-            const topic = getTopic(detailEntry);
-            return (
-              <div className="p-6 space-y-6">
-                {/* Header */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Badge variant="secondary">{catLabel}</Badge>
-                    {topic && (
-                      <Badge variant="outline" className="gap-1 text-xs">
-                        <Hash className="w-3 h-3" />{topic}
-                      </Badge>
-                    )}
-                  </div>
-                  <h2 className="text-xl font-semibold leading-snug">{getTitle(detailEntry.content)}</h2>
-                  <div className="flex items-center gap-3 mt-1">
-                    <p className="text-xs text-muted-foreground">{detailEntry.content.length} characters</p>
-                    {detailEntry.last_edited && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {format(new Date(detailEntry.last_edited), "d MMM yyyy, HH:mm", { locale: nl })}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="bg-muted/30 border border-border/50 rounded-lg p-5 max-h-[40vh] overflow-y-auto">
-                  <p className="text-sm text-foreground/80 leading-[1.9] whitespace-pre-wrap">{detailEntry.content}</p>
-                </div>
-
-                {/* AI notice */}
-                <div className="border border-primary/20 bg-primary/5 rounded-lg p-4 flex items-start gap-3">
-                  <Zap className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-semibold text-primary mb-0.5">Used by AI</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      When a client asks about <span className="font-medium text-foreground">{catLabel.toLowerCase()}</span>, the AI reads this entry and uses it to answer their question.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-3 pt-2">
-                  <Button variant="outline" onClick={() => openEdit(detailEntry)} className="gap-2">
-                    <Pencil className="w-4 h-4" /> Edit
-                  </Button>
-                  {confirmDeleteId === detailEntry.id ? (
-                    <div className="flex items-center gap-2">
-                      <Button variant="destructive" onClick={() => handleDelete(detailEntry.id)} disabled={deleting} className="gap-2">
-                        {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        Confirm Delete
-                      </Button>
-                      <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
-                    </div>
-                  ) : (
-                    <Button variant="ghost" onClick={() => setConfirmDeleteId(detailEntry.id)} className="gap-2 text-muted-foreground hover:text-destructive">
-                      <Trash2 className="w-4 h-4" /> Delete
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
     </DashboardLayout>
   );
 }
