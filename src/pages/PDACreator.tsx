@@ -12,14 +12,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import {
   Settings2, Plus, Trash2, Download, Upload,
-  AlertTriangle, Loader2, Navigation, BarChart3, Anchor, Clock,
+  AlertTriangle, Loader2, Navigation, BarChart3, Anchor,
 } from 'lucide-react';
 import {
   usePDAConfigs,
   type TugRule,
   type LoadingRate,
   type TerminalAssignment,
-  type PortStayFormula,
 } from '@/hooks/usePDAConfigs';
 
 export default function PDACreator() {
@@ -28,7 +27,6 @@ export default function PDACreator() {
     updateTugRule, createTugRule,
     updateLoadingRate, createLoadingRate,
     updateTerminalAssignment, createTerminalAssignment,
-    updatePortStayFormula,
     deactivateRule,
     exportConfig, importConfig,
   } = usePDAConfigs();
@@ -38,7 +36,6 @@ export default function PDACreator() {
   const [editingTugRule, setEditingTugRule] = useState<TugRule | null>(null);
   const [editingRate, setEditingRate] = useState<LoadingRate | null>(null);
   const [editingTerminal, setEditingTerminal] = useState<TerminalAssignment | null>(null);
-  const [editingFormula, setEditingFormula] = useState<PortStayFormula | null>(null);
   const [showNewTug, setShowNewTug] = useState(false);
   const [showNewRate, setShowNewRate] = useState(false);
   const [showNewTerminal, setShowNewTerminal] = useState(false);
@@ -79,14 +76,6 @@ export default function PDACreator() {
     } catch { toast({ title: 'Opslaan mislukt', variant: 'destructive' }); }
   };
 
-  const saveFormula = async (f: PortStayFormula) => {
-    try {
-      await updatePortStayFormula(f.id, { buffer_hours: f.buffer_hours, positioning_hours: f.positioning_hours, min_stay_hours: f.min_stay_hours, notes: f.notes });
-      setEditingFormula(null);
-      toast({ title: 'Port Stay Formula opgeslagen' });
-    } catch { toast({ title: 'Opslaan mislukt', variant: 'destructive' }); }
-  };
-
   if (loading) {
     return (
       <DashboardLayout title="PDA Admin">
@@ -122,7 +111,7 @@ export default function PDACreator() {
             </div>
             <div>
               <h1 className="heading-primary">PDA Configuration</h1>
-              <p className="text-sm text-muted-foreground">Beheer tug rules, loading rates, terminals & port stay formulas</p>
+              <p className="text-sm text-muted-foreground">Beheer tug rules, loading rates & terminals</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -139,13 +128,12 @@ export default function PDACreator() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {configs && (
             <>
               <MiniStat label="Tug Rules" value={configs.tugRules.length} />
               <MiniStat label="Loading Rates" value={configs.loadingRates.length} />
               <MiniStat label="Terminals" value={configs.terminalAssignments.length} />
-              <MiniStat label="Port Stay" value={configs.portStayFormulas.length} />
               <div className="card-premium p-3 flex flex-col items-center justify-center">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-[hsl(var(--success))] animate-pulse" />
@@ -159,11 +147,10 @@ export default function PDACreator() {
 
         {/* Config Tables */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full grid grid-cols-4">
+          <TabsList className="w-full grid grid-cols-3">
             <TabsTrigger value="tugs" className="gap-1"><Navigation className="w-4 h-4" /> Tugs</TabsTrigger>
             <TabsTrigger value="rates" className="gap-1"><BarChart3 className="w-4 h-4" /> Rates</TabsTrigger>
             <TabsTrigger value="terminals" className="gap-1"><Anchor className="w-4 h-4" /> Terminals</TabsTrigger>
-            <TabsTrigger value="portstay" className="gap-1"><Clock className="w-4 h-4" /> Port Stay</TabsTrigger>
           </TabsList>
 
           {/* ── Tug Rules ──────────────────── */}
@@ -219,7 +206,7 @@ export default function PDACreator() {
               <CardHeader className="pb-3 flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base">Loading Rates</CardTitle>
-                  <CardDescription>Loading & discharge rates per cargo type</CardDescription>
+                  <CardDescription>Loading & discharge rates per cargo type — port stay = cargo_quantity / rate</CardDescription>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => setShowNewRate(true)}>
                   <Plus className="w-4 h-4 mr-1" /> Nieuw
@@ -310,42 +297,6 @@ export default function PDACreator() {
               </CardContent>
             </Card>
           </TabsContent>
-
-          {/* ── Port Stay Formulas ──────── */}
-          <TabsContent value="portstay" className="mt-4">
-            <Card className="card-premium">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Port Stay Formulas</CardTitle>
-                <CardDescription>Buffer, positioning & minimum stay per terminal — gebruikt door n8n</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="max-h-[500px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Terminal</TableHead>
-                        <TableHead>Buffer (hrs)</TableHead>
-                        <TableHead>Positioning (hrs)</TableHead>
-                        <TableHead>Min Stay (hrs)</TableHead>
-                        <TableHead>Notes</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {configs?.portStayFormulas.map((f) => (
-                        <TableRow key={f.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditingFormula({ ...f })}>
-                          <TableCell><Badge variant="outline">{f.terminal_code}</Badge></TableCell>
-                          <TableCell>{f.buffer_hours}h</TableCell>
-                          <TableCell>{f.positioning_hours}h</TableCell>
-                          <TableCell>{f.min_stay_hours}h</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{f.notes}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </div>
 
@@ -394,21 +345,6 @@ export default function PDACreator() {
             <Field label="Area"><Input className="h-9" value={editingTerminal.area_name || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, area_name: e.target.value || null })} /></Field>
             <Field label="Port Code"><Input className="h-9" value={editingTerminal.port_code} onChange={(e) => setEditingTerminal({ ...editingTerminal, port_code: e.target.value })} /></Field>
             <Field label="Notes"><Input className="h-9" value={editingTerminal.notes || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, notes: e.target.value })} /></Field>
-          </div>
-        )}
-      </EditDialog>
-
-      {/* ── Edit Port Stay Formula Dialog ───────────── */}
-      <EditDialog open={!!editingFormula} onClose={() => setEditingFormula(null)} title="Port Stay Formula Bewerken" onSave={() => editingFormula && saveFormula(editingFormula)}>
-        {editingFormula && (
-          <div className="space-y-3">
-            <Field label="Terminal"><Input className="h-9" value={editingFormula.terminal_code} disabled /></Field>
-            <div className="grid grid-cols-3 gap-3">
-              <Field label="Buffer (hrs)"><Input className="h-9" type="number" value={editingFormula.buffer_hours} onChange={(e) => setEditingFormula({ ...editingFormula, buffer_hours: Number(e.target.value) })} /></Field>
-              <Field label="Positioning (hrs)"><Input className="h-9" type="number" value={editingFormula.positioning_hours} onChange={(e) => setEditingFormula({ ...editingFormula, positioning_hours: Number(e.target.value) })} /></Field>
-              <Field label="Min Stay (hrs)"><Input className="h-9" type="number" value={editingFormula.min_stay_hours} onChange={(e) => setEditingFormula({ ...editingFormula, min_stay_hours: Number(e.target.value) })} /></Field>
-            </div>
-            <Field label="Notes"><Input className="h-9" value={editingFormula.notes || ''} onChange={(e) => setEditingFormula({ ...editingFormula, notes: e.target.value })} /></Field>
           </div>
         )}
       </EditDialog>
