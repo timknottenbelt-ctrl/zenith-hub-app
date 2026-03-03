@@ -1,0 +1,481 @@
+import { useState } from 'react';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { toast } from '@/hooks/use-toast';
+import {
+  Settings2, Plus, Trash2, Download, Upload,
+  AlertTriangle, Loader2, Navigation, BarChart3, Anchor,
+} from 'lucide-react';
+import {
+  usePDAConfigs,
+  type TugRule,
+  type LoadingRate,
+  type TerminalAssignment,
+} from '@/hooks/usePDAConfigs';
+
+const OPERATIONS = ['load', 'discharge', 'bunker', 'repair', 'STS'];
+
+export default function PDACreator() {
+  const {
+    configs, loading, error, refetch,
+    updateTugRule, createTugRule,
+    updateLoadingRate, createLoadingRate,
+    updateTerminalAssignment, createTerminalAssignment,
+    deactivateRule,
+    exportConfig, importConfig,
+  } = usePDAConfigs();
+
+  const [activeTab, setActiveTab] = useState('tugs');
+
+  // Config editing dialogs
+  const [editingTugRule, setEditingTugRule] = useState<TugRule | null>(null);
+  const [editingRate, setEditingRate] = useState<LoadingRate | null>(null);
+  const [editingTerminal, setEditingTerminal] = useState<TerminalAssignment | null>(null);
+  const [showNewTug, setShowNewTug] = useState(false);
+  const [showNewRate, setShowNewRate] = useState(false);
+  const [showNewTerminal, setShowNewTerminal] = useState(false);
+
+  // Import handler
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await importConfig(file);
+      toast({ title: 'Config geïmporteerd' });
+    } catch {
+      toast({ title: 'Import mislukt', variant: 'destructive' });
+    }
+    e.target.value = '';
+  };
+
+  // Save helpers
+  const saveTugRule = async (rule: TugRule) => {
+    try {
+      await updateTugRule(rule.id, { terminal_code: rule.terminal_code, loa_min: rule.loa_min, loa_max: rule.loa_max, tugs_required: rule.tugs_required, notes: rule.notes });
+      setEditingTugRule(null);
+      toast({ title: 'Tug rule opgeslagen' });
+    } catch { toast({ title: 'Opslaan mislukt', variant: 'destructive' }); }
+  };
+
+  const saveRate = async (rate: LoadingRate) => {
+    try {
+      await updateLoadingRate(rate.id, { cargo_type: rate.cargo_type, rate_mt_per_day: rate.rate_mt_per_day, operation: rate.operation, notes: rate.notes });
+      setEditingRate(null);
+      toast({ title: 'Loading rate opgeslagen' });
+    } catch { toast({ title: 'Opslaan mislukt', variant: 'destructive' }); }
+  };
+
+  const saveTerminal = async (t: TerminalAssignment) => {
+    try {
+      await updateTerminalAssignment(t.id, { cargo_type: t.cargo_type, loa_min: t.loa_min, loa_max: t.loa_max, terminal_code: t.terminal_code, port_code: t.port_code, notes: t.notes });
+      setEditingTerminal(null);
+      toast({ title: 'Terminal assignment opgeslagen' });
+    } catch { toast({ title: 'Opslaan mislukt', variant: 'destructive' }); }
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout title="PDA Admin">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout title="PDA Admin">
+        <Card className="card-premium">
+          <CardContent className="p-6 text-center">
+            <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-2" />
+            <p className="text-destructive">{error}</p>
+            <Button onClick={refetch} className="mt-4">Opnieuw laden</Button>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout title="PDA Admin">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Settings2 className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="heading-primary">PDA Configuration</h1>
+              <p className="text-sm text-muted-foreground">Beheer tug rules, loading rates & terminal mappings</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={exportConfig}>
+              <Download className="w-4 h-4 mr-1" /> Export
+            </Button>
+            <label>
+              <Button variant="outline" size="sm" asChild>
+                <span><Upload className="w-4 h-4 mr-1" /> Import</span>
+              </Button>
+              <input type="file" accept=".json" className="hidden" onChange={handleImport} />
+            </label>
+          </div>
+        </div>
+
+        {/* Stats + Status */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {configs && (
+            <>
+              <MiniStat label="Tug Rules" value={configs.tugRules.length} />
+              <MiniStat label="Loading Rates" value={configs.loadingRates.length} />
+              <MiniStat label="Terminals" value={configs.terminalAssignments.length} />
+              <div className="card-premium p-3 flex flex-col items-center justify-center">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-[hsl(var(--success))] animate-pulse" />
+                  <span className="text-xs font-medium text-foreground">Supabase ✓</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {new Date().toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' })}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Config Tables */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="tugs" className="gap-1"><Navigation className="w-4 h-4" /> Tug Rules</TabsTrigger>
+            <TabsTrigger value="rates" className="gap-1"><BarChart3 className="w-4 h-4" /> Loading Rates</TabsTrigger>
+            <TabsTrigger value="terminals" className="gap-1"><Anchor className="w-4 h-4" /> Terminals</TabsTrigger>
+          </TabsList>
+
+          {/* ── Tug Rules ──────────────────── */}
+          <TabsContent value="tugs" className="mt-4">
+            <Card className="card-premium">
+              <CardHeader className="pb-3 flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Tug Rules</CardTitle>
+                  <CardDescription>Aantal tugs per terminal en LOA range</CardDescription>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setShowNewTug(true)}>
+                  <Plus className="w-4 h-4 mr-1" /> Nieuw
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="max-h-[500px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Terminal</TableHead>
+                        <TableHead>LOA Min</TableHead>
+                        <TableHead>LOA Max</TableHead>
+                        <TableHead>Tugs</TableHead>
+                        <TableHead>Notes</TableHead>
+                        <TableHead className="w-16"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {configs?.tugRules.map((rule) => (
+                        <TableRow key={rule.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditingTugRule({ ...rule })}>
+                          <TableCell><Badge variant="outline">{rule.terminal_code}</Badge></TableCell>
+                          <TableCell>{rule.loa_min}m</TableCell>
+                          <TableCell>{rule.loa_max ? `${rule.loa_max}m` : '∞'}</TableCell>
+                          <TableCell><Badge>{rule.tugs_required}</Badge></TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{rule.notes}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deactivateRule('pda_tug_rules', rule.id); }}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Loading Rates ──────────────── */}
+          <TabsContent value="rates" className="mt-4">
+            <Card className="card-premium">
+              <CardHeader className="pb-3 flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Loading Rates</CardTitle>
+                  <CardDescription>MT/dag per cargo type en operatie</CardDescription>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setShowNewRate(true)}>
+                  <Plus className="w-4 h-4 mr-1" /> Nieuw
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="max-h-[500px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Cargo Type</TableHead>
+                        <TableHead>Rate (MT/day)</TableHead>
+                        <TableHead>Operation</TableHead>
+                        <TableHead>Notes</TableHead>
+                        <TableHead className="w-16"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {configs?.loadingRates.map((rate) => (
+                        <TableRow key={rate.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditingRate({ ...rate })}>
+                          <TableCell className="font-medium">{rate.cargo_type}</TableCell>
+                          <TableCell><Badge variant="secondary">{rate.rate_mt_per_day.toLocaleString()}</Badge></TableCell>
+                          <TableCell>{rate.operation}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{rate.notes}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deactivateRule('pda_loading_rates', rate.id); }}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Terminal Assignments ──────── */}
+          <TabsContent value="terminals" className="mt-4">
+            <Card className="card-premium">
+              <CardHeader className="pb-3 flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Terminal Assignments</CardTitle>
+                  <CardDescription>Cargo type + LOA → terminal mapping</CardDescription>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setShowNewTerminal(true)}>
+                  <Plus className="w-4 h-4 mr-1" /> Nieuw
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="max-h-[500px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Cargo Type</TableHead>
+                        <TableHead>LOA Range</TableHead>
+                        <TableHead>Terminal</TableHead>
+                        <TableHead>Port</TableHead>
+                        <TableHead className="w-16"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {configs?.terminalAssignments.map((ta) => (
+                        <TableRow key={ta.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditingTerminal({ ...ta })}>
+                          <TableCell className="font-medium">{ta.cargo_type}</TableCell>
+                          <TableCell>{ta.loa_min}m – {ta.loa_max ? `${ta.loa_max}m` : '∞'}</TableCell>
+                          <TableCell><Badge variant="outline">{ta.terminal_code}</Badge></TableCell>
+                          <TableCell>{ta.port_code}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deactivateRule('pda_terminal_assignments', ta.id); }}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* ── Edit Tug Rule Dialog ───────────────────── */}
+      <EditDialog open={!!editingTugRule} onClose={() => setEditingTugRule(null)} title="Tug Rule Bewerken" onSave={() => editingTugRule && saveTugRule(editingTugRule)}>
+        {editingTugRule && (
+          <div className="space-y-3">
+            <Field label="Terminal"><Input className="h-9" value={editingTugRule.terminal_code} onChange={(e) => setEditingTugRule({ ...editingTugRule, terminal_code: e.target.value })} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="LOA Min"><Input className="h-9" type="number" value={editingTugRule.loa_min} onChange={(e) => setEditingTugRule({ ...editingTugRule, loa_min: Number(e.target.value) })} /></Field>
+              <Field label="LOA Max"><Input className="h-9" type="number" value={editingTugRule.loa_max ?? ''} onChange={(e) => setEditingTugRule({ ...editingTugRule, loa_max: e.target.value ? Number(e.target.value) : null })} /></Field>
+            </div>
+            <Field label="Tugs"><Input className="h-9" type="number" value={editingTugRule.tugs_required} onChange={(e) => setEditingTugRule({ ...editingTugRule, tugs_required: Number(e.target.value) })} /></Field>
+            <Field label="Notes"><Input className="h-9" value={editingTugRule.notes || ''} onChange={(e) => setEditingTugRule({ ...editingTugRule, notes: e.target.value })} /></Field>
+          </div>
+        )}
+      </EditDialog>
+
+      {/* ── Edit Loading Rate Dialog ───────────────── */}
+      <EditDialog open={!!editingRate} onClose={() => setEditingRate(null)} title="Loading Rate Bewerken" onSave={() => editingRate && saveRate(editingRate)}>
+        {editingRate && (
+          <div className="space-y-3">
+            <Field label="Cargo Type"><Input className="h-9" value={editingRate.cargo_type} onChange={(e) => setEditingRate({ ...editingRate, cargo_type: e.target.value })} /></Field>
+            <Field label="Rate (MT/day)"><Input className="h-9" type="number" value={editingRate.rate_mt_per_day} onChange={(e) => setEditingRate({ ...editingRate, rate_mt_per_day: Number(e.target.value) })} /></Field>
+            <Field label="Operation">
+              <Select value={editingRate.operation} onValueChange={(v) => setEditingRate({ ...editingRate, operation: v })}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>{OPERATIONS.map((op) => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+            <Field label="Notes"><Input className="h-9" value={editingRate.notes || ''} onChange={(e) => setEditingRate({ ...editingRate, notes: e.target.value })} /></Field>
+          </div>
+        )}
+      </EditDialog>
+
+      {/* ── Edit Terminal Assignment Dialog ─────────── */}
+      <EditDialog open={!!editingTerminal} onClose={() => setEditingTerminal(null)} title="Terminal Assignment Bewerken" onSave={() => editingTerminal && saveTerminal(editingTerminal)}>
+        {editingTerminal && (
+          <div className="space-y-3">
+            <Field label="Cargo Type"><Input className="h-9" value={editingTerminal.cargo_type} onChange={(e) => setEditingTerminal({ ...editingTerminal, cargo_type: e.target.value })} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="LOA Min"><Input className="h-9" type="number" value={editingTerminal.loa_min} onChange={(e) => setEditingTerminal({ ...editingTerminal, loa_min: Number(e.target.value) })} /></Field>
+              <Field label="LOA Max"><Input className="h-9" type="number" value={editingTerminal.loa_max ?? ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, loa_max: e.target.value ? Number(e.target.value) : null })} /></Field>
+            </div>
+            <Field label="Terminal Code"><Input className="h-9" value={editingTerminal.terminal_code} onChange={(e) => setEditingTerminal({ ...editingTerminal, terminal_code: e.target.value })} /></Field>
+            <Field label="Port Code"><Input className="h-9" value={editingTerminal.port_code} onChange={(e) => setEditingTerminal({ ...editingTerminal, port_code: e.target.value })} /></Field>
+            <Field label="Notes"><Input className="h-9" value={editingTerminal.notes || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, notes: e.target.value })} /></Field>
+          </div>
+        )}
+      </EditDialog>
+
+      {/* ── New Tug Rule Dialog ─────────────────────── */}
+      <NewRuleDialog
+        open={showNewTug} onClose={() => setShowNewTug(false)} title="Nieuwe Tug Rule"
+        onSave={async (form) => {
+          await createTugRule({ terminal_code: form.terminal_code, loa_min: Number(form.loa_min), loa_max: form.loa_max ? Number(form.loa_max) : null, tugs_required: Number(form.tugs_required), notes: form.notes || null });
+          setShowNewTug(false);
+          toast({ title: 'Tug rule aangemaakt' });
+        }}
+        fields={[
+          { key: 'terminal_code', label: 'Terminal Code', required: true },
+          { key: 'loa_min', label: 'LOA Min', type: 'number', required: true },
+          { key: 'loa_max', label: 'LOA Max', type: 'number' },
+          { key: 'tugs_required', label: 'Tugs Required', type: 'number', required: true },
+          { key: 'notes', label: 'Notes' },
+        ]}
+      />
+
+      {/* ── New Loading Rate Dialog ────────────────── */}
+      <NewRuleDialog
+        open={showNewRate} onClose={() => setShowNewRate(false)} title="Nieuwe Loading Rate"
+        onSave={async (form) => {
+          await createLoadingRate({ cargo_type: form.cargo_type, rate_mt_per_day: Number(form.rate_mt_per_day), operation: form.operation || 'load', notes: form.notes || null });
+          setShowNewRate(false);
+          toast({ title: 'Loading rate aangemaakt' });
+        }}
+        fields={[
+          { key: 'cargo_type', label: 'Cargo Type', required: true },
+          { key: 'rate_mt_per_day', label: 'Rate (MT/day)', type: 'number', required: true },
+          { key: 'operation', label: 'Operation' },
+          { key: 'notes', label: 'Notes' },
+        ]}
+      />
+
+      {/* ── New Terminal Assignment Dialog ─────────── */}
+      <NewRuleDialog
+        open={showNewTerminal} onClose={() => setShowNewTerminal(false)} title="Nieuwe Terminal Assignment"
+        onSave={async (form) => {
+          await createTerminalAssignment({ cargo_type: form.cargo_type, loa_min: Number(form.loa_min), loa_max: form.loa_max ? Number(form.loa_max) : null, terminal_code: form.terminal_code, port_code: form.port_code || 'WILLEMSTAD', notes: form.notes || null });
+          setShowNewTerminal(false);
+          toast({ title: 'Terminal assignment aangemaakt' });
+        }}
+        fields={[
+          { key: 'cargo_type', label: 'Cargo Type', required: true },
+          { key: 'loa_min', label: 'LOA Min', type: 'number', required: true },
+          { key: 'loa_max', label: 'LOA Max', type: 'number' },
+          { key: 'terminal_code', label: 'Terminal Code', required: true },
+          { key: 'port_code', label: 'Port Code' },
+          { key: 'notes', label: 'Notes' },
+        ]}
+      />
+    </DashboardLayout>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="card-premium p-3 text-center">
+      <p className="text-2xl font-bold text-primary">{value}</p>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{label}</p>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function EditDialog({ open, onClose, title, onSave, children }: {
+  open: boolean; onClose: () => void; title: string; onSave: () => void; children: React.ReactNode;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+        {children}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Annuleren</Button>
+          <Button onClick={onSave}>Opslaan</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface FieldDef { key: string; label: string; type?: string; required?: boolean; }
+
+function NewRuleDialog({ open, onClose, title, onSave, fields }: {
+  open: boolean; onClose: () => void; title: string;
+  onSave: (form: Record<string, string>) => Promise<void>;
+  fields: FieldDef[];
+}) {
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    for (const f of fields) {
+      if (f.required && !form[f.key]) {
+        toast({ title: `${f.label} is verplicht`, variant: 'destructive' });
+        return;
+      }
+    }
+    setSaving(true);
+    try { await onSave(form); setForm({}); } catch { toast({ title: 'Aanmaken mislukt', variant: 'destructive' }); } finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { onClose(); setForm({}); } }}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          {fields.map((f) => (
+            <Field key={f.key} label={f.label}>
+              <Input className="h-9" type={f.type || 'text'} value={form[f.key] || ''} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} />
+            </Field>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { onClose(); setForm({}); }}>Annuleren</Button>
+          <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Aanmaken'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

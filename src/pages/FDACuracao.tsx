@@ -240,7 +240,7 @@ export default function FDACuracao() {
     }).select().single();
 
     if (error) {
-      toast({ title: "Fout", description: error.message, variant: "destructive" });
+      toast({ title: "Fout", description: "Kon het project niet aanmaken. Probeer het opnieuw.", variant: "destructive" });
     } else {
       toast({ title: "Aangemaakt", description: "Project is aangemaakt" });
       setShowCreateDialog(false);
@@ -271,7 +271,7 @@ export default function FDACuracao() {
     }).eq("id", selectedProject.id);
 
     if (error) {
-      toast({ title: "Fout", description: error.message, variant: "destructive" });
+      toast({ title: "Fout", description: "Kon de wijzigingen niet opslaan. Probeer het opnieuw.", variant: "destructive" });
     } else {
       await saveAgencyCosts(selectedProject.project_id);
       toast({ title: "Opgeslagen" });
@@ -301,6 +301,15 @@ export default function FDACuracao() {
 
     if ((selectedProject.status === "processing" || selectedProject.status === "ready_to_send") && !forceResend) {
       navigate(`/fda-curacao/email/${selectedProject.project_id}`);
+      return;
+    }
+
+    if (!formData.vessel_arrived || !formData.vessel_sailed || !formData.operation) {
+      toast({
+        title: "Velden ontbreken",
+        description: "Vul aankomst, vertrek en operatie in voordat je verder gaat.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -334,15 +343,49 @@ export default function FDACuracao() {
         invoice_count: invoices.length, force_resend: forceResend,
       };
 
-      const response = await webhookPostJSON(WEBHOOKS.FDA_CURACAO_INVOICE_UPLOAD, payload);
-      if (!response.ok) throw new Error(`Webhook error: ${response.status}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+      const response = await fetch(WEBHOOKS.FDA_CURACAO_INVOICE_UPLOAD, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Authorization": `Basic ${btoa("lbh-webhook-2026:L@bh_W3bh00k_C!2026")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) throw new Error("server_error");
 
       setSelectedProject(prev => prev ? { ...prev, status: "processing" } : null);
       toast({ title: "Verzonden", description: "Verwerking gestart..." });
       setStepInUrl("processing");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Send error:", error);
-      toast({ title: "Fout", description: error instanceof Error ? error.message : "Verzenden mislukt", variant: "destructive" });
+
+      if (error?.name === "AbortError") {
+        toast({
+          title: "Even geduld",
+          description: "De verwerking duurt langer dan verwacht. Wacht 2 minuten en ververs de pagina om te controleren of je facturen zijn verwerkt.",
+          variant: "destructive",
+        });
+      } else if (error instanceof TypeError && error.message === "Failed to fetch") {
+        toast({
+          title: "Geen verbinding",
+          description: "Kan de verwerkingsserver niet bereiken. Controleer je internetverbinding en probeer het opnieuw.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Fout bij verzenden",
+          description: "Er ging iets mis bij het verwerken van je facturen. Probeer het opnieuw of neem contact op met support.",
+          variant: "destructive",
+        });
+      }
+      // Keep uploaded files visible — don't clear invoices on error
     } finally {
       setSending(false);
     }
