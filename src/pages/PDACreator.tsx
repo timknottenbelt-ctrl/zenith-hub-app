@@ -6,23 +6,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import {
   Settings2, Plus, Trash2, Download, Upload,
-  AlertTriangle, Loader2, Navigation, BarChart3, Anchor,
+  AlertTriangle, Loader2, Navigation, BarChart3, Anchor, Clock,
 } from 'lucide-react';
 import {
   usePDAConfigs,
   type TugRule,
   type LoadingRate,
   type TerminalAssignment,
+  type PortStayFormula,
 } from '@/hooks/usePDAConfigs';
-
-const OPERATIONS = ['load', 'discharge', 'bunker', 'repair', 'STS'];
 
 export default function PDACreator() {
   const {
@@ -30,21 +28,21 @@ export default function PDACreator() {
     updateTugRule, createTugRule,
     updateLoadingRate, createLoadingRate,
     updateTerminalAssignment, createTerminalAssignment,
+    updatePortStayFormula,
     deactivateRule,
     exportConfig, importConfig,
   } = usePDAConfigs();
 
   const [activeTab, setActiveTab] = useState('tugs');
 
-  // Config editing dialogs
   const [editingTugRule, setEditingTugRule] = useState<TugRule | null>(null);
   const [editingRate, setEditingRate] = useState<LoadingRate | null>(null);
   const [editingTerminal, setEditingTerminal] = useState<TerminalAssignment | null>(null);
+  const [editingFormula, setEditingFormula] = useState<PortStayFormula | null>(null);
   const [showNewTug, setShowNewTug] = useState(false);
   const [showNewRate, setShowNewRate] = useState(false);
   const [showNewTerminal, setShowNewTerminal] = useState(false);
 
-  // Import handler
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -57,10 +55,9 @@ export default function PDACreator() {
     e.target.value = '';
   };
 
-  // Save helpers
   const saveTugRule = async (rule: TugRule) => {
     try {
-      await updateTugRule(rule.id, { terminal_code: rule.terminal_code, loa_min: rule.loa_min, loa_max: rule.loa_max, tugs_required: rule.tugs_required, notes: rule.notes });
+      await updateTugRule(rule.id, { rule_name: rule.rule_name, terminal: rule.terminal, port_code: rule.port_code, loa_min: rule.loa_min, loa_max: rule.loa_max, tug_count: rule.tug_count });
       setEditingTugRule(null);
       toast({ title: 'Tug rule opgeslagen' });
     } catch { toast({ title: 'Opslaan mislukt', variant: 'destructive' }); }
@@ -68,7 +65,7 @@ export default function PDACreator() {
 
   const saveRate = async (rate: LoadingRate) => {
     try {
-      await updateLoadingRate(rate.id, { cargo_type: rate.cargo_type, rate_mt_per_day: rate.rate_mt_per_day, operation: rate.operation, notes: rate.notes });
+      await updateLoadingRate(rate.id, { cargo_type: rate.cargo_type, loading_rate: rate.loading_rate, discharge_rate: rate.discharge_rate, cargo_category: rate.cargo_category, heating_required: rate.heating_required, notes: rate.notes });
       setEditingRate(null);
       toast({ title: 'Loading rate opgeslagen' });
     } catch { toast({ title: 'Opslaan mislukt', variant: 'destructive' }); }
@@ -76,9 +73,17 @@ export default function PDACreator() {
 
   const saveTerminal = async (t: TerminalAssignment) => {
     try {
-      await updateTerminalAssignment(t.id, { cargo_type: t.cargo_type, loa_min: t.loa_min, loa_max: t.loa_max, terminal_code: t.terminal_code, port_code: t.port_code, notes: t.notes });
+      await updateTerminalAssignment(t.id, { cargo_type: t.cargo_type, loa_min: t.loa_min, loa_max: t.loa_max, terminal_name: t.terminal_name, facility_name: t.facility_name, area_name: t.area_name, port_code: t.port_code, notes: t.notes });
       setEditingTerminal(null);
       toast({ title: 'Terminal assignment opgeslagen' });
+    } catch { toast({ title: 'Opslaan mislukt', variant: 'destructive' }); }
+  };
+
+  const saveFormula = async (f: PortStayFormula) => {
+    try {
+      await updatePortStayFormula(f.id, { buffer_hours: f.buffer_hours, positioning_hours: f.positioning_hours, min_stay_hours: f.min_stay_hours, notes: f.notes });
+      setEditingFormula(null);
+      toast({ title: 'Port Stay Formula opgeslagen' });
     } catch { toast({ title: 'Opslaan mislukt', variant: 'destructive' }); }
   };
 
@@ -117,7 +122,7 @@ export default function PDACreator() {
             </div>
             <div>
               <h1 className="heading-primary">PDA Configuration</h1>
-              <p className="text-sm text-muted-foreground">Beheer tug rules, loading rates & terminal mappings</p>
+              <p className="text-sm text-muted-foreground">Beheer tug rules, loading rates, terminals & port stay formulas</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -133,21 +138,20 @@ export default function PDACreator() {
           </div>
         </div>
 
-        {/* Stats + Status */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {configs && (
             <>
               <MiniStat label="Tug Rules" value={configs.tugRules.length} />
               <MiniStat label="Loading Rates" value={configs.loadingRates.length} />
               <MiniStat label="Terminals" value={configs.terminalAssignments.length} />
+              <MiniStat label="Port Stay" value={configs.portStayFormulas.length} />
               <div className="card-premium p-3 flex flex-col items-center justify-center">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-[hsl(var(--success))] animate-pulse" />
-                  <span className="text-xs font-medium text-foreground">Supabase ✓</span>
+                  <span className="text-xs font-medium text-foreground">Live ✓</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  {new Date().toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' })}
-                </p>
+                <p className="text-[10px] text-muted-foreground mt-1">n8n synced</p>
               </div>
             </>
           )}
@@ -155,10 +159,11 @@ export default function PDACreator() {
 
         {/* Config Tables */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full grid grid-cols-3">
-            <TabsTrigger value="tugs" className="gap-1"><Navigation className="w-4 h-4" /> Tug Rules</TabsTrigger>
-            <TabsTrigger value="rates" className="gap-1"><BarChart3 className="w-4 h-4" /> Loading Rates</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-4">
+            <TabsTrigger value="tugs" className="gap-1"><Navigation className="w-4 h-4" /> Tugs</TabsTrigger>
+            <TabsTrigger value="rates" className="gap-1"><BarChart3 className="w-4 h-4" /> Rates</TabsTrigger>
             <TabsTrigger value="terminals" className="gap-1"><Anchor className="w-4 h-4" /> Terminals</TabsTrigger>
+            <TabsTrigger value="portstay" className="gap-1"><Clock className="w-4 h-4" /> Port Stay</TabsTrigger>
           </TabsList>
 
           {/* ── Tug Rules ──────────────────── */}
@@ -167,7 +172,7 @@ export default function PDACreator() {
               <CardHeader className="pb-3 flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base">Tug Rules</CardTitle>
-                  <CardDescription>Aantal tugs per terminal en LOA range</CardDescription>
+                  <CardDescription>Aantal tugs per terminal, LOA range en cargo</CardDescription>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => setShowNewTug(true)}>
                   <Plus className="w-4 h-4 mr-1" /> Nieuw
@@ -178,24 +183,24 @@ export default function PDACreator() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Naam</TableHead>
                         <TableHead>Terminal</TableHead>
-                        <TableHead>LOA Min</TableHead>
-                        <TableHead>LOA Max</TableHead>
+                        <TableHead>LOA Range</TableHead>
                         <TableHead>Tugs</TableHead>
-                        <TableHead>Notes</TableHead>
+                        <TableHead>Cargo Types</TableHead>
                         <TableHead className="w-16"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {configs?.tugRules.map((rule) => (
                         <TableRow key={rule.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditingTugRule({ ...rule })}>
-                          <TableCell><Badge variant="outline">{rule.terminal_code}</Badge></TableCell>
-                          <TableCell>{rule.loa_min}m</TableCell>
-                          <TableCell>{rule.loa_max ? `${rule.loa_max}m` : '∞'}</TableCell>
-                          <TableCell><Badge>{rule.tugs_required}</Badge></TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{rule.notes}</TableCell>
+                          <TableCell className="font-medium">{rule.rule_name}</TableCell>
+                          <TableCell><Badge variant="outline">{rule.terminal}</Badge></TableCell>
+                          <TableCell>{rule.loa_min ?? 0}m – {rule.loa_max ? `${rule.loa_max}m` : '∞'}</TableCell>
+                          <TableCell><Badge>{rule.tug_count}</Badge></TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{rule.cargo_types?.join(', ')}</TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deactivateRule('pda_tug_rules', rule.id); }}>
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deactivateRule('tug_rules', rule.id); }}>
                               <Trash2 className="w-3.5 h-3.5 text-destructive" />
                             </Button>
                           </TableCell>
@@ -214,7 +219,7 @@ export default function PDACreator() {
               <CardHeader className="pb-3 flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base">Loading Rates</CardTitle>
-                  <CardDescription>MT/dag per cargo type en operatie</CardDescription>
+                  <CardDescription>Loading & discharge rates per cargo type</CardDescription>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => setShowNewRate(true)}>
                   <Plus className="w-4 h-4 mr-1" /> Nieuw
@@ -226,8 +231,10 @@ export default function PDACreator() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Cargo Type</TableHead>
-                        <TableHead>Rate (MT/day)</TableHead>
-                        <TableHead>Operation</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Loading (MT/day)</TableHead>
+                        <TableHead>Discharge (MT/day)</TableHead>
+                        <TableHead>Heating</TableHead>
                         <TableHead>Notes</TableHead>
                         <TableHead className="w-16"></TableHead>
                       </TableRow>
@@ -236,11 +243,13 @@ export default function PDACreator() {
                       {configs?.loadingRates.map((rate) => (
                         <TableRow key={rate.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditingRate({ ...rate })}>
                           <TableCell className="font-medium">{rate.cargo_type}</TableCell>
-                          <TableCell><Badge variant="secondary">{rate.rate_mt_per_day.toLocaleString()}</Badge></TableCell>
-                          <TableCell>{rate.operation}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{rate.notes}</TableCell>
+                          <TableCell><Badge variant="secondary">{rate.cargo_category || '-'}</Badge></TableCell>
+                          <TableCell>{rate.loading_rate.toLocaleString()}</TableCell>
+                          <TableCell>{rate.discharge_rate.toLocaleString()}</TableCell>
+                          <TableCell>{rate.heating_required ? '🔥' : '-'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{rate.notes}</TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deactivateRule('pda_loading_rates', rate.id); }}>
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deactivateRule('loading_rates', rate.id); }}>
                               <Trash2 className="w-3.5 h-3.5 text-destructive" />
                             </Button>
                           </TableCell>
@@ -259,7 +268,7 @@ export default function PDACreator() {
               <CardHeader className="pb-3 flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base">Terminal Assignments</CardTitle>
-                  <CardDescription>Cargo type + LOA → terminal mapping</CardDescription>
+                  <CardDescription>Cargo type + LOA → terminal, facility & area</CardDescription>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => setShowNewTerminal(true)}>
                   <Plus className="w-4 h-4 mr-1" /> Nieuw
@@ -273,6 +282,8 @@ export default function PDACreator() {
                         <TableHead>Cargo Type</TableHead>
                         <TableHead>LOA Range</TableHead>
                         <TableHead>Terminal</TableHead>
+                        <TableHead>Facility</TableHead>
+                        <TableHead>Area</TableHead>
                         <TableHead>Port</TableHead>
                         <TableHead className="w-16"></TableHead>
                       </TableRow>
@@ -281,14 +292,52 @@ export default function PDACreator() {
                       {configs?.terminalAssignments.map((ta) => (
                         <TableRow key={ta.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditingTerminal({ ...ta })}>
                           <TableCell className="font-medium">{ta.cargo_type}</TableCell>
-                          <TableCell>{ta.loa_min}m – {ta.loa_max ? `${ta.loa_max}m` : '∞'}</TableCell>
-                          <TableCell><Badge variant="outline">{ta.terminal_code}</Badge></TableCell>
+                          <TableCell>{ta.loa_min ?? 0}m – {ta.loa_max ? `${ta.loa_max}m` : '∞'}</TableCell>
+                          <TableCell><Badge variant="outline">{ta.terminal_name}</Badge></TableCell>
+                          <TableCell>{ta.facility_name || '-'}</TableCell>
+                          <TableCell>{ta.area_name || '-'}</TableCell>
                           <TableCell>{ta.port_code}</TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deactivateRule('pda_terminal_assignments', ta.id); }}>
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deactivateRule('terminal_assignments', ta.id); }}>
                               <Trash2 className="w-3.5 h-3.5 text-destructive" />
                             </Button>
                           </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Port Stay Formulas ──────── */}
+          <TabsContent value="portstay" className="mt-4">
+            <Card className="card-premium">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Port Stay Formulas</CardTitle>
+                <CardDescription>Buffer, positioning & minimum stay per terminal — gebruikt door n8n</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="max-h-[500px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Terminal</TableHead>
+                        <TableHead>Buffer (hrs)</TableHead>
+                        <TableHead>Positioning (hrs)</TableHead>
+                        <TableHead>Min Stay (hrs)</TableHead>
+                        <TableHead>Notes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {configs?.portStayFormulas.map((f) => (
+                        <TableRow key={f.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditingFormula({ ...f })}>
+                          <TableCell><Badge variant="outline">{f.terminal_code}</Badge></TableCell>
+                          <TableCell>{f.buffer_hours}h</TableCell>
+                          <TableCell>{f.positioning_hours}h</TableCell>
+                          <TableCell>{f.min_stay_hours}h</TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{f.notes}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -304,13 +353,14 @@ export default function PDACreator() {
       <EditDialog open={!!editingTugRule} onClose={() => setEditingTugRule(null)} title="Tug Rule Bewerken" onSave={() => editingTugRule && saveTugRule(editingTugRule)}>
         {editingTugRule && (
           <div className="space-y-3">
-            <Field label="Terminal"><Input className="h-9" value={editingTugRule.terminal_code} onChange={(e) => setEditingTugRule({ ...editingTugRule, terminal_code: e.target.value })} /></Field>
+            <Field label="Naam"><Input className="h-9" value={editingTugRule.rule_name} onChange={(e) => setEditingTugRule({ ...editingTugRule, rule_name: e.target.value })} /></Field>
+            <Field label="Terminal"><Input className="h-9" value={editingTugRule.terminal} onChange={(e) => setEditingTugRule({ ...editingTugRule, terminal: e.target.value })} /></Field>
+            <Field label="Port Code"><Input className="h-9" value={editingTugRule.port_code} onChange={(e) => setEditingTugRule({ ...editingTugRule, port_code: e.target.value })} /></Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="LOA Min"><Input className="h-9" type="number" value={editingTugRule.loa_min} onChange={(e) => setEditingTugRule({ ...editingTugRule, loa_min: Number(e.target.value) })} /></Field>
+              <Field label="LOA Min"><Input className="h-9" type="number" value={editingTugRule.loa_min ?? ''} onChange={(e) => setEditingTugRule({ ...editingTugRule, loa_min: e.target.value ? Number(e.target.value) : null })} /></Field>
               <Field label="LOA Max"><Input className="h-9" type="number" value={editingTugRule.loa_max ?? ''} onChange={(e) => setEditingTugRule({ ...editingTugRule, loa_max: e.target.value ? Number(e.target.value) : null })} /></Field>
             </div>
-            <Field label="Tugs"><Input className="h-9" type="number" value={editingTugRule.tugs_required} onChange={(e) => setEditingTugRule({ ...editingTugRule, tugs_required: Number(e.target.value) })} /></Field>
-            <Field label="Notes"><Input className="h-9" value={editingTugRule.notes || ''} onChange={(e) => setEditingTugRule({ ...editingTugRule, notes: e.target.value })} /></Field>
+            <Field label="Tug Count"><Input className="h-9" type="number" value={editingTugRule.tug_count} onChange={(e) => setEditingTugRule({ ...editingTugRule, tug_count: Number(e.target.value) })} /></Field>
           </div>
         )}
       </EditDialog>
@@ -320,13 +370,11 @@ export default function PDACreator() {
         {editingRate && (
           <div className="space-y-3">
             <Field label="Cargo Type"><Input className="h-9" value={editingRate.cargo_type} onChange={(e) => setEditingRate({ ...editingRate, cargo_type: e.target.value })} /></Field>
-            <Field label="Rate (MT/day)"><Input className="h-9" type="number" value={editingRate.rate_mt_per_day} onChange={(e) => setEditingRate({ ...editingRate, rate_mt_per_day: Number(e.target.value) })} /></Field>
-            <Field label="Operation">
-              <Select value={editingRate.operation} onValueChange={(v) => setEditingRate({ ...editingRate, operation: v })}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>{OPERATIONS.map((op) => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent>
-              </Select>
-            </Field>
+            <Field label="Category"><Input className="h-9" value={editingRate.cargo_category || ''} onChange={(e) => setEditingRate({ ...editingRate, cargo_category: e.target.value || null })} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Loading Rate (MT/day)"><Input className="h-9" type="number" value={editingRate.loading_rate} onChange={(e) => setEditingRate({ ...editingRate, loading_rate: Number(e.target.value) })} /></Field>
+              <Field label="Discharge Rate (MT/day)"><Input className="h-9" type="number" value={editingRate.discharge_rate} onChange={(e) => setEditingRate({ ...editingRate, discharge_rate: Number(e.target.value) })} /></Field>
+            </div>
             <Field label="Notes"><Input className="h-9" value={editingRate.notes || ''} onChange={(e) => setEditingRate({ ...editingRate, notes: e.target.value })} /></Field>
           </div>
         )}
@@ -338,12 +386,29 @@ export default function PDACreator() {
           <div className="space-y-3">
             <Field label="Cargo Type"><Input className="h-9" value={editingTerminal.cargo_type} onChange={(e) => setEditingTerminal({ ...editingTerminal, cargo_type: e.target.value })} /></Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="LOA Min"><Input className="h-9" type="number" value={editingTerminal.loa_min} onChange={(e) => setEditingTerminal({ ...editingTerminal, loa_min: Number(e.target.value) })} /></Field>
+              <Field label="LOA Min"><Input className="h-9" type="number" value={editingTerminal.loa_min ?? ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, loa_min: e.target.value ? Number(e.target.value) : null })} /></Field>
               <Field label="LOA Max"><Input className="h-9" type="number" value={editingTerminal.loa_max ?? ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, loa_max: e.target.value ? Number(e.target.value) : null })} /></Field>
             </div>
-            <Field label="Terminal Code"><Input className="h-9" value={editingTerminal.terminal_code} onChange={(e) => setEditingTerminal({ ...editingTerminal, terminal_code: e.target.value })} /></Field>
+            <Field label="Terminal Name"><Input className="h-9" value={editingTerminal.terminal_name} onChange={(e) => setEditingTerminal({ ...editingTerminal, terminal_name: e.target.value })} /></Field>
+            <Field label="Facility"><Input className="h-9" value={editingTerminal.facility_name || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, facility_name: e.target.value || null })} /></Field>
+            <Field label="Area"><Input className="h-9" value={editingTerminal.area_name || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, area_name: e.target.value || null })} /></Field>
             <Field label="Port Code"><Input className="h-9" value={editingTerminal.port_code} onChange={(e) => setEditingTerminal({ ...editingTerminal, port_code: e.target.value })} /></Field>
             <Field label="Notes"><Input className="h-9" value={editingTerminal.notes || ''} onChange={(e) => setEditingTerminal({ ...editingTerminal, notes: e.target.value })} /></Field>
+          </div>
+        )}
+      </EditDialog>
+
+      {/* ── Edit Port Stay Formula Dialog ───────────── */}
+      <EditDialog open={!!editingFormula} onClose={() => setEditingFormula(null)} title="Port Stay Formula Bewerken" onSave={() => editingFormula && saveFormula(editingFormula)}>
+        {editingFormula && (
+          <div className="space-y-3">
+            <Field label="Terminal"><Input className="h-9" value={editingFormula.terminal_code} disabled /></Field>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Buffer (hrs)"><Input className="h-9" type="number" value={editingFormula.buffer_hours} onChange={(e) => setEditingFormula({ ...editingFormula, buffer_hours: Number(e.target.value) })} /></Field>
+              <Field label="Positioning (hrs)"><Input className="h-9" type="number" value={editingFormula.positioning_hours} onChange={(e) => setEditingFormula({ ...editingFormula, positioning_hours: Number(e.target.value) })} /></Field>
+              <Field label="Min Stay (hrs)"><Input className="h-9" type="number" value={editingFormula.min_stay_hours} onChange={(e) => setEditingFormula({ ...editingFormula, min_stay_hours: Number(e.target.value) })} /></Field>
+            </div>
+            <Field label="Notes"><Input className="h-9" value={editingFormula.notes || ''} onChange={(e) => setEditingFormula({ ...editingFormula, notes: e.target.value })} /></Field>
           </div>
         )}
       </EditDialog>
@@ -352,16 +417,17 @@ export default function PDACreator() {
       <NewRuleDialog
         open={showNewTug} onClose={() => setShowNewTug(false)} title="Nieuwe Tug Rule"
         onSave={async (form) => {
-          await createTugRule({ terminal_code: form.terminal_code, loa_min: Number(form.loa_min), loa_max: form.loa_max ? Number(form.loa_max) : null, tugs_required: Number(form.tugs_required), notes: form.notes || null });
+          await createTugRule({ rule_name: form.rule_name, terminal: form.terminal, port_code: form.port_code || 'WILLEMSTAD', loa_min: form.loa_min ? Number(form.loa_min) : 0, loa_max: form.loa_max ? Number(form.loa_max) : null, tug_count: Number(form.tug_count), tug_type: null, operation_types: null, cargo_types: null } as any);
           setShowNewTug(false);
           toast({ title: 'Tug rule aangemaakt' });
         }}
         fields={[
-          { key: 'terminal_code', label: 'Terminal Code', required: true },
-          { key: 'loa_min', label: 'LOA Min', type: 'number', required: true },
+          { key: 'rule_name', label: 'Naam', required: true },
+          { key: 'terminal', label: 'Terminal', required: true },
+          { key: 'port_code', label: 'Port Code' },
+          { key: 'loa_min', label: 'LOA Min', type: 'number' },
           { key: 'loa_max', label: 'LOA Max', type: 'number' },
-          { key: 'tugs_required', label: 'Tugs Required', type: 'number', required: true },
-          { key: 'notes', label: 'Notes' },
+          { key: 'tug_count', label: 'Tug Count', type: 'number', required: true },
         ]}
       />
 
@@ -369,14 +435,15 @@ export default function PDACreator() {
       <NewRuleDialog
         open={showNewRate} onClose={() => setShowNewRate(false)} title="Nieuwe Loading Rate"
         onSave={async (form) => {
-          await createLoadingRate({ cargo_type: form.cargo_type, rate_mt_per_day: Number(form.rate_mt_per_day), operation: form.operation || 'load', notes: form.notes || null });
+          await createLoadingRate({ cargo_type: form.cargo_type, cargo_category: form.cargo_category || null, loading_rate: Number(form.loading_rate), discharge_rate: Number(form.discharge_rate), heating_required: false, heating_buffer_percent: 0, port_stay_buffer_percent: 0, notes: form.notes || null } as any);
           setShowNewRate(false);
           toast({ title: 'Loading rate aangemaakt' });
         }}
         fields={[
           { key: 'cargo_type', label: 'Cargo Type', required: true },
-          { key: 'rate_mt_per_day', label: 'Rate (MT/day)', type: 'number', required: true },
-          { key: 'operation', label: 'Operation' },
+          { key: 'cargo_category', label: 'Category' },
+          { key: 'loading_rate', label: 'Loading Rate (MT/day)', type: 'number', required: true },
+          { key: 'discharge_rate', label: 'Discharge Rate (MT/day)', type: 'number', required: true },
           { key: 'notes', label: 'Notes' },
         ]}
       />
@@ -385,15 +452,17 @@ export default function PDACreator() {
       <NewRuleDialog
         open={showNewTerminal} onClose={() => setShowNewTerminal(false)} title="Nieuwe Terminal Assignment"
         onSave={async (form) => {
-          await createTerminalAssignment({ cargo_type: form.cargo_type, loa_min: Number(form.loa_min), loa_max: form.loa_max ? Number(form.loa_max) : null, terminal_code: form.terminal_code, port_code: form.port_code || 'WILLEMSTAD', notes: form.notes || null });
+          await createTerminalAssignment({ cargo_type: form.cargo_type, loa_min: form.loa_min ? Number(form.loa_min) : 0, loa_max: form.loa_max ? Number(form.loa_max) : null, terminal_name: form.terminal_name, facility_name: form.facility_name || null, area_name: form.area_name || null, port_code: form.port_code || 'WILLEMSTAD', max_loa: null, max_draft: null, has_pipeline: false, has_crane: false, has_repair_berth: false, notes: form.notes || null, priority: 1 } as any);
           setShowNewTerminal(false);
           toast({ title: 'Terminal assignment aangemaakt' });
         }}
         fields={[
           { key: 'cargo_type', label: 'Cargo Type', required: true },
-          { key: 'loa_min', label: 'LOA Min', type: 'number', required: true },
+          { key: 'loa_min', label: 'LOA Min', type: 'number' },
           { key: 'loa_max', label: 'LOA Max', type: 'number' },
-          { key: 'terminal_code', label: 'Terminal Code', required: true },
+          { key: 'terminal_name', label: 'Terminal Name', required: true },
+          { key: 'facility_name', label: 'Facility' },
+          { key: 'area_name', label: 'Area' },
           { key: 'port_code', label: 'Port Code' },
           { key: 'notes', label: 'Notes' },
         ]}
