@@ -236,33 +236,15 @@ export default function PDACreator() {
               <p className="text-sm text-muted-foreground">Beheer tug rules, loading rates & terminals</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={exportConfig}>
-              <Download className="w-4 h-4 mr-1" /> Export
-            </Button>
-            <label>
-              <Button variant="outline" size="sm" asChild>
-                <span><Upload className="w-4 h-4 mr-1" /> Import</span>
-              </Button>
-              <input type="file" accept=".json" className="hidden" onChange={handleImport} />
-            </label>
-          </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {configs && (
             <>
               <MiniStat label="Tug Rules" value={configs.tugRules.length} />
               <MiniStat label="Loading Rates" value={configs.loadingRates.length} />
               <MiniStat label="Terminals" value={configs.terminalAssignments.length} />
-              <div className="card-premium p-3 flex flex-col items-center justify-center">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-[hsl(var(--success))] animate-pulse" />
-                  <span className="text-xs font-medium text-foreground">Live ✓</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1">n8n synced</p>
-              </div>
             </>
           )}
         </div>
@@ -309,13 +291,12 @@ export default function PDACreator() {
                             <>
                               <Table>
                                 <TableHeader>
-                                  <TableRow className="text-xs">
-                                    <TableHead className="pl-10">LOA Range</TableHead>
-                                    <TableHead>Tugs</TableHead>
-                                    <TableHead>Naam</TableHead>
-                                    <TableHead>Cargo Types</TableHead>
-                                    <TableHead className="w-10"></TableHead>
-                                  </TableRow>
+                                   <TableRow className="text-xs">
+                                     <TableHead className="pl-10">LOA Range</TableHead>
+                                     <TableHead>Tugs</TableHead>
+                                     <TableHead>Naam</TableHead>
+                                     <TableHead className="w-10"></TableHead>
+                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                   {rules.map((rule) => (
@@ -331,9 +312,6 @@ export default function PDACreator() {
                                         <span className="text-sm font-semibold text-foreground">{rule.tug_count} tug{rule.tug_count !== 1 ? 's' : ''}</span>
                                       </TableCell>
                                       <TableCell className="text-xs text-muted-foreground">{rule.rule_name}</TableCell>
-                                      <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
-                                        {rule.cargo_types?.length ? rule.cargo_types.join(', ') : '—'}
-                                      </TableCell>
                                       <TableCell>
                                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); deactivateRule('tug_rules', rule.id); }}>
                                           <Trash2 className="w-3.5 h-3.5 text-destructive" />
@@ -537,12 +515,6 @@ export default function PDACreator() {
                 <Field label="LOA Max"><Input className="h-9" type="number" value={editingTugRule.loa_max ?? ''} onChange={(e) => setEditingTugRule({ ...editingTugRule, loa_max: e.target.value ? Number(e.target.value) : null })} /></Field>
               </div>
               <Field label="Tug Count"><Input className="h-9" type="number" value={editingTugRule.tug_count} onChange={(e) => setEditingTugRule({ ...editingTugRule, tug_count: Number(e.target.value) })} /></Field>
-              <Field label="Cargo Types">
-                <CargoTypesMultiSelect
-                  value={editingTugRule.cargo_types || []}
-                  onChange={(cargo_types) => setEditingTugRule({ ...editingTugRule, cargo_types })}
-                />
-              </Field>
             </div>
           )}
           <DialogFooter>
