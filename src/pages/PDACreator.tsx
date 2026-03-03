@@ -324,7 +324,7 @@ export default function PDACreator() {
                                       className="cursor-pointer hover:bg-muted/30 transition-colors"
                                       onClick={() => setEditingTugRule({ ...rule })}
                                     >
-                                      <TableCell className="pl-10 font-mono text-sm">
+                                      <TableCell className="pl-10 text-sm text-foreground">
                                         {rule.loa_min ?? 0}m – {rule.loa_max ? `${rule.loa_max}m` : '∞'}
                                       </TableCell>
                                       <TableCell>
@@ -474,7 +474,7 @@ export default function PDACreator() {
                                         )}
                                       </div>
                                     </TableCell>
-                                    <TableCell className="text-xs font-mono">{term.portCode}</TableCell>
+                                    <TableCell className="text-xs text-foreground">{term.portCode}</TableCell>
                                     <TableCell className="text-xs">{term.maxLoa ? `${term.maxLoa}m` : '—'}</TableCell>
                                     <TableCell className="text-xs">{term.maxDraft ? `${term.maxDraft}m` : '—'}</TableCell>
                                     <TableCell>
