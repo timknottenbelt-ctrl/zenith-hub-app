@@ -289,9 +289,11 @@ export type Database = {
       }
       email: {
         Row: {
+          bcc_recipients: string[] | null
           body: string | null
           cargo_quantity: number | null
           cargo_type: string | null
+          cc_recipients: string[] | null
           company_name: string | null
           contact_name: string | null
           created_at: string
@@ -328,9 +330,11 @@ export type Database = {
           vessel_name: string | null
         }
         Insert: {
+          bcc_recipients?: string[] | null
           body?: string | null
           cargo_quantity?: number | null
           cargo_type?: string | null
+          cc_recipients?: string[] | null
           company_name?: string | null
           contact_name?: string | null
           created_at?: string
@@ -367,9 +371,11 @@ export type Database = {
           vessel_name?: string | null
         }
         Update: {
+          bcc_recipients?: string[] | null
           body?: string | null
           cargo_quantity?: number | null
           cargo_type?: string | null
+          cc_recipients?: string[] | null
           company_name?: string | null
           contact_name?: string | null
           created_at?: string
@@ -1211,9 +1217,11 @@ export type Database = {
         Row: {
           agent_type: string
           area: string | null
+          bcc_recipients: string[] | null
           body: string | null
           cargo_quantity: number | null
           cargo_type: string | null
+          cc_recipients: string[] | null
           company_name: string | null
           contact_name: string | null
           country: string | null
@@ -1238,6 +1246,7 @@ export type Database = {
           status: string | null
           subject: string | null
           terminal: string | null
+          to_recipients: string[] | null
           tugs: number | null
           vessel_2_beam: number | null
           vessel_2_draft: number | null
@@ -1252,9 +1261,11 @@ export type Database = {
         Insert: {
           agent_type: string
           area?: string | null
+          bcc_recipients?: string[] | null
           body?: string | null
           cargo_quantity?: number | null
           cargo_type?: string | null
+          cc_recipients?: string[] | null
           company_name?: string | null
           contact_name?: string | null
           country?: string | null
@@ -1279,6 +1290,7 @@ export type Database = {
           status?: string | null
           subject?: string | null
           terminal?: string | null
+          to_recipients?: string[] | null
           tugs?: number | null
           vessel_2_beam?: number | null
           vessel_2_draft?: number | null
@@ -1293,9 +1305,11 @@ export type Database = {
         Update: {
           agent_type?: string
           area?: string | null
+          bcc_recipients?: string[] | null
           body?: string | null
           cargo_quantity?: number | null
           cargo_type?: string | null
+          cc_recipients?: string[] | null
           company_name?: string | null
           contact_name?: string | null
           country?: string | null
@@ -1320,6 +1334,7 @@ export type Database = {
           status?: string | null
           subject?: string | null
           terminal?: string | null
+          to_recipients?: string[] | null
           tugs?: number | null
           vessel_2_beam?: number | null
           vessel_2_draft?: number | null
