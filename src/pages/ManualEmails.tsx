@@ -45,16 +45,13 @@ export default function ManualEmails() {
     fetchManualEmails,
   } = useManualEmails(filterAgentType);
 
-  // When waitingForAI is true, listen for new INSERTs and auto-select the first one
   useEffect(() => {
     waitingRef.current = waitingForAI;
   }, [waitingForAI]);
 
-  // Track email count to detect new inserts while waiting
   const prevEmailCountRef = useRef(emails.length);
   useEffect(() => {
     if (waitingRef.current && emails.length > prevEmailCountRef.current) {
-      // A new email appeared — select the newest one (first in the list)
       const newest = emails[0];
       if (newest) {
         setSelectedEmail(newest);
@@ -116,28 +113,29 @@ export default function ManualEmails() {
 
   return (
     <DashboardLayout title="Handmatige E-mails">
-      <div className="mb-4">
+      <div className="mb-5">
         <TransitionLink to="/inquiries">
-          <Button variant="ghost" size="sm" className="gap-2">
+          <Button variant="ghost" size="sm" className="gap-2 rounded-lg text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4" />
             Terug naar AI Aanvragen
           </Button>
         </TransitionLink>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50">
-          <TabsTrigger value="create" className="flex items-center gap-1.5">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+        <TabsList className="bg-white/60 backdrop-blur-sm p-1 rounded-xl h-auto inline-flex gap-1"
+          style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+          <TabsTrigger value="create" className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">
             <PlusCircle className="w-3.5 h-3.5" />
             Nieuw
           </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-1.5">
+          <TabsTrigger value="history" className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">
             <Mail className="w-3.5 h-3.5" />
             Geschiedenis
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="create" className="mt-4">
+        <TabsContent value="create" className="mt-5">
           <ManualEmailCreateForm
             onSubmitted={handleSubmitted}
             onSwitchToHistory={() => setActiveTab("history")}
@@ -146,58 +144,60 @@ export default function ManualEmails() {
           />
         </TabsContent>
 
-        <TabsContent value="history" className="mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <ManualEmailList
-                emails={emails}
-                selectedEmail={selectedEmail}
-                loading={loading}
-                filterAgentType={filterAgentType}
-                setFilterAgentType={setFilterAgentType}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                dateFilter={dateFilter}
-                setDateFilter={setDateFilter}
-                onSelectEmail={setSelectedEmail}
+        <TabsContent value="history" className="mt-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <ManualEmailList
+              emails={emails}
+              selectedEmail={selectedEmail}
+              loading={loading}
+              filterAgentType={filterAgentType}
+              setFilterAgentType={setFilterAgentType}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              dateFilter={dateFilter}
+              setDateFilter={setDateFilter}
+              onSelectEmail={setSelectedEmail}
+              onRefresh={() => fetchManualEmails({ showLoading: false })}
+            />
+            {waitingForAI && !selectedEmail ? (
+              <Card className="card-premium lg:col-span-2 overflow-hidden">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium">E-mail Details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col items-center justify-center h-[400px] space-y-4">
+                    <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    </div>
+                    <p className="text-lg font-semibold text-foreground">AI is verwerking uw aanvraag...</p>
+                    <p className="text-sm text-muted-foreground/60">
+                      Dit kan enkele seconden duren. De email verschijnt automatisch.
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-4 rounded-lg"
+                      onClick={() => setWaitingForAI(false)}
+                    >
+                      Annuleren
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <ManualEmailDetail
+                email={selectedEmail}
+                onDelete={openDeleteDialog}
+                onEmailUpdated={handleEmailUpdated}
                 onRefresh={() => fetchManualEmails({ showLoading: false })}
               />
-              {waitingForAI && !selectedEmail ? (
-                <Card className="card-premium lg:col-span-2 overflow-hidden">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium">E-mail Details</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-col items-center justify-center h-[400px] space-y-4">
-                      <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                      <p className="text-lg font-medium text-foreground">AI is verwerking uw aanvraag...</p>
-                      <p className="text-sm text-muted-foreground">
-                        Dit kan enkele seconden duren. De email verschijnt automatisch.
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mt-4"
-                        onClick={() => setWaitingForAI(false)}
-                      >
-                        Annuleren
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <ManualEmailDetail
-                  email={selectedEmail}
-                  onDelete={openDeleteDialog}
-                  onEmailUpdated={handleEmailUpdated}
-                  onRefresh={() => fetchManualEmails({ showLoading: false })}
-                />
-              )}
-            </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Weet je het zeker?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -205,10 +205,10 @@ export default function ManualEmails() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuleren</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-lg">Annuleren</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteEmail}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg"
             >
               Verwijderen
             </AlertDialogAction>

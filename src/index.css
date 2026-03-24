@@ -4,12 +4,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LBH Portal — Premium Maritime Design System */
+/* LBH Portal — World-Class Design System */
 
 @layer base {
   :root {
-    /* Clean light maritime theme */
-    --background: 0 0% 98%;
+    --background: 220 20% 97%;
     --foreground: 220 13% 13%;
 
     --card: 0 0% 100%;
@@ -50,7 +49,7 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 211 100% 50%;
 
-    /* Custom premium tokens */
+    /* Status tokens */
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
@@ -58,42 +57,34 @@
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
 
-    /* Premium shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(220 13% 13% / 0.04);
-    --shadow-md: 0 4px 6px -1px hsl(220 13% 13% / 0.06), 0 2px 4px -2px hsl(220 13% 13% / 0.04);
-    --shadow-lg: 0 10px 15px -3px hsl(220 13% 13% / 0.08), 0 4px 6px -4px hsl(220 13% 13% / 0.04);
-    --shadow-xl: 0 20px 25px -5px hsl(220 13% 13% / 0.08), 0 8px 10px -6px hsl(220 13% 13% / 0.03);
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+    --shadow-md: 0 2px 8px -2px rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.03);
+    --shadow-lg: 0 8px 24px -4px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.03);
+    --shadow-xl: 0 16px 40px -8px rgb(0 0 0 / 0.1), 0 4px 12px -4px rgb(0 0 0 / 0.04);
+    --shadow-float: 0 4px 24px -4px rgb(0 0 0 / 0.08), 0 0 0 1px rgb(0 0 0 / 0.02);
   }
 
   .dark {
     --background: 224 71% 4%;
     --foreground: 213 31% 91%;
-
     --card: 224 71% 6%;
     --card-foreground: 213 31% 91%;
-
     --popover: 224 71% 6%;
     --popover-foreground: 213 31% 91%;
-
     --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
-
     --secondary: 222 47% 11%;
     --secondary-foreground: 213 31% 91%;
-
     --muted: 223 47% 11%;
     --muted-foreground: 215 20% 65%;
-
     --accent: 222 47% 11%;
     --accent-foreground: 213 31% 91%;
-
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 100%;
-
     --border: 222 47% 14%;
     --input: 222 47% 14%;
     --ring: 211 100% 50%;
-
     --sidebar-background: 224 71% 6%;
     --sidebar-foreground: 215 20% 65%;
     --sidebar-primary: 211 100% 50%;
@@ -102,7 +93,6 @@
     --sidebar-accent-foreground: 213 31% 91%;
     --sidebar-border: 222 47% 14%;
     --sidebar-ring: 211 100% 50%;
-
     --success: 142 71% 35%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 40%;
@@ -118,12 +108,15 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    /* Subtle gradient background */
+    background: linear-gradient(135deg, #F8FAFC 0%, #EFF3FB 50%, #EEF2FF 100%);
+    background-attachment: fixed;
   }
 
   html {
@@ -131,21 +124,14 @@
     scroll-behavior: smooth;
   }
 
-  /* GPU acceleration for smooth animations */
-  .gpu-accelerated {
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    will-change: transform, opacity;
-  }
-
   main {
     will-change: opacity;
   }
 
-  /* Custom scrollbar — thin and subtle */
+  /* Scrollbar — ultra thin, only on content */
   ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+    width: 4px;
+    height: 4px;
   }
 
   ::-webkit-scrollbar-track {
@@ -153,15 +139,14 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.15);
+    background: rgb(0 0 0 / 0.08);
     border-radius: 10px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.3);
+    background: rgb(0 0 0 / 0.15);
   }
 
-  /* Hide scrollbar completely */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -174,12 +159,12 @@
   aside ::-webkit-scrollbar {
     display: none;
   }
-  aside * {
+  aside, aside * {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
 
-  /* PWA Safe Area Support */
+  /* PWA Safe Area */
   .safe-area-top { padding-top: env(safe-area-inset-top); }
   .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
   .safe-area-left { padding-left: env(safe-area-inset-left); }
@@ -196,32 +181,35 @@
     backface-visibility: hidden;
   }
 
-  /* Premium card styles */
+  /* Floating card — the core card style */
   .card-premium {
-    @apply bg-card rounded-xl border border-border/60 transition-shadow duration-200;
-    box-shadow: 0 1px 3px 0 hsl(220 13% 13% / 0.04), 0 1px 2px -1px hsl(220 13% 13% / 0.03);
+    @apply bg-white rounded-2xl transition-shadow duration-200;
+    box-shadow: var(--shadow-float);
+    border: none;
   }
 
   .card-premium:hover {
-    box-shadow: 0 4px 12px -2px hsl(220 13% 13% / 0.08), 0 2px 4px -2px hsl(220 13% 13% / 0.04);
+    box-shadow: 0 8px 32px -6px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.02);
   }
 
   /* Glass effect */
   .glass {
-    @apply bg-white/70 dark:bg-black/50 backdrop-blur-xl border border-white/20 dark:border-white/10;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
   }
 
-  /* Micro-interactions */
+  /* Interactions */
   .press-scale {
     @apply transition-transform duration-100 ease-out active:scale-[0.98];
   }
 
   .hover-lift {
-    @apply transition-all duration-150 ease-out hover:-translate-y-0.5;
+    @apply transition-all duration-200 ease-out hover:-translate-y-0.5;
   }
 
   .transition-smooth {
-    @apply transition-all duration-100 ease-out;
+    @apply transition-all duration-150 ease-out;
   }
 
   .transition-fast {
@@ -244,7 +232,6 @@
     @apply animate-fade-in;
   }
 
-  /* Modern button hover effects */
   .btn-modern {
     @apply relative overflow-hidden transition-all duration-200;
   }
@@ -258,9 +245,9 @@
     @apply opacity-100;
   }
 
-  /* Input focus styles */
+  /* Focus ring */
   input:focus, textarea:focus, select:focus {
-    @apply ring-2 ring-primary/20 border-primary/40;
+    @apply ring-2 ring-primary/20 border-primary/30;
   }
 
   .card-header-gradient {
@@ -272,9 +259,8 @@
 
   .heading-primary { @apply text-xl font-semibold tracking-tight text-foreground; }
   .heading-secondary { @apply text-base font-semibold text-foreground; }
-  .label-small { @apply text-xs font-medium text-muted-foreground uppercase tracking-wide; }
+  .label-small { @apply text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest; }
 
-  /* Interactive row styles */
   .list-item-interactive {
     @apply p-3 cursor-pointer transition-all duration-100 ease-out hover:bg-muted/50 border-l-2 border-transparent active:scale-[0.99] active:bg-muted/70;
   }

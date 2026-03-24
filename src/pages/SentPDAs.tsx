@@ -529,7 +529,7 @@ function EmailDetailView({
           {/* Meta Info */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
             {email.company_name && (
-              <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                 <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                   <Building2 className="w-4 h-4 text-primary" />
                 </div>
@@ -540,7 +540,7 @@ function EmailDetailView({
               </div>
             )}
             {email.contact_name && (
-              <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                 <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                   <User className="w-4 h-4 text-primary" />
                 </div>
@@ -551,7 +551,7 @@ function EmailDetailView({
               </div>
             )}
             {email.vessel_name && (
-              <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                 <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                   <Ship className="w-4 h-4 text-primary" />
                 </div>
@@ -563,7 +563,7 @@ function EmailDetailView({
               </div>
             )}
             {email.vessel_2_name && (
-              <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                 <div className="w-8 h-8 rounded-lg bg-secondary/60 flex items-center justify-center shrink-0">
                   <Ship className="w-4 h-4 text-secondary-foreground" />
                 </div>
@@ -575,7 +575,7 @@ function EmailDetailView({
               </div>
             )}
             {email.port && (
-              <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                 <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                   <MapPin className="w-4 h-4 text-primary" />
                 </div>
@@ -586,7 +586,7 @@ function EmailDetailView({
               </div>
             )}
             {email.eta && (
-              <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                 <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                   <Calendar className="w-4 h-4 text-primary" />
                 </div>
@@ -597,7 +597,7 @@ function EmailDetailView({
               </div>
             )}
             {email.sent_at && (
-              <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
                   <CheckCircle className="w-4 h-4 text-emerald-600" />
                 </div>
@@ -666,7 +666,7 @@ function EmailDetailView({
                 {attachments.map((attachment) => (
                   <div
                     key={attachment.id}
-                    className="flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg border border-border/40"
+                    className="flex items-center gap-2 px-3 py-2 bg-black/[0.02] rounded-xl border border-border/40"
                   >
                     <FileText className="w-4 h-4 text-red-500 shrink-0" />
                     <span className="text-xs truncate max-w-[180px]">{attachment.file_name}</span>
@@ -697,13 +697,13 @@ function EmailDetailView({
         <CardContent className="px-5 pb-5 space-y-4">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground font-medium">{t('inquiries.emailSubject')}</Label>
-            <div className="p-3 bg-muted/20 rounded-lg text-sm border border-border/40">
+            <div className="p-3 bg-black/[0.02] rounded-xl text-sm border border-border/40">
               {email.subject || t('inquiries.noSubject')}
             </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground font-medium">{t('inquiries.emailBody')}</Label>
-            <div className="p-4 bg-muted/20 rounded-lg text-sm font-sans leading-relaxed whitespace-pre-wrap border border-border/40">
+            <div className="p-4 bg-black/[0.02] rounded-xl text-sm font-sans leading-relaxed whitespace-pre-wrap border border-border/40">
               {email.body || t('common.noData')}
             </div>
           </div>
@@ -745,7 +745,7 @@ function EmailDialogContent({
       )}
 
       {/* Quick Info Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 bg-muted/20 rounded-lg">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 bg-black/[0.02] rounded-xl">
         {email.company_name && (
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
@@ -834,7 +834,7 @@ function EmailDialogContent({
 
       {/* Original Email */}
       {showOriginal && (email.original_email || email.orignal_email) && (
-        <div className="p-4 bg-muted/20 rounded-lg border border-border/60">
+        <div className="p-4 bg-black/[0.02] rounded-xl border border-border/60">
           <p className="text-xs font-medium mb-2 text-muted-foreground">{t('inquiries.originalEmail')}:</p>
           <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground/80 max-h-60 overflow-y-auto">{email.original_email || email.orignal_email}</pre>
         </div>
@@ -849,7 +849,7 @@ function EmailDialogContent({
           </div>
           <div className="flex flex-wrap gap-2">
             {attachments.map((attachment) => (
-              <div key={attachment.id} className="flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg border border-border/40">
+              <div key={attachment.id} className="flex items-center gap-2 px-3 py-2 bg-black/[0.02] rounded-xl border border-border/40">
                 <FileText className="w-4 h-4 text-red-500 shrink-0" />
                 <span className="text-xs truncate max-w-[180px]">{attachment.file_name}</span>
                 <div className="flex items-center gap-0.5 ml-1">
@@ -870,13 +870,13 @@ function EmailDialogContent({
       <div className="space-y-3">
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground font-medium">{t('inquiries.emailSubject')}</Label>
-          <div className="p-3 bg-muted/20 rounded-lg text-sm border border-border/40">
+          <div className="p-3 bg-black/[0.02] rounded-xl text-sm border border-border/40">
             {email.subject || t('inquiries.noSubject')}
           </div>
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground font-medium">{t('inquiries.emailBody')}</Label>
-          <div className="p-4 bg-muted/20 rounded-lg text-sm font-sans leading-relaxed whitespace-pre-wrap border border-border/40">
+          <div className="p-4 bg-black/[0.02] rounded-xl text-sm font-sans leading-relaxed whitespace-pre-wrap border border-border/40">
             {email.body || t('common.noData')}
           </div>
         </div>

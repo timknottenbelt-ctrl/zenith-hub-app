@@ -499,11 +499,11 @@ export default function AIInquiries() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
-        <TabsList className="bg-muted/40 p-1 h-auto inline-flex gap-1 rounded-lg">
-          <TabsTrigger value="CARGO_AGENT" className="text-sm px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.cargoAgent')}</TabsTrigger>
-          <TabsTrigger value="OWNERS_AGENT" className="text-sm px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.ownersAgent')}</TabsTrigger>
-          <TabsTrigger value="OUT_OF_SCOPE" className="text-sm px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.outOfScope')}</TabsTrigger>
-          <TabsTrigger value="INCOMPLETE" className="text-sm px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.incomplete')}</TabsTrigger>
+        <TabsList className="bg-white/60 backdrop-blur-sm p-1 h-auto inline-flex gap-1 rounded-xl" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+          <TabsTrigger value="CARGO_AGENT" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.cargoAgent')}</TabsTrigger>
+          <TabsTrigger value="OWNERS_AGENT" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.ownersAgent')}</TabsTrigger>
+          <TabsTrigger value="OUT_OF_SCOPE" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.outOfScope')}</TabsTrigger>
+          <TabsTrigger value="INCOMPLETE" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.incomplete')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-5">
@@ -653,7 +653,7 @@ export default function AIInquiries() {
                       {/* Meta Info Chips */}
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                         {selectedEmail.company_name && (
-                          <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                             <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                               <Building2 className="w-4 h-4 text-primary" />
                             </div>
@@ -664,7 +664,7 @@ export default function AIInquiries() {
                           </div>
                         )}
                         {selectedEmail.contact_name && (
-                          <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                             <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                               <User className="w-4 h-4 text-primary" />
                             </div>
@@ -675,7 +675,7 @@ export default function AIInquiries() {
                           </div>
                         )}
                         {selectedEmail.vessel_name && (
-                          <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                             <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                               <Ship className="w-4 h-4 text-primary" />
                             </div>
@@ -687,7 +687,7 @@ export default function AIInquiries() {
                           </div>
                         )}
                         {selectedEmail.vessel_2_name && (
-                          <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                             <div className="w-8 h-8 rounded-lg bg-secondary/60 flex items-center justify-center shrink-0">
                               <Ship className="w-4 h-4 text-secondary-foreground" />
                             </div>
@@ -699,7 +699,7 @@ export default function AIInquiries() {
                           </div>
                         )}
                         {selectedEmail.port && (
-                          <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                             <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                               <MapPin className="w-4 h-4 text-primary" />
                             </div>
@@ -710,7 +710,7 @@ export default function AIInquiries() {
                           </div>
                         )}
                         {selectedEmail.eta && (
-                          <div className="flex items-center gap-2.5 p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
                             <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                               <Calendar className="w-4 h-4 text-primary" />
                             </div>
@@ -826,7 +826,7 @@ export default function AIInquiries() {
                         >
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {emailAttachments.map((attachment) => (
-                              <div key={attachment.id} className="flex items-center justify-between p-2.5 bg-muted/30 rounded-lg border border-border/40">
+                              <div key={attachment.id} className="flex items-center justify-between p-2.5 bg-black/[0.02] rounded-xl border border-border/40">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <FileText className="w-4 h-4 text-red-500 shrink-0" />
                                   <span className="text-sm truncate">{attachment.file_name}</span>
