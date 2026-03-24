@@ -30,7 +30,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       <Sidebar />
       <div className="pl-[272px] pr-2">
         <Topbar title={title} />
-        <main className="px-6 py-5 animate-fade-in">
+        <main className="pt-10 px-6 pb-6 animate-fade-in">
           <Suspense fallback={<PageLoader />}>
             {children}
           </Suspense>
