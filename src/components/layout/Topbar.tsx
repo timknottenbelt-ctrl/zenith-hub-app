@@ -125,7 +125,7 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
       const allNotifications = [...emailNotifications, ...fdaNotifications].sort(
         (a, b) => b.time.getTime() - a.time.getTime()
       );
-      
+
       setNotifications(allNotifications);
       setUnreadCount(allNotifications.length);
     };
@@ -278,18 +278,18 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
   };
 
   return (
-    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 sticky top-0 z-40">
-      <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-      
-      <div className="flex items-center gap-4">
-        {/* Search Input with Inline Results */}
+    <header className="h-16 bg-white/80 backdrop-blur-md border-b border-border/50 flex items-center justify-between px-8 sticky top-0 z-40">
+      <h1 className="text-lg font-semibold text-foreground tracking-tight">{title}</h1>
+
+      <div className="flex items-center gap-3">
+        {/* Search */}
         <div ref={searchContainerRef} className="relative">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
             <Input
               ref={inputRef}
               type="search"
-              placeholder={t('common.search')}
+              placeholder={`${t('common.search')}...`}
               value={searchQuery}
               onChange={(e) => {
                 const value = e.target.value;
@@ -298,38 +298,43 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
                 setShowResults(true);
               }}
               onFocus={() => setShowResults(true)}
-              className="pl-9 pr-12 h-9 w-80 bg-muted/50 border-0 focus-visible:ring-1"
+              className="pl-9 pr-16 h-9 w-72 bg-muted/40 border-transparent hover:border-border focus:border-primary/30 focus:bg-white rounded-lg text-sm"
             />
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50 bg-muted/60 px-1.5 py-0.5 rounded font-mono">
+              ⌘K
+            </kbd>
           </div>
 
-          {/* Inline Search Results Dropdown */}
+          {/* Search Results */}
           {showResults && (searchQuery || searchResults.length > 0) && (
-            <div className="absolute top-full left-0 mt-1 min-w-[400px] bg-popover border border-border rounded-md shadow-lg z-50 overflow-hidden">
+            <div className="absolute top-full left-0 mt-2 min-w-[420px] bg-white border border-border/60 rounded-xl shadow-lg z-50 overflow-hidden">
               <ScrollArea className="max-h-[400px]">
                 {isSearching ? (
-                  <div className="py-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <div className="py-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Zoeken...
                   </div>
                 ) : searchResults.length > 0 ? (
-                  <div className="py-1">
+                  <div className="py-1.5">
                     {searchResults.map((result) => (
                       <button
                         key={`${result.type}-${result.id}`}
                         onClick={() => handleResultClick(result)}
-                        className="w-full flex items-center gap-3 px-3 py-3 hover:bg-accent transition-colors text-left"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors text-left"
                       >
-                        {getResultIcon(result.type)}
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{result.title}</p>
-                          <p className="text-xs text-muted-foreground">{result.subtitle}</p>
+                        <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
+                          {getResultIcon(result.type)}
                         </div>
-                        <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{result.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{result.subtitle}</p>
+                        </div>
+                        <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
                       </button>
                     ))}
                   </div>
                 ) : searchQuery ? (
-                  <div className="py-6 text-center text-sm text-muted-foreground">
+                  <div className="py-8 text-center text-sm text-muted-foreground">
                     Geen resultaten voor "{searchQuery}"
                   </div>
                 ) : null}
@@ -341,16 +346,16 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5 text-muted-foreground" />
+            <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-lg hover:bg-muted/50">
+              <Bell className="w-[18px] h-[18px] text-muted-foreground" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-2 ring-white" />
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel className="flex items-center justify-between">
-              <span>Notificaties</span>
+          <DropdownMenuContent align="end" className="w-80 rounded-xl">
+            <DropdownMenuLabel className="flex items-center justify-between py-2.5">
+              <span className="font-semibold text-sm">Notificaties</span>
               {unreadCount > 0 && (
                 <Button
                   variant="ghost"
@@ -364,7 +369,7 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             {notifications.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
+              <div className="py-8 text-center text-sm text-muted-foreground">
                 Geen notificaties
               </div>
             ) : (
@@ -392,7 +397,7 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
                     <p className="text-xs text-muted-foreground pl-6 line-clamp-1">
                       {notification.message}
                     </p>
-                    <span className="text-[10px] text-muted-foreground pl-6">
+                    <span className="text-[10px] text-muted-foreground/60 pl-6">
                       {formatDistanceToNow(notification.time, { addSuffix: true, locale: nl })}
                     </span>
                   </DropdownMenuItem>
