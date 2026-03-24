@@ -256,7 +256,7 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
   };
 
   return (
-    <header className="h-20 py-5 mt-3 mx-0 rounded-2xl flex items-center justify-between px-6 sticky top-3 z-40 glass"
+    <header className="h-20 py-5 mt-3 mx-0 rounded-2xl flex items-center justify-between px-6 sticky top-3 z-40 glass border-b border-gray-200"
       style={{ boxShadow: '0 2px 12px -4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.02)' }}>
       <h1 className="text-[17px] font-semibold text-foreground tracking-tight">{title}</h1>
 
