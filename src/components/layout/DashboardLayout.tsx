@@ -28,9 +28,9 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen">
       <Sidebar />
-      <div className="pl-[272px] pr-2">
+      <div className="pl-[284px] pr-4">
         <Topbar title={title} />
-        <main className="p-6 pt-10 animate-fade-in">
+        <main className="mt-4 p-6 animate-fade-in">
           <Suspense fallback={<PageLoader />}>
             {children}
           </Suspense>
