@@ -46,14 +46,14 @@ export const Sidebar = memo(function Sidebar() {
   const officeFlagUrl = office ? getOfficeFlagUrl(office) : null;
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-sidebar border-r border-sidebar-border flex flex-col z-50">
-      {/* Logo */}
+    <aside className="fixed left-0 top-0 h-full w-64 bg-sidebar border-r border-sidebar-border flex flex-col z-50 dark:bg-gradient-to-b dark:from-[hsl(224,50%,5%)] dark:to-[hsl(224,50%,4%)]">
+      {/* Logo - maritime header */}
       <div className="h-16 flex items-center px-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center dark:shadow-[0_0_12px_hsl(192,82%,48%,0.25)]">
             <Ship className="w-5 h-5 text-primary-foreground" />
           </div>
-          <span className="font-semibold text-foreground text-lg">LBH Portal</span>
+          <span className="font-semibold text-foreground text-lg tracking-tight">LBH Portal</span>
           {officeFlagUrl && (
             <img
               src={officeFlagUrl}
@@ -85,8 +85,8 @@ export const Sidebar = memo(function Sidebar() {
                 cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-75 ease-out',
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-[0.98]'
+                    ? 'bg-primary text-primary-foreground shadow-sm dark:shadow-[0_0_16px_hsl(192,82%,48%,0.2)]'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-[0.98] dark:hover:bg-[hsl(220,35%,12%)]'
                 )
               }
             >
@@ -95,7 +95,7 @@ export const Sidebar = memo(function Sidebar() {
             </TransitionLink>
           );
         })}
-        
+
         {/* Admin Section */}
         {isAdmin && (
           <>
@@ -114,8 +114,8 @@ export const Sidebar = memo(function Sidebar() {
                     cn(
                       'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-75 ease-out',
                       isActive
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-[0.98]'
+                        ? 'bg-primary text-primary-foreground shadow-sm dark:shadow-[0_0_16px_hsl(192,82%,48%,0.2)]'
+                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-[0.98] dark:hover:bg-[hsl(220,35%,12%)]'
                     )
                   }
                 >
@@ -131,7 +131,7 @@ export const Sidebar = memo(function Sidebar() {
       {/* Footer with User Info */}
       <div className="p-4 border-t border-sidebar-border space-y-3">
         <div className="flex items-center gap-2 px-2">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 dark:bg-primary/15">
             <Users className="w-4 h-4 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
@@ -150,9 +150,9 @@ export const Sidebar = memo(function Sidebar() {
             <Settings className="w-4 h-4" />
           </TransitionLink>
         </div>
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           className="w-full justify-start text-muted-foreground hover:text-destructive"
           onClick={signOut}
         >

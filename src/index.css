@@ -4,54 +4,54 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Premium Apple-like Design System */
+/* Premium Dark Maritime Design System */
 
 @layer base {
   :root {
-    /* Soft, premium light theme */
-    --background: 0 0% 98%;
-    --foreground: 220 13% 13%;
+    /* Light theme - clean maritime daylight */
+    --background: 210 20% 98%;
+    --foreground: 220 25% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 13% 13%;
+    --card-foreground: 220 25% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 13% 13%;
+    --popover-foreground: 220 25% 10%;
 
-    /* Premium blue accent */
-    --primary: 211 100% 50%;
+    /* Maritime teal-blue accent */
+    --primary: 200 80% 40%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 13% 26%;
+    --secondary: 210 18% 95%;
+    --secondary-foreground: 220 20% 25%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 210 18% 95%;
+    --muted-foreground: 215 12% 50%;
 
-    --accent: 220 14% 96%;
-    --accent-foreground: 220 13% 26%;
+    --accent: 210 18% 95%;
+    --accent-foreground: 220 20% 25%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 211 100% 50%;
+    --border: 214 18% 89%;
+    --input: 214 18% 89%;
+    --ring: 200 80% 40%;
 
     --radius: 0.75rem;
 
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 9% 46%;
-    --sidebar-primary: 211 100% 50%;
+    --sidebar-foreground: 215 12% 50%;
+    --sidebar-primary: 200 80% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 96%;
-    --sidebar-accent-foreground: 220 13% 26%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 211 100% 50%;
+    --sidebar-accent: 210 18% 95%;
+    --sidebar-accent-foreground: 220 20% 25%;
+    --sidebar-border: 214 18% 89%;
+    --sidebar-ring: 200 80% 40%;
 
-    /* Custom premium tokens */
-    --success: 142 71% 45%;
+    /* Status tokens */
+    --success: 158 64% 40%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
@@ -59,56 +59,65 @@
     --info-foreground: 0 0% 100%;
 
     /* Premium shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(220 13% 13% / 0.03);
-    --shadow-md: 0 4px 6px -1px hsl(220 13% 13% / 0.05), 0 2px 4px -2px hsl(220 13% 13% / 0.03);
-    --shadow-lg: 0 10px 15px -3px hsl(220 13% 13% / 0.05), 0 4px 6px -4px hsl(220 13% 13% / 0.03);
-    --shadow-xl: 0 20px 25px -5px hsl(220 13% 13% / 0.05), 0 8px 10px -6px hsl(220 13% 13% / 0.02);
+    --shadow-sm: 0 1px 2px 0 hsl(220 25% 10% / 0.04);
+    --shadow-md: 0 4px 6px -1px hsl(220 25% 10% / 0.06), 0 2px 4px -2px hsl(220 25% 10% / 0.04);
+    --shadow-lg: 0 10px 15px -3px hsl(220 25% 10% / 0.06), 0 4px 6px -4px hsl(220 25% 10% / 0.04);
+    --shadow-xl: 0 20px 25px -5px hsl(220 25% 10% / 0.06), 0 8px 10px -6px hsl(220 25% 10% / 0.03);
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
+    /* Deep ocean navy */
+    --background: 222 47% 6%;
+    --foreground: 210 25% 90%;
 
-    --card: 224 71% 6%;
-    --card-foreground: 213 31% 91%;
+    --card: 220 42% 8%;
+    --card-foreground: 210 25% 90%;
 
-    --popover: 224 71% 6%;
-    --popover-foreground: 213 31% 91%;
+    --popover: 220 42% 8%;
+    --popover-foreground: 210 25% 90%;
 
-    --primary: 211 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    /* Bright maritime teal */
+    --primary: 192 82% 48%;
+    --primary-foreground: 222 47% 6%;
 
-    --secondary: 222 47% 11%;
-    --secondary-foreground: 213 31% 91%;
+    --secondary: 220 35% 12%;
+    --secondary-foreground: 210 25% 85%;
 
-    --muted: 223 47% 11%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 220 30% 13%;
+    --muted-foreground: 215 18% 55%;
 
-    --accent: 222 47% 11%;
-    --accent-foreground: 213 31% 91%;
+    --accent: 220 35% 14%;
+    --accent-foreground: 210 25% 90%;
 
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 47% 14%;
-    --input: 222 47% 14%;
-    --ring: 211 100% 50%;
+    --border: 220 30% 15%;
+    --input: 220 30% 15%;
+    --ring: 192 82% 48%;
 
-    --sidebar-background: 224 71% 6%;
-    --sidebar-foreground: 215 20% 65%;
-    --sidebar-primary: 211 100% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 11%;
-    --sidebar-accent-foreground: 213 31% 91%;
-    --sidebar-border: 222 47% 14%;
-    --sidebar-ring: 211 100% 50%;
+    /* Dark maritime sidebar */
+    --sidebar-background: 224 50% 5%;
+    --sidebar-foreground: 215 18% 55%;
+    --sidebar-primary: 192 82% 48%;
+    --sidebar-primary-foreground: 222 47% 6%;
+    --sidebar-accent: 220 35% 12%;
+    --sidebar-accent-foreground: 210 25% 90%;
+    --sidebar-border: 220 30% 12%;
+    --sidebar-ring: 192 82% 48%;
 
-    --success: 142 71% 35%;
+    --success: 158 64% 42%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 40%;
+    --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    --info: 199 89% 38%;
+    --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
+
+    /* Deep maritime shadows with teal glow */
+    --shadow-sm: 0 1px 3px 0 hsl(222 50% 3% / 0.5);
+    --shadow-md: 0 4px 8px -1px hsl(222 50% 3% / 0.6), 0 2px 4px -2px hsl(222 50% 3% / 0.4);
+    --shadow-lg: 0 10px 20px -3px hsl(222 50% 3% / 0.6), 0 4px 8px -4px hsl(222 50% 3% / 0.4);
+    --shadow-xl: 0 24px 40px -8px hsl(222 50% 3% / 0.5), 0 10px 16px -6px hsl(222 50% 3% / 0.3);
   }
 }
 
@@ -148,7 +157,7 @@
     will-change: opacity;
   }
 
-  /* Custom scrollbar */
+  /* Custom scrollbar - maritime themed */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -159,12 +168,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.2);
+    background: hsl(var(--primary) / 0.2);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.4);
+    background: hsl(var(--primary) / 0.4);
   }
 
   /* Hide scrollbar for horizontal tabs */
@@ -206,18 +215,35 @@
     backface-visibility: hidden;
   }
 
-  /* Premium card styles */
+  /* Premium card styles - maritime glass */
   .card-premium {
-    @apply bg-card rounded-xl border border-border/50 shadow-premium-sm transition-shadow duration-150;
+    @apply bg-card rounded-xl border border-border/50 shadow-premium-sm transition-all duration-200;
+  }
+
+  .dark .card-premium {
+    background: linear-gradient(135deg, hsl(220 42% 9%) 0%, hsl(220 42% 7%) 100%);
+    border-color: hsl(220 30% 16%);
+    box-shadow: 0 0 0 1px hsl(192 82% 48% / 0.04), var(--shadow-md);
   }
 
   .card-premium:hover {
     @apply shadow-premium-md;
   }
 
-  /* Glass effect */
+  .dark .card-premium:hover {
+    border-color: hsl(192 82% 48% / 0.15);
+    box-shadow: 0 0 0 1px hsl(192 82% 48% / 0.08), var(--shadow-lg);
+  }
+
+  /* Glass effect - maritime */
   .glass {
-    @apply bg-white/70 dark:bg-black/50 backdrop-blur-xl border border-white/20 dark:border-white/10;
+    @apply bg-white/70 backdrop-blur-xl border border-white/20;
+  }
+
+  .dark .glass {
+    background: hsl(220 42% 8% / 0.8);
+    backdrop-filter: blur(24px) saturate(1.2);
+    border-color: hsl(192 82% 48% / 0.1);
   }
 
   /* Apple-like micro-interactions */
@@ -288,9 +314,13 @@
     @apply opacity-100;
   }
 
-  /* Input focus styles */
+  /* Input focus styles - maritime glow */
   input:focus, textarea:focus, select:focus {
     @apply ring-2 ring-primary/20 border-primary/40;
+  }
+
+  .dark input:focus, .dark textarea:focus, .dark select:focus {
+    box-shadow: 0 0 0 2px hsl(192 82% 48% / 0.15), 0 0 12px hsl(192 82% 48% / 0.08);
   }
 
   /* Card header gradient */
@@ -320,7 +350,7 @@
     @apply text-xs font-medium text-muted-foreground uppercase tracking-wide;
   }
 
-  /* Interactive row styles - Apple-like */
+  /* Interactive row styles - maritime */
   .list-item-interactive {
     @apply p-3 cursor-pointer transition-all duration-100 ease-out hover:bg-muted/50 border-l-2 border-transparent active:scale-[0.99] active:bg-muted/70;
   }
@@ -364,5 +394,16 @@
   @keyframes shimmer {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
+  }
+
+  /* Maritime ambient glow for dark mode */
+  .dark .maritime-glow {
+    box-shadow: 0 0 40px -12px hsl(192 82% 48% / 0.15);
+  }
+
+  /* Subtle teal border glow on hover */
+  .dark .maritime-border-glow:hover {
+    border-color: hsl(192 82% 48% / 0.25);
+    box-shadow: 0 0 20px -6px hsl(192 82% 48% / 0.1);
   }
 }

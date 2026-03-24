@@ -20,7 +20,7 @@ export default function Auth() {
   const transitionNavigate = useTransitionNavigate();
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  
+
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
@@ -34,7 +34,7 @@ export default function Auth() {
             .select('must_change_password')
             .eq('id', session.user.id)
             .single();
-          
+
           if (profile?.must_change_password) {
             navigate('/reset-password');
           } else {
@@ -52,7 +52,7 @@ export default function Auth() {
           .select('must_change_password')
           .eq('id', session.user.id)
           .single();
-        
+
         if (profile?.must_change_password) {
           navigate('/reset-password');
         } else {
@@ -67,13 +67,13 @@ export default function Auth() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    
+
     const validation = loginSchema.safeParse({ email: loginEmail, password: loginPassword });
     if (!validation.success) {
-      toast({ 
-        title: 'Validatiefout', 
-        description: validation.error.errors[0].message, 
-        variant: 'destructive' 
+      toast({
+        title: 'Validatiefout',
+        description: validation.error.errors[0].message,
+        variant: 'destructive'
       });
       return;
     }
@@ -101,7 +101,7 @@ export default function Auth() {
         .select('must_change_password')
         .eq('id', data.user.id)
         .single();
-      
+
       if (profile?.must_change_password) {
         toast({ title: 'Welkom!', description: 'Stel eerst je nieuwe wachtwoord in' });
         navigate('/reset-password');
@@ -116,29 +116,40 @@ export default function Auth() {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-[hsl(222,47%,6%)]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center dark:bg-primary/15">
+            <Ship className="w-6 h-6 text-primary animate-pulse" />
+          </div>
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted dark:from-[hsl(224,50%,5%)] dark:via-[hsl(222,47%,6%)] dark:to-[hsl(220,42%,8%)] p-4 relative overflow-hidden">
+      {/* Maritime ambient background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none dark:block hidden">
+        <div className="absolute -top-1/2 -right-1/4 w-[800px] h-[800px] rounded-full bg-[hsl(192,82%,48%)] opacity-[0.03] blur-[120px]" />
+        <div className="absolute -bottom-1/3 -left-1/4 w-[600px] h-[600px] rounded-full bg-[hsl(200,80%,40%)] opacity-[0.04] blur-[100px]" />
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
         {/* Logo / Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4 dark:bg-primary/15 dark:shadow-[0_0_30px_hsl(192,82%,48%,0.15)]">
             <Ship className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold">LBH Curaçao</h1>
-          <p className="text-muted-foreground">Maritime Services Dashboard</p>
+          <h1 className="text-2xl font-bold tracking-tight">LBH Cura&ccedil;ao</h1>
+          <p className="text-muted-foreground mt-1">Maritime Services Dashboard</p>
         </div>
 
-        <Card className="card-premium">
+        <Card className="card-premium dark:maritime-glow">
           <CardHeader>
             <CardTitle className="text-center">Inloggen</CardTitle>
           </CardHeader>
-          
+
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
@@ -152,6 +163,7 @@ export default function Auth() {
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   required
+                  className="dark:bg-[hsl(220,35%,10%)] dark:border-[hsl(220,30%,16%)] dark:focus:border-primary/40"
                 />
               </div>
               <div className="space-y-2">
@@ -159,8 +171,8 @@ export default function Auth() {
                   <Label htmlFor="login-password" className="flex items-center gap-2">
                     <Lock className="w-4 h-4" /> Wachtwoord
                   </Label>
-                  <Link 
-                    to="/forgot-password" 
+                  <Link
+                    to="/forgot-password"
                     className="text-sm text-primary hover:underline"
                   >
                     Wachtwoord vergeten?
@@ -173,15 +185,26 @@ export default function Auth() {
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   required
+                  className="dark:bg-[hsl(220,35%,10%)] dark:border-[hsl(220,30%,16%)] dark:focus:border-primary/40"
                 />
               </div>
-              <Button type="submit" className="w-full" size="lg" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full dark:shadow-[0_0_20px_hsl(192,82%,48%,0.15)] dark:hover:shadow-[0_0_24px_hsl(192,82%,48%,0.25)]"
+                size="lg"
+                disabled={loading}
+              >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Inloggen
               </Button>
             </form>
           </CardContent>
         </Card>
+
+        {/* Subtle footer */}
+        <p className="text-center text-xs text-muted-foreground/50 mt-6">
+          Zenith Hub &middot; Maritime Operations Platform
+        </p>
       </div>
     </div>
   );
