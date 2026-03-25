@@ -20,21 +20,18 @@ export type Database = {
           email: string | null
           id: number
           name: string | null
-          password: string | null
         }
         Insert: {
           created_at?: string
           email?: string | null
           id?: number
           name?: string | null
-          password?: string | null
         }
         Update: {
           created_at?: string
           email?: string | null
           id?: number
           name?: string | null
-          password?: string | null
         }
         Relationships: []
       }
@@ -2152,6 +2149,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_old_email_logs: { Args: never; Returns: undefined }
       get_lbh_invoice_count: { Args: { p_lbh_number: string }; Returns: number }
       get_project_total: { Args: { p_project_id: string }; Returns: number }
       has_role: {
