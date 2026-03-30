@@ -41,7 +41,6 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
   const [creating, setCreating] = useState(false);
@@ -182,61 +181,49 @@ export default function UserManagement() {
   }
 
   async function handleCreateUser() {
-    if (!newUserEmail || !newUserPassword) {
-      toast({ title: 'Fout', description: 'Vul alle velden in', variant: 'destructive' });
-      return;
-    }
-
-    if (newUserPassword.length < 6) {
-      toast({ title: 'Fout', description: 'Wachtwoord moet minimaal 6 tekens zijn', variant: 'destructive' });
+    if (!newUserEmail || !newUserName) {
+      toast({ title: 'Fout', description: 'Vul naam en e-mail in', variant: 'destructive' });
       return;
     }
 
     setCreating(true);
 
     try {
-      // Use edge function to create user with service role
       const { data: sessionData } = await supabase.auth.getSession();
       
       if (!sessionData.session?.access_token) {
         throw new Error('Je sessie is verlopen. Log opnieuw in en probeer het nogmaals.');
       }
 
-      const { data: result, error: fnError } = await supabase.functions.invoke(
-        'admin-create-user',
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user-with-email`,
         {
-          body: {
-            email: newUserEmail,
-            password: newUserPassword,
-            name: newUserName || undefined,
-            role: newUserRole,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionData.session.access_token}`,
           },
+          body: JSON.stringify({
+            email: newUserEmail,
+            name: newUserName,
+            role: newUserRole,
+          }),
         }
       );
 
-      if (fnError) {
-        // supabase-js wraps non-2xx responses; try to surface the function's error payload
-        const maybeAny = fnError as any;
-        let message = fnError.message || 'Fout bij aanmaken gebruiker';
-        if (maybeAny?.context) {
-          try {
-            const payload = await maybeAny.context.json();
-            message = payload?.error || message;
-          } catch {
-            // ignore
-          }
-        }
-        throw new Error(message);
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Fout bij aanmaken gebruiker');
       }
 
       toast({ 
-        title: 'Succes', 
-        description: `Gebruiker ${newUserEmail} is aangemaakt. Bij eerste login moet het wachtwoord worden gewijzigd.` 
+        title: 'Gebruiker aangemaakt', 
+        description: `${newUserName} heeft een welkomstemail ontvangen op ${newUserEmail}.`,
       });
       
       setAddDialogOpen(false);
       setNewUserEmail('');
-      setNewUserPassword('');
       setNewUserName('');
       setNewUserRole('user');
       fetchUsers();
@@ -306,12 +293,12 @@ export default function UserManagement() {
               <DialogHeader>
                 <DialogTitle>Nieuwe Gebruiker Aanmaken</DialogTitle>
                 <DialogDescription>
-                  Maak een nieuw account aan. De gebruiker ontvangt een bevestigingsmail.
+                  Vul naam en e-mail in. Het systeem genereert automatisch een wachtwoord en stuurt een welkomstemail.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Naam</Label>
+                  <Label>Naam *</Label>
                   <Input
                     value={newUserName}
                     onChange={(e) => setNewUserName(e.target.value)}
@@ -325,15 +312,6 @@ export default function UserManagement() {
                     value={newUserEmail}
                     onChange={(e) => setNewUserEmail(e.target.value)}
                     placeholder="jan@lbh.nl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Wachtwoord *</Label>
-                  <Input
-                    type="password"
-                    value={newUserPassword}
-                    onChange={(e) => setNewUserPassword(e.target.value)}
-                    placeholder="Minimaal 6 tekens"
                   />
                 </div>
                 <div className="space-y-2">
