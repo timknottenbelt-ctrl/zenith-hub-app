@@ -22,194 +22,120 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [isRecovery, setIsRecovery] = useState(false);
-  const [mustChangePassword, setMustChangePassword] = useState(false);
-
-  const getAuthParamsFromUrl = () => {
-    const url = new URL(window.location.href);
-    const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
-    const access_token = hashParams.get('access_token');
-    const refresh_token = hashParams.get('refresh_token');
-    const type = hashParams.get('type') || url.searchParams.get('type');
-    const code = url.searchParams.get('code');
-    return { access_token, refresh_token, type, code };
-  };
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const readMustChangePassword = async (userId: string) => {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('must_change_password')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Profile fetch error:', error);
-        return { mustChangePassword: false };
-      }
-
-      return { mustChangePassword: Boolean(profile?.must_change_password) };
-    };
-
     const init = async () => {
-      // 1) Ensure we actually have a session (recovery links can arrive as ?code=... or #access_token=...)
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const url = new URL(window.location.href);
+      const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+      const access_token = hashParams.get('access_token');
+      const refresh_token = hashParams.get('refresh_token');
+      const type = hashParams.get('type') || url.searchParams.get('type');
+      const code = url.searchParams.get('code');
 
-      // If we have a broken/stale refresh token in storage, clear it.
-      if (sessionError?.message?.toLowerCase().includes('refresh token')) {
-        try {
-          await supabase.auth.signOut();
-        } catch {
-          // ignore
-        }
+      // Heeft de URL recovery/magic link params? Dan sessie herstellen
+      if (access_token && refresh_token) {
+        await (supabase.auth as any).setSession({ access_token, refresh_token });
+        setReady(true);
+        return;
       }
 
-      if (!sessionData.session) {
-        const { access_token, refresh_token, type, code } = getAuthParamsFromUrl();
-
-        // implicit flow
-        if (access_token && refresh_token && (supabase.auth as any).setSession) {
-          const { error } = await (supabase.auth as any).setSession({ access_token, refresh_token });
-          if (!error && type === 'recovery') setIsRecovery(true);
-        }
-
-        // PKCE flow
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (!error) setIsRecovery(true);
-        }
+      if (code) {
+        await supabase.auth.exchangeCodeForSession(code);
+        setReady(true);
+        return;
       }
 
-      // 2) Now check the (possibly restored) session
-      const { data: afterData } = await supabase.auth.getSession();
-      const afterSession = afterData.session;
-      if (afterSession?.user) {
-        const { mustChangePassword: mustChange } = await readMustChangePassword(afterSession.user.id);
-        if (mustChange) {
-          setMustChangePassword(true);
-        } else if (!isRecovery) {
-          navigate('/');
-        }
+      // Geen params — check of er al een sessie is
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        // Al ingelogd en op reset-password pagina zonder params → toon het formulier gewoon
+        setReady(true);
+      } else {
+        // Geen sessie en geen params → stuur naar login
+        navigate('/auth');
       }
     };
 
     init();
 
-    // 3) Listen for changes (keep callback sync; defer Supabase calls)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsRecovery(true);
-        return;
-      }
-
-      if (session?.user) {
-        setTimeout(async () => {
-          const { mustChangePassword: mustChange } = await readMustChangePassword(session.user.id);
-          if (mustChange) {
-            setMustChangePassword(true);
-          } else if (!isRecovery) {
-            navigate('/');
-          }
-        }, 0);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+        setReady(true);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, isRecovery]);
+  }, [navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
+
     const validation = passwordSchema.safeParse({ password, confirmPassword });
     if (!validation.success) {
-      toast({ 
-        title: 'Validatiefout', 
-        description: validation.error.errors[0].message, 
-        variant: 'destructive' 
+      toast({
+        title: 'Validatiefout',
+        description: validation.error.errors[0].message,
+        variant: 'destructive'
       });
       return;
     }
 
-    // updateUser requires an active auth session (recovery link/session must be established first)
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session?.user) {
       toast({
         title: 'Sessie verlopen',
-        description: 'De reset link is niet meer geldig. Vraag een nieuwe link aan via "Wachtwoord vergeten".',
+        description: 'De link is niet meer geldig. Vraag een nieuwe link aan.',
         variant: 'destructive',
       });
       return;
     }
 
     setLoading(true);
-    
+
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
-      });
+      const { error: updateError } = await supabase.auth.updateUser({ password });
 
       if (updateError) {
         const msg = updateError.message?.toLowerCase().includes('same password')
           ? 'Je nieuwe wachtwoord mag niet hetzelfde zijn als je huidige wachtwoord.'
-          : 'Het wijzigen van je wachtwoord is niet gelukt. Probeer het opnieuw of vraag een nieuwe reset link aan.';
-        toast({ 
-          title: 'Niet gelukt', 
-          description: msg, 
-          variant: 'destructive' 
-        });
+          : 'Wachtwoord wijzigen mislukt. Probeer opnieuw.';
+        toast({ title: 'Niet gelukt', description: msg, variant: 'destructive' });
         setLoading(false);
         return;
       }
 
-      // Clear the must_change_password flag (don't block redirect on failure)
+      // Verwijder must_change_password flag
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          await supabase
-            .from('profiles')
-            .update({ must_change_password: false })
-            .eq('id', user.id);
+          await supabase.from('profiles').update({ must_change_password: false }).eq('id', user.id);
         }
-      } catch (profileErr) {
-        console.error('Profile update error:', profileErr);
-        // Continue anyway - password was changed successfully
+      } catch (e) {
+        console.error('Profile update error:', e);
       }
 
-      toast({ 
-        title: 'Wachtwoord gewijzigd', 
-        description: 'Je wachtwoord is succesvol gewijzigd' 
-      });
-      
-      // Reset loading before redirect
+      toast({ title: 'Wachtwoord gewijzigd', description: 'Je wachtwoord is succesvol ingesteld.' });
       setLoading(false);
-      
-      // Small delay to show success toast, then redirect
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 500);
+      setTimeout(() => { window.location.href = '/'; }, 500);
     } catch (error) {
       console.error('Password reset error:', error);
-      toast({ 
-        title: 'Fout', 
-        description: 'Er is iets misgegaan. Probeer opnieuw.', 
-        variant: 'destructive' 
-      });
+      toast({ title: 'Fout', description: 'Er is iets misgegaan. Probeer opnieuw.', variant: 'destructive' });
       setLoading(false);
     }
   }
 
-  const title = mustChangePassword 
-    ? 'Wachtwoord instellen' 
-    : 'Nieuw wachtwoord';
-  
-  const description = mustChangePassword
-    ? 'Dit is je eerste login. Stel een nieuw wachtwoord in.'
-    : 'Voer je nieuwe wachtwoord in.';
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
       <div className="w-full max-w-md">
-        {/* Logo / Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
             <Ship className="w-8 h-8 text-primary" />
@@ -220,10 +146,9 @@ export default function ResetPassword() {
 
         <Card className="card-premium">
           <CardHeader>
-            <CardTitle className="text-center">{title}</CardTitle>
-            <CardDescription className="text-center">{description}</CardDescription>
+            <CardTitle className="text-center">Wachtwoord instellen</CardTitle>
+            <CardDescription className="text-center">Kies een nieuw wachtwoord voor je account.</CardDescription>
           </CardHeader>
-          
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
