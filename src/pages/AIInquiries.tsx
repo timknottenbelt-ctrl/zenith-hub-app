@@ -170,15 +170,34 @@ export default function AIInquiries() {
     return filtered;
   }, [emails, searchQuery, dateFilter]);
 
-  async function handlePreviewPdf(attachment: EmailAttachment) {
+  function getAttachmentKind(fileName: string): 'pdf' | 'excel' | 'word' | 'csv' | 'text' | 'other' {
+    const ext = fileName.toLowerCase().split('.').pop() ?? '';
+    if (ext === 'pdf') return 'pdf';
+    if (ext === 'xlsx' || ext === 'xls') return 'excel';
+    if (ext === 'docx' || ext === 'doc') return 'word';
+    if (ext === 'csv') return 'csv';
+    if (ext === 'txt') return 'text';
+    return 'other';
+  }
+
+  async function handlePreviewAttachment(attachment: EmailAttachment) {
     const { data } = await supabase.storage
       .from('pdfs')
       .createSignedUrl(attachment.file_path, 3600);
 
-    if (data?.signedUrl) {
+    if (!data?.signedUrl) {
+      toast({ title: t('common.error'), description: t('common.error_occurred'), variant: 'destructive' });
+      return;
+    }
+
+    // PDFs and plain text render inline in the iframe; Office/CSV files
+    // are opened in a new tab so the browser can download or hand off to
+    // the native application.
+    const kind = getAttachmentKind(attachment.file_name);
+    if (kind === 'pdf' || kind === 'text') {
       setPreviewPdfUrl(data.signedUrl);
     } else {
-      toast({ title: t('common.error'), description: t('common.error_occurred'), variant: 'destructive' });
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
     }
   }
 
@@ -611,9 +630,50 @@ export default function AIInquiries() {
                   <Card className="card-premium overflow-hidden">
                     <CardHeader className="pb-3 pt-4 px-5">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                        <div className="space-y-1 min-w-0 flex-1">
+                        <div className="space-y-2.5 min-w-0 flex-1">
                           <CardTitle className="text-base font-semibold leading-snug">{selectedEmail.subject || t('inquiries.noSubject')}</CardTitle>
-                          <p className="text-sm text-muted-foreground">To: {selectedEmail.email_to_person}</p>
+                          <div className="space-y-1 text-sm">
+                            {(selectedEmail.contact_name || selectedEmail.company_name) && (
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide w-10 shrink-0">From</span>
+                                <span className="text-foreground min-w-0 break-words">
+                                  {selectedEmail.contact_name && <span className="font-medium">{selectedEmail.contact_name}</span>}
+                                  {selectedEmail.contact_name && selectedEmail.company_name && ' '}
+                                  {selectedEmail.company_name && (
+                                    <span className="text-muted-foreground">&lt;{selectedEmail.company_name}&gt;</span>
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                            {selectedEmail.email_to_person && (
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide w-10 shrink-0">To</span>
+                                <span className="text-foreground min-w-0 break-words">{selectedEmail.email_to_person}</span>
+                              </div>
+                            )}
+                            {selectedEmail.cc_recipients && selectedEmail.cc_recipients.length > 0 && (
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide w-10 shrink-0">Cc</span>
+                                <span className="text-foreground min-w-0 break-words">{selectedEmail.cc_recipients.join(', ')}</span>
+                              </div>
+                            )}
+                            {selectedEmail.bcc_recipients && selectedEmail.bcc_recipients.length > 0 && (
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide w-10 shrink-0">Bcc</span>
+                                <span className="text-foreground min-w-0 break-words">{selectedEmail.bcc_recipients.join(', ')}</span>
+                              </div>
+                            )}
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide w-10 shrink-0">Date</span>
+                              <span className="text-muted-foreground">
+                                {new Date(selectedEmail.created_at).toLocaleString('nl-NL', {
+                                  dateStyle: 'medium',
+                                  timeStyle: 'short',
+                                  timeZone: 'America/Curacao',
+                                })}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Button variant="outline" size="sm" className="h-8 text-xs rounded-lg gap-1.5" onClick={() => setShowPreview(!showPreview)}>
@@ -825,14 +885,23 @@ export default function AIInquiries() {
                           onDrop={handleDrop}
                         >
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {emailAttachments.map((attachment) => (
+                            {emailAttachments.map((attachment) => {
+                              const kind = getAttachmentKind(attachment.file_name);
+                              const iconClass =
+                                kind === 'pdf' ? 'text-red-500' :
+                                kind === 'excel' ? 'text-emerald-600' :
+                                kind === 'word' ? 'text-blue-600' :
+                                kind === 'csv' ? 'text-amber-600' :
+                                'text-muted-foreground';
+                              const actionLabel = kind === 'pdf' || kind === 'text' ? t('inquiries.preview') : t('inquiries.download');
+                              return (
                               <div key={attachment.id} className="flex items-center justify-between p-2.5 bg-black/[0.02] rounded-xl border border-border/40">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <FileText className="w-4 h-4 text-red-500 shrink-0" />
+                                  <FileText className={`w-4 h-4 shrink-0 ${iconClass}`} />
                                   <span className="text-sm truncate">{attachment.file_name}</span>
                                 </div>
                                 <div className="flex items-center gap-0.5 shrink-0">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md" onClick={() => handlePreviewPdf(attachment)}>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md" onClick={() => handlePreviewAttachment(attachment)} title={actionLabel}>
                                     <Eye className="w-3.5 h-3.5" />
                                   </Button>
                                   <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-destructive" onClick={() => handleDeleteAttachment(attachment)}>
@@ -840,7 +909,8 @@ export default function AIInquiries() {
                                   </Button>
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                           {isDragging && (
                             <div className="text-center py-2 text-xs text-primary mt-2">{t('inquiries.dropToAdd')}</div>
