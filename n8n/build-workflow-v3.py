@@ -342,15 +342,18 @@ def node_has_attachments_if(pos: list[int]) -> dict:
 
 
 def node_insert_attachment_row(pos: list[int]) -> dict:
+    # $json here is the Supabase Storage HTTP response ({Key, Id}), not the
+    # upstream data. Reach back to Split Attachments for the original fields.
+    # .item is safe here — Split → Upload → Insert is a linear 1-to-1 chain.
     return {
         "parameters": {
             "tableId": "email_attachments",
             "fieldsUi": {
                 "fieldValues": [
-                    {"fieldId": "email_id", "fieldValue": "={{ $json.email_id }}"},
-                    {"fieldId": "file_name", "fieldValue": "={{ $json.filename }}"},
-                    {"fieldId": "file_path", "fieldValue": "={{ $json.storagePath }}"},
-                    {"fieldId": "file_size", "fieldValue": "={{ $json.activeAttachment?.size || null }}"},
+                    {"fieldId": "email_id", "fieldValue": "={{ $('Split Attachments').item.json.email_id }}"},
+                    {"fieldId": "file_name", "fieldValue": "={{ $('Split Attachments').item.json.filename }}"},
+                    {"fieldId": "file_path", "fieldValue": "={{ $('Split Attachments').item.json.storagePath }}"},
+                    {"fieldId": "file_size", "fieldValue": "={{ $('Split Attachments').item.json.activeAttachment?.size || null }}"},
                 ]
             },
         },
