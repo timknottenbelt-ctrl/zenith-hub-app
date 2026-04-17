@@ -45,7 +45,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.output.email_type }}",
+                    "leftValue": "={{ $json[\"Email Type\"] }}",
                     "rightValue": "OWNERS_AGENT",
                     "operator": {
                       "type": "string",
@@ -68,7 +68,7 @@
                 "conditions": [
                   {
                     "id": "f4628acf-4228-4b81-b32f-0789cb6e6891",
-                    "leftValue": "={{ $json.output.email_type }}",
+                    "leftValue": "={{ $json[\"Email Type\"] }}",
                     "rightValue": "LOADING_DISCHARGE_AGENT",
                     "operator": {
                       "type": "string",
@@ -91,7 +91,7 @@
                 "conditions": [
                   {
                     "id": "9e869500-6d11-429a-b06c-f45dd7ca2404",
-                    "leftValue": "={{ $json.output.email_type }}",
+                    "leftValue": "={{ $json[\"Email Type\"] }}",
                     "rightValue": "OUT_OF_SCOPE",
                     "operator": {
                       "type": "string",
@@ -1560,7 +1560,7 @@
         3280,
         2416
       ],
-      "id": "b85d948d-5dce-4feb-a4c7-8c9bdd2efcde",
+      "id": "f3db558d-f02a-4f55-b6e7-d4966f890b1a",
       "name": "Attachment Handling"
     },
     {
@@ -2316,7 +2316,7 @@
         3504,
         2416
       ],
-      "id": "f502c048-245a-450c-87aa-55c74960b318",
+      "id": "60b0dc90-5633-4134-ab18-476daa1c0034",
       "name": "Insert Email Row",
       "credentials": {
         "supabaseApi": {
@@ -2335,7 +2335,7 @@
           },
           "conditions": [
             {
-              "id": "912327c6-43ba-4c84-b405-51b1b82875be",
+              "id": "3d524950-ae8d-42fc-92f5-9296aadc2b86",
               "leftValue": "={{ $('Attachment Handling').item.json.attachmentExists }}",
               "rightValue": "",
               "operator": {
@@ -2355,7 +2355,7 @@
         3664,
         2416
       ],
-      "id": "747751e2-14dc-4b16-b8c7-ca2d575b4d00",
+      "id": "0af333cc-b212-4d49-bf26-f5f377d1200d",
       "name": "Has Attachments?"
     },
     {
@@ -2368,7 +2368,7 @@
         3840,
         2336
       ],
-      "id": "13e1600c-bf89-4608-bc94-4b14d4adcd84",
+      "id": "8881e4dc-5abf-4559-8b87-7bee3954fc00",
       "name": "Split Attachments"
     },
     {
@@ -2401,7 +2401,7 @@
         4064,
         2336
       ],
-      "id": "c0c51d42-b182-4fc8-ad18-157279bb18c7",
+      "id": "29577f33-fea0-448c-8cee-724dbe961850",
       "name": "Upload to Storage",
       "credentials": {
         "httpHeaderAuth": {
@@ -2440,7 +2440,7 @@
         4288,
         2336
       ],
-      "id": "f84795d7-c920-4a4f-bfea-1a1aa8ec0501",
+      "id": "92599b0c-e82e-42e0-a789-a6af888d1dd0",
       "name": "Insert email_attachments row",
       "credentials": {
         "supabaseApi": {
@@ -2459,7 +2459,7 @@
         4624,
         2416
       ],
-      "id": "8d019cbc-53bd-4480-aeb9-e31d9057dde4",
+      "id": "eed44d22-e76c-4f71-af07-1ae806fd110d",
       "name": "Pre-filter (deterministic)"
     },
     {
@@ -2472,7 +2472,7 @@
           },
           "conditions": [
             {
-              "id": "6f883a5e-1967-448e-a658-101e57d38243",
+              "id": "0ca0b6a1-74d8-45eb-9eac-cd361c19a4ae",
               "leftValue": "={{ $json.passed }}",
               "rightValue": "",
               "operator": {
@@ -2492,7 +2492,7 @@
         4848,
         2416
       ],
-      "id": "b4ad61ce-4408-4459-a92c-3d7c0dcbd8f3",
+      "id": "8cc21184-f1ed-4860-8829-02bab9779e7c",
       "name": "Pre-filter Passed?"
     },
     {
@@ -2529,7 +2529,7 @@
         4848,
         2616
       ],
-      "id": "7094d72b-f9bb-4397-b09a-166d7102f867",
+      "id": "e967871f-4cd7-4851-a4e9-706e3120110e",
       "name": "Mark Out of Scope",
       "credentials": {
         "supabaseApi": {
@@ -2580,7 +2580,7 @@
         5200,
         2416
       ],
-      "id": "d06ba19a-5089-4f31-bdca-f620dc56f6e7",
+      "id": "6802b484-0fdf-41d3-a5a2-4be7031e2e3c",
       "name": "Save Classification",
       "credentials": {
         "supabaseApi": {
@@ -2608,7 +2608,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "fd5bd6ea-8388-4f98-a7a5-c6644f8024c8"
+                    "id": "8cd124a1-273c-4ea1-babe-e087f2582f53"
                   }
                 ],
                 "combinator": "and"
@@ -2630,7 +2630,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "a2c6cb9c-503b-43d4-8346-4c01adc1ac24"
+                    "id": "2ddc12c9-804c-43f1-bfaa-2c247ca3d1d2"
                   }
                 ],
                 "combinator": "and"
@@ -2652,7 +2652,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "be70d2ec-7ab9-40bc-81aa-3cee5d5a989c"
+                    "id": "7128b11f-602c-424c-9c47-3ce4bedcca34"
                   }
                 ],
                 "combinator": "and"
@@ -2674,7 +2674,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "2c4f5adc-44bf-4999-bb0f-0ce443aac68a"
+                    "id": "de7fe41e-63f4-4eef-baba-53e1f75d5857"
                   }
                 ],
                 "combinator": "and"
@@ -2693,7 +2693,7 @@
         3952,
         2136
       ],
-      "id": "bf126a74-7b27-4c7a-b67e-a6b4e250716a",
+      "id": "cefff7d4-92c7-4c0b-8716-598b83a2cea6",
       "name": "Route by File Type"
     },
     {
@@ -2708,7 +2708,7 @@
         4176,
         2086
       ],
-      "id": "42fbaf68-7e5d-464d-8c34-b8f33418864b",
+      "id": "518c49e1-0cf4-42b2-97e3-51033e78f8be",
       "name": "Extract XLSX"
     },
     {
@@ -2723,7 +2723,7 @@
         4176,
         2236
       ],
-      "id": "9342e8dd-a0b0-4208-9df2-343f52f863d3",
+      "id": "96789bab-87d1-404b-9557-51d7f4160a50",
       "name": "Extract CSV"
     },
     {
@@ -2738,7 +2738,7 @@
         4176,
         2386
       ],
-      "id": "9955c07f-3fc8-43b3-9037-fe34b5c33d4d",
+      "id": "afdbaa88-1f28-49d0-a9b3-5f2cdace01da",
       "name": "Extract Text"
     }
   ],
