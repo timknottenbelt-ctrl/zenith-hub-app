@@ -892,6 +892,32 @@ def main() -> int:
         return obj
     wf["nodes"] = _fix(wf["nodes"])
 
+    # Downstream extraction nodes read the email text from 'data setter'.
+    # The v2.0 data setter's rawText is unreliable (sometimes empty after
+    # my v3 inserts change what's in $input). The 'body' column on the
+    # email row is always set by 'Insert Email Row' from Attachment
+    # Handling's cleaned text, so downstream nodes can read $json.body
+    # directly — it flows through Save Classification and Switch untouched.
+    text_refs_to_body = {
+        "$('data setter').first().json.text": "$json.body",
+        "$('data setter').item.json.text": "$json.body",  # safety net
+    }
+    def _swap_body(obj):
+        if isinstance(obj, str):
+            s = obj
+            for old, new in text_refs_to_body.items():
+                s = s.replace(old, new)
+            return s
+        if isinstance(obj, dict):
+            return {k: _swap_body(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_swap_body(v) for v in obj]
+        return obj
+    for n in wf["nodes"]:
+        if n["name"] in {"Extract Services", "Discharge Data Extraction",
+                         "Extract Questions from Email1", "Extract Questions from Email2"}:
+            n["parameters"] = _swap_body(n["parameters"])
+
     # Finally: workflow metadata
     wf["name"] = "Email - PDA - v3.0"
     wf.pop("pinData", None)
