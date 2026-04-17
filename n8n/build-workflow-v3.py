@@ -253,7 +253,7 @@ def node_split_attachments(pos: list[int]) -> dict:
 // json-only and the Upload to Storage HTTP node would fail with
 // "binary file 'attachment_X' not found".
 const parent = $('Attachment Handling').first();
-const emailId = $('Insert Email Row').item.json.id;
+const emailId = $('Insert Email Row').first().json.id;
 const meta = $('Attachment Handling').item.json;
 const attachments = meta.attachments || [];
 
@@ -557,7 +557,7 @@ def node_update_out_of_scope(pos: list[int]) -> dict:
             "matchType": "allFilters",
             "filters": {
                 "conditions": [{"keyName": "id", "condition": "eq",
-                                "keyValue": "={{ $('Insert Email Row').item.json.id }}"}]
+                                "keyValue": "={{ $('Insert Email Row').first().json.id }}"}]
             },
             "fieldsUi": {
                 "fieldValues": [
@@ -587,7 +587,7 @@ def node_update_classification(pos: list[int]) -> dict:
             "matchType": "allFilters",
             "filters": {
                 "conditions": [{"keyName": "id", "condition": "eq",
-                                "keyValue": "={{ $('Insert Email Row').item.json.id }}"}]
+                                "keyValue": "={{ $('Insert Email Row').first().json.id }}"}]
             },
             "fieldsUi": {
                 "fieldValues": [
