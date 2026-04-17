@@ -1560,7 +1560,7 @@
         3280,
         2416
       ],
-      "id": "622d0e6f-4aeb-4a4d-891b-9943205a1bf8",
+      "id": "62df3101-ac9d-48bb-b5cc-6c3bc45f5001",
       "name": "Attachment Handling"
     },
     {
@@ -1921,14 +1921,6 @@
               "fieldValue": "={{ $('QUERY KNOWLEDGE BASE').first().json.output.contact.email }}"
             },
             {
-              "fieldId": "status",
-              "fieldValue": "draft"
-            },
-            {
-              "fieldId": "Email Type",
-              "fieldValue": "OWNERS_AGENT"
-            },
-            {
               "fieldId": "vessel_name",
               "fieldValue": "={{ $('QUERY KNOWLEDGE BASE').first().json.output.vessel.name }}"
             },
@@ -1961,6 +1953,18 @@
               "fieldValue": "={{ $('QUERY KNOWLEDGE BASE').first().json.output.services.map(s => s.service).join(', ') }}"
             }
           ]
+        },
+        "operation": "update",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Insert Email Row').first().json.id }}"
+            }
+          ]
         }
       },
       "type": "n8n-nodes-base.supabase",
@@ -1987,7 +1991,7 @@
             {
               "keyName": "id",
               "condition": "eq",
-              "keyValue": "={{ $('Save email for later').first().json.id }}"
+              "keyValue": "={{ $('Insert Email Row').first().json.id }}"
             }
           ]
         },
@@ -2010,7 +2014,9 @@
               "fieldValue": "CARGO AGENT"
             }
           ]
-        }
+        },
+        "filterType": "manual",
+        "matchType": "allFilters"
       },
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -2037,7 +2043,7 @@
             {
               "keyName": "id",
               "condition": "eq",
-              "keyValue": "={{ $('Save email for later').first().json.id }}"
+              "keyValue": "={{ $('Insert Email Row').first().json.id }}"
             }
           ]
         },
@@ -2060,7 +2066,9 @@
               "fieldValue": "CARGO AGENT 2"
             }
           ]
-        }
+        },
+        "filterType": "manual",
+        "matchType": "allFilters"
       },
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -2316,7 +2324,7 @@
         3504,
         2416
       ],
-      "id": "a3faf1c0-091e-48c9-b029-4e1fc00d1952",
+      "id": "b806cd3f-d0c5-4198-b5ef-1b18c9f1d35c",
       "name": "Insert Email Row",
       "credentials": {
         "supabaseApi": {
@@ -2335,7 +2343,7 @@
           },
           "conditions": [
             {
-              "id": "edf2ad37-6db5-4b4d-a190-444859a28a2a",
+              "id": "95f1fb1a-6468-4251-8366-20c6763660a1",
               "leftValue": "={{ $('Attachment Handling').first().json.attachmentExists }}",
               "rightValue": "",
               "operator": {
@@ -2355,7 +2363,7 @@
         3664,
         2416
       ],
-      "id": "fc0677e5-2165-4553-86aa-15852bbb188f",
+      "id": "b9f25599-fd7e-49d2-a96b-33601b409ddf",
       "name": "Has Attachments?"
     },
     {
@@ -2368,7 +2376,7 @@
         3840,
         2336
       ],
-      "id": "ef1996df-ea14-4f77-b9fb-b3f501df19e0",
+      "id": "a804fa7f-409d-4c2c-8576-5c48c1dcc1b7",
       "name": "Split Attachments"
     },
     {
@@ -2401,7 +2409,7 @@
         4064,
         2336
       ],
-      "id": "87398203-0d35-4806-ba6b-7957b9eef4ac",
+      "id": "bed8712e-7193-4889-87ac-286b42a3678e",
       "name": "Upload to Storage",
       "credentials": {
         "httpHeaderAuth": {
@@ -2440,7 +2448,7 @@
         4288,
         2336
       ],
-      "id": "e82e6488-3bdd-4712-8f54-9cf85334362a",
+      "id": "f6503db0-ceb5-4874-b696-feb865068e88",
       "name": "Insert email_attachments row",
       "credentials": {
         "supabaseApi": {
@@ -2459,7 +2467,7 @@
         4624,
         2416
       ],
-      "id": "bee72bfc-7e1f-4732-813f-77670ec16439",
+      "id": "48bc3649-912e-481d-bbce-85ef8a9e2db8",
       "name": "Pre-filter (deterministic)"
     },
     {
@@ -2472,7 +2480,7 @@
           },
           "conditions": [
             {
-              "id": "1a4f882a-74ba-4e0c-9b8c-0f67a80a5960",
+              "id": "43489640-401c-4682-ab04-c2b1e0a23bc8",
               "leftValue": "={{ $json.passed }}",
               "rightValue": "",
               "operator": {
@@ -2492,7 +2500,7 @@
         4848,
         2416
       ],
-      "id": "6b6412a2-62be-42ee-938f-d8b5650e4772",
+      "id": "707a7b5f-7e98-4333-b688-7da4a1e35db0",
       "name": "Pre-filter Passed?"
     },
     {
@@ -2529,7 +2537,7 @@
         4848,
         2616
       ],
-      "id": "854c6ac9-6acc-4e91-ab4e-212864f039c7",
+      "id": "3c93d3b4-58cb-48cd-a089-9b805e39b122",
       "name": "Mark Out of Scope",
       "credentials": {
         "supabaseApi": {
@@ -2580,7 +2588,7 @@
         5200,
         2416
       ],
-      "id": "f1f4820f-588a-4cdf-ad91-ae9de5672029",
+      "id": "cd658537-0b57-4731-87de-1bc4eda687fb",
       "name": "Save Classification",
       "credentials": {
         "supabaseApi": {
@@ -2608,7 +2616,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "98da5538-a950-410c-bb64-209227957731"
+                    "id": "1a8db762-2ca3-47fa-9820-3b3900cb8d80"
                   }
                 ],
                 "combinator": "and"
@@ -2630,7 +2638,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "8b4e3f62-20d6-4aa1-9f61-5cd379878d30"
+                    "id": "a1b8eec6-21be-4cfa-a61e-dff9ba81a803"
                   }
                 ],
                 "combinator": "and"
@@ -2652,7 +2660,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "b0eab9d6-75e0-40b8-b6c6-e03624d06a3b"
+                    "id": "44cd55f8-809f-4e66-b0d6-02a4011b6e17"
                   }
                 ],
                 "combinator": "and"
@@ -2674,7 +2682,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "77ab2ec7-6140-4574-b438-149a46f5d720"
+                    "id": "0f1d8d60-4a39-4e0f-bdca-c3590915f638"
                   }
                 ],
                 "combinator": "and"
@@ -2693,7 +2701,7 @@
         3952,
         2136
       ],
-      "id": "82e3ef6f-d8a7-4509-913c-232e321f013f",
+      "id": "b340dc0c-48c5-43cc-87f5-6cd84556a223",
       "name": "Route by File Type"
     },
     {
@@ -2708,7 +2716,7 @@
         4176,
         2086
       ],
-      "id": "4c29ca42-2a1a-4427-a4ea-966740c7c83b",
+      "id": "71658ff4-0139-49fe-b1e3-e6f9125eecfc",
       "name": "Extract XLSX"
     },
     {
@@ -2723,7 +2731,7 @@
         4176,
         2236
       ],
-      "id": "52bb9ebb-0835-4f4c-89ed-8d5a1cfe49f7",
+      "id": "ca139115-eb53-49be-af18-e2a7bb289777",
       "name": "Extract CSV"
     },
     {
@@ -2738,7 +2746,7 @@
         4176,
         2386
       ],
-      "id": "1a4b393c-5bba-45b5-a648-b6715741b3b9",
+      "id": "226fa5ea-8746-4b0e-a58a-812ad1ec20b3",
       "name": "Extract Text"
     }
   ],

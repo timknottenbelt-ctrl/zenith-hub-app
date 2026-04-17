@@ -874,6 +874,47 @@ def main() -> int:
     disconnect(wf["connections"], "Generate Quotation Email", "Classify Request Type")
     connect(wf["connections"], "Generate Quotation Email", "Store Owners Agent Email1")
 
+    # 10. 'Store Owners Agent Email1' was an INSERT in v2.0 — that predates
+    #     my v3 'Insert Email Row' which already creates the row. Turn this
+    #     into an UPDATE on the same row (matched by id) so each OWNERS_AGENT
+    #     email gets enriched in place instead of duplicated.
+    store_owners = find_node(wf["nodes"], "Store Owners Agent Email1")
+    store_owners["parameters"]["operation"] = "update"
+    store_owners["parameters"]["filterType"] = "manual"
+    store_owners["parameters"]["matchType"] = "allFilters"
+    store_owners["parameters"]["filters"] = {
+        "conditions": [{
+            "keyName": "id",
+            "condition": "eq",
+            "keyValue": "={{ $('Insert Email Row').first().json.id }}",
+        }]
+    }
+    # Drop status + Email Type from the UPDATE — Save Classification already
+    # set those upstream, and resetting them here would clobber needs_review.
+    store_owners["parameters"]["fieldsUi"]["fieldValues"] = [
+        f for f in store_owners["parameters"]["fieldsUi"]["fieldValues"]
+        if f.get("fieldId") not in {"status", "Email Type"}
+    ]
+
+    # Same for the two 'Store Complete Email' update nodes downstream of the
+    # LOADING_DISCHARGE branch — they're already update, just make sure the
+    # filter is present and matches Insert Email Row's id.
+    for store_name in ("Store Complete Email2", "Store Complete Email3"):
+        try:
+            node = find_node(wf["nodes"], store_name)
+        except KeyError:
+            continue
+        node["parameters"]["operation"] = "update"
+        node["parameters"]["filterType"] = "manual"
+        node["parameters"]["matchType"] = "allFilters"
+        node["parameters"]["filters"] = {
+            "conditions": [{
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $('Insert Email Row').first().json.id }}",
+            }]
+        }
+
     # Blanket rewrite: every $('NodeName').item.json -> $('NodeName').first().json
     #
     # n8n's paired-item tracker loses the link after any IF / merge / multi-
