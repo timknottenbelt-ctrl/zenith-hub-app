@@ -1552,7 +1552,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Attachment Handling v3 — same shape as v2.0 but richer metadata\nfunction sanitize(text) {\n  if (!text) return '';\n  return text\n    .replace(/<[^>]*>/g, ' ')\n    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n    .replace(/&quot;/g, '\"').replace(/&#39;/g, \"'\")\n    .replace(/https?:\\/\\/[^\\s]+/g, '')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .replace(/[ \\t]{2,}/g, ' ')\n    .replace(/[\\x00-\\x09\\x0B\\x0C\\x0E-\\x1F\\x7F]/g, '')\n    .trim();\n}\n\nconst SKIP_MIMES = ['image/'];\nconst SKIP_EXTS  = ['.jpg','.jpeg','.png','.gif','.webp','.svg','.bmp','.tiff','.ico'];\nconst DOC_MIMES  = ['pdf','word','excel','spreadsheet','text/plain','text/csv','officedocument','opendocument'];\nconst DOC_EXTS   = ['.pdf','.doc','.docx','.xls','.xlsx','.csv','.txt'];\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const j = item.json;\n  const rawBody = j.body?.content || (typeof j.body === 'string' ? j.body : '') || j.bodyPreview || '';\n  const cleanText = sanitize(rawBody);\n\n  const binaryKeys = item.binary ? Object.keys(item.binary) : [];\n  const docKeys = binaryKeys.filter(k => {\n    const b = item.binary[k];\n    if (!b) return false;\n    const mime = (b.mimeType || '').toLowerCase();\n    const name = (b.fileName || '').toLowerCase();\n    if (SKIP_MIMES.some(m => mime.startsWith(m))) return false;\n    if (SKIP_EXTS.some(e => name.endsWith(e))) return false;\n    return DOC_MIMES.some(m => mime.includes(m)) || DOC_EXTS.some(e => name.endsWith(e));\n  });\n\n  const attachments = docKeys.map(k => {\n    const b = item.binary[k];\n    const name = (b.fileName || k).toLowerCase();\n    const ext = name.includes('.') ? name.split('.').pop() : '';\n    let extractType = 'skip';\n    if (ext === 'pdf') extractType = 'pdf';\n    else if (ext === 'csv') extractType = 'csv';\n    else if (ext === 'xlsx' || ext === 'xls') extractType = 'xlsx';\n    else if (ext === 'docx' || ext === 'doc') extractType = 'docx';\n    else if (ext === 'txt') extractType = 'text';\n    return {\n      binaryKey: k,\n      filename: b.fileName || k,\n      mimeType: b.mimeType || 'application/octet-stream',\n      extractType,\n      size: b.fileSize || null,\n    };\n  });\n\n  const mapAddr = (arr) => (arr || []).map(r => r.emailAddress?.address || r).filter(Boolean);\n\n  results.push({\n    json: {\n      text: cleanText,\n      subject: j.subject || 'No subject',\n      emailId: j.id,\n      from: j.from?.emailAddress?.address || 'unknown',\n      fromName: j.from?.emailAddress?.name || '',\n      toRecipients: mapAddr(j.toRecipients),\n      ccRecipients: mapAddr(j.ccRecipients),\n      bccRecipients: mapAddr(j.bccRecipients),\n      receivedAt: j.receivedDateTime || j.createdDateTime || new Date().toISOString(),\n      hasAttachmentsFlag: !!j.hasAttachments,\n      attachmentExists: attachments.length > 0,\n      attachmentCount: attachments.length,\n      attachments,\n      binaryKeys: docKeys,\n    },\n    binary: item.binary,\n  });\n}\n\nreturn results;\n"
+        "jsCode": "// Attachment Handling v3 — same shape as v2.0 but richer metadata\nfunction sanitize(text) {\n  if (!text) return '';\n  return text\n    .replace(/<[^>]*>/g, ' ')\n    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n    .replace(/&quot;/g, '\"').replace(/&#39;/g, \"'\")\n    .replace(/https?:\\/\\/[^\\s]+/g, '')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .replace(/[ \\t]{2,}/g, ' ')\n    .replace(/[\\x00-\\x09\\x0B\\x0C\\x0E-\\x1F\\x7F]/g, '')\n    .trim();\n}\n\nfunction parseSize(fs) {\n  // n8n exposes b.fileSize as a human-readable string like \"280 kB\".\n  // email_attachments.file_size is bigint, so convert to raw bytes here.\n  if (fs == null) return null;\n  if (typeof fs === 'number') return fs;\n  const m = String(fs).match(/^([\\d.]+)\\s*([KMGT]?i?B)?$/i);\n  if (!m) return null;\n  const unit = (m[2] || 'B').toUpperCase();\n  const mult = {\n    B: 1, KB: 1024, MB: 1048576, GB: 1073741824, TB: 1099511627776,\n    KIB: 1024, MIB: 1048576, GIB: 1073741824, TIB: 1099511627776,\n  }[unit] || 1;\n  return Math.round(parseFloat(m[1]) * mult);\n}\n\nconst SKIP_MIMES = ['image/'];\nconst SKIP_EXTS  = ['.jpg','.jpeg','.png','.gif','.webp','.svg','.bmp','.tiff','.ico'];\nconst DOC_MIMES  = ['pdf','word','excel','spreadsheet','text/plain','text/csv','officedocument','opendocument'];\nconst DOC_EXTS   = ['.pdf','.doc','.docx','.xls','.xlsx','.csv','.txt'];\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const j = item.json;\n  const rawBody = j.body?.content || (typeof j.body === 'string' ? j.body : '') || j.bodyPreview || '';\n  const cleanText = sanitize(rawBody);\n\n  const binaryKeys = item.binary ? Object.keys(item.binary) : [];\n  const docKeys = binaryKeys.filter(k => {\n    const b = item.binary[k];\n    if (!b) return false;\n    const mime = (b.mimeType || '').toLowerCase();\n    const name = (b.fileName || '').toLowerCase();\n    if (SKIP_MIMES.some(m => mime.startsWith(m))) return false;\n    if (SKIP_EXTS.some(e => name.endsWith(e))) return false;\n    return DOC_MIMES.some(m => mime.includes(m)) || DOC_EXTS.some(e => name.endsWith(e));\n  });\n\n  const attachments = docKeys.map(k => {\n    const b = item.binary[k];\n    const name = (b.fileName || k).toLowerCase();\n    const ext = name.includes('.') ? name.split('.').pop() : '';\n    let extractType = 'skip';\n    if (ext === 'pdf') extractType = 'pdf';\n    else if (ext === 'csv') extractType = 'csv';\n    else if (ext === 'xlsx' || ext === 'xls') extractType = 'xlsx';\n    else if (ext === 'docx' || ext === 'doc') extractType = 'docx';\n    else if (ext === 'txt') extractType = 'text';\n    return {\n      binaryKey: k,\n      filename: b.fileName || k,\n      mimeType: b.mimeType || 'application/octet-stream',\n      extractType,\n      size: parseSize(b.fileSize),\n    };\n  });\n\n  const mapAddr = (arr) => (arr || []).map(r => r.emailAddress?.address || r).filter(Boolean);\n\n  results.push({\n    json: {\n      text: cleanText,\n      subject: j.subject || 'No subject',\n      emailId: j.id,\n      from: j.from?.emailAddress?.address || 'unknown',\n      fromName: j.from?.emailAddress?.name || '',\n      toRecipients: mapAddr(j.toRecipients),\n      ccRecipients: mapAddr(j.ccRecipients),\n      bccRecipients: mapAddr(j.bccRecipients),\n      receivedAt: j.receivedDateTime || j.createdDateTime || new Date().toISOString(),\n      hasAttachmentsFlag: !!j.hasAttachments,\n      attachmentExists: attachments.length > 0,\n      attachmentCount: attachments.length,\n      attachments,\n      binaryKeys: docKeys,\n    },\n    binary: item.binary,\n  });\n}\n\nreturn results;\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1560,7 +1560,7 @@
         3280,
         2416
       ],
-      "id": "3041dccd-0612-454c-8d37-08fa212620b1",
+      "id": "b85d948d-5dce-4feb-a4c7-8c9bdd2efcde",
       "name": "Attachment Handling"
     },
     {
@@ -2316,7 +2316,7 @@
         3504,
         2416
       ],
-      "id": "699a8e7b-83ca-4e1b-9998-40abf514a81c",
+      "id": "f502c048-245a-450c-87aa-55c74960b318",
       "name": "Insert Email Row",
       "credentials": {
         "supabaseApi": {
@@ -2335,7 +2335,7 @@
           },
           "conditions": [
             {
-              "id": "39467502-69c4-4f1c-a5fb-99e540ceb731",
+              "id": "912327c6-43ba-4c84-b405-51b1b82875be",
               "leftValue": "={{ $('Attachment Handling').item.json.attachmentExists }}",
               "rightValue": "",
               "operator": {
@@ -2355,7 +2355,7 @@
         3664,
         2416
       ],
-      "id": "1de93206-c196-475b-8ca7-88a38c7b0394",
+      "id": "747751e2-14dc-4b16-b8c7-ca2d575b4d00",
       "name": "Has Attachments?"
     },
     {
@@ -2368,7 +2368,7 @@
         3840,
         2336
       ],
-      "id": "e7dca68f-fbbd-4741-8004-ee76ab742268",
+      "id": "13e1600c-bf89-4608-bc94-4b14d4adcd84",
       "name": "Split Attachments"
     },
     {
@@ -2401,7 +2401,7 @@
         4064,
         2336
       ],
-      "id": "a93f171d-0707-419e-824b-aeadde99f7fd",
+      "id": "c0c51d42-b182-4fc8-ad18-157279bb18c7",
       "name": "Upload to Storage",
       "credentials": {
         "httpHeaderAuth": {
@@ -2440,7 +2440,7 @@
         4288,
         2336
       ],
-      "id": "515fc79e-6eb5-48fa-a6ba-848534d7bd6b",
+      "id": "f84795d7-c920-4a4f-bfea-1a1aa8ec0501",
       "name": "Insert email_attachments row",
       "credentials": {
         "supabaseApi": {
@@ -2459,7 +2459,7 @@
         4624,
         2416
       ],
-      "id": "b1156624-e128-4ea5-91ab-16705f329d1e",
+      "id": "8d019cbc-53bd-4480-aeb9-e31d9057dde4",
       "name": "Pre-filter (deterministic)"
     },
     {
@@ -2472,7 +2472,7 @@
           },
           "conditions": [
             {
-              "id": "128bea50-889b-4d93-a059-e9ca71d8c157",
+              "id": "6f883a5e-1967-448e-a658-101e57d38243",
               "leftValue": "={{ $json.passed }}",
               "rightValue": "",
               "operator": {
@@ -2492,7 +2492,7 @@
         4848,
         2416
       ],
-      "id": "0e96aca7-d56c-4568-b46a-974e259e9c7e",
+      "id": "b4ad61ce-4408-4459-a92c-3d7c0dcbd8f3",
       "name": "Pre-filter Passed?"
     },
     {
@@ -2529,7 +2529,7 @@
         4848,
         2616
       ],
-      "id": "b312d79a-c7e3-4226-8016-7f16f94fb83f",
+      "id": "7094d72b-f9bb-4397-b09a-166d7102f867",
       "name": "Mark Out of Scope",
       "credentials": {
         "supabaseApi": {
@@ -2580,7 +2580,7 @@
         5200,
         2416
       ],
-      "id": "60e9718b-4e93-4611-8400-4e42d8d012c2",
+      "id": "d06ba19a-5089-4f31-bdca-f620dc56f6e7",
       "name": "Save Classification",
       "credentials": {
         "supabaseApi": {
@@ -2608,7 +2608,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "68c400d2-5ef7-43d1-9d3c-934ad0a8ec34"
+                    "id": "fd5bd6ea-8388-4f98-a7a5-c6644f8024c8"
                   }
                 ],
                 "combinator": "and"
@@ -2630,7 +2630,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "f5b55511-e410-4216-a227-0a0cd682079a"
+                    "id": "a2c6cb9c-503b-43d4-8346-4c01adc1ac24"
                   }
                 ],
                 "combinator": "and"
@@ -2652,7 +2652,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "deca2dbf-f009-4b7b-b86a-8daafc3bafb7"
+                    "id": "be70d2ec-7ab9-40bc-81aa-3cee5d5a989c"
                   }
                 ],
                 "combinator": "and"
@@ -2674,7 +2674,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "d2c3afce-2467-4631-959c-b98cec5791aa"
+                    "id": "2c4f5adc-44bf-4999-bb0f-0ce443aac68a"
                   }
                 ],
                 "combinator": "and"
@@ -2693,7 +2693,7 @@
         3952,
         2136
       ],
-      "id": "56dc5ff0-cf18-4bff-a7c5-1a02e99ac7b9",
+      "id": "bf126a74-7b27-4c7a-b67e-a6b4e250716a",
       "name": "Route by File Type"
     },
     {
@@ -2708,7 +2708,7 @@
         4176,
         2086
       ],
-      "id": "0eeaabab-0b84-48f7-874f-5831ddf6039d",
+      "id": "42fbaf68-7e5d-464d-8c34-b8f33418864b",
       "name": "Extract XLSX"
     },
     {
@@ -2723,7 +2723,7 @@
         4176,
         2236
       ],
-      "id": "4d9e4623-c3f7-4061-85e0-a0d177a76da6",
+      "id": "9342e8dd-a0b0-4208-9df2-343f52f863d3",
       "name": "Extract CSV"
     },
     {
@@ -2738,7 +2738,7 @@
         4176,
         2386
       ],
-      "id": "7f8aed3f-441b-416c-952d-4522bca512ca",
+      "id": "9955c07f-3fc8-43b3-9037-fe34b5c33d4d",
       "name": "Extract Text"
     }
   ],

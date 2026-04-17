@@ -134,6 +134,21 @@ function sanitize(text) {
     .trim();
 }
 
+function parseSize(fs) {
+  // n8n exposes b.fileSize as a human-readable string like "280 kB".
+  // email_attachments.file_size is bigint, so convert to raw bytes here.
+  if (fs == null) return null;
+  if (typeof fs === 'number') return fs;
+  const m = String(fs).match(/^([\d.]+)\s*([KMGT]?i?B)?$/i);
+  if (!m) return null;
+  const unit = (m[2] || 'B').toUpperCase();
+  const mult = {
+    B: 1, KB: 1024, MB: 1048576, GB: 1073741824, TB: 1099511627776,
+    KIB: 1024, MIB: 1048576, GIB: 1073741824, TIB: 1099511627776,
+  }[unit] || 1;
+  return Math.round(parseFloat(m[1]) * mult);
+}
+
 const SKIP_MIMES = ['image/'];
 const SKIP_EXTS  = ['.jpg','.jpeg','.png','.gif','.webp','.svg','.bmp','.tiff','.ico'];
 const DOC_MIMES  = ['pdf','word','excel','spreadsheet','text/plain','text/csv','officedocument','opendocument'];
@@ -172,7 +187,7 @@ for (const item of $input.all()) {
       filename: b.fileName || k,
       mimeType: b.mimeType || 'application/octet-stream',
       extractType,
-      size: b.fileSize || null,
+      size: parseSize(b.fileSize),
     };
   });
 
