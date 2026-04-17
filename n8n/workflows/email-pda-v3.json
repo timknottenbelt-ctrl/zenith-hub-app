@@ -1560,7 +1560,7 @@
         3280,
         2416
       ],
-      "id": "05b02c77-2455-4777-9df6-e837bb69cdd0",
+      "id": "415f6586-7d53-4d6b-9f6e-0d498b61b736",
       "name": "Attachment Handling"
     },
     {
@@ -2316,32 +2316,67 @@
         3504,
         2416
       ],
-      "id": "45ab4c52-c886-4e2c-914f-ffcf3da70b35",
+      "id": "2b655a2e-d66d-4d40-b576-82a42ce5f9ba",
       "name": "Insert Email Row",
       "credentials": {
         "supabaseApi": {
-          "id": "REPLACE_WITH_YOUR_SUPABASE_CRED_ID",
-          "name": "Supabase account"
+          "id": "VA7km8hKLFMCwCFf",
+          "name": "Tim supabse"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Fan out: one item per doc attachment, keeping email_id for linking.\nconst parent = $input.first();\nconst emailId = parent.json.id; // id returned by 'Insert Email Row'\nconst meta = $('Attachment Handling').first().json;\nconst attachments = meta.attachments || [];\n\nif (attachments.length === 0) {\n  return [{ json: { ...meta, email_id: emailId, noAttachments: true } }];\n}\n\nreturn attachments.map(a => ({\n  json: {\n    ...meta,\n    email_id: emailId,\n    activeAttachment: a,\n    activePdfKey: a.binaryKey,          // kept for backwards compatibility with downstream\n    extractType: a.extractType,\n    filename: a.filename,\n    mimeType: a.mimeType,\n    storagePath: `email-attachments/${emailId}/${Date.now()}-${a.filename.replace(/[^\\w.\\-]/g, '_')}`,\n  },\n  binary: parent.binary,\n}));\n"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "75c014ed-6ec5-4744-b3fb-79e08495aae1",
+              "leftValue": "={{ $('Attachment Handling').item.json.attachmentExists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3664,
+        2416
+      ],
+      "id": "abd8b8d3-c2e6-4e4c-b59b-1dfe410d11ab",
+      "name": "Has Attachments?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fan out: one item per doc attachment, keeping email_id for linking.\n// Only reached when 'Has Attachments?' is true, so the list is non-empty.\nconst parent = $input.first();\nconst emailId = $('Insert Email Row').item.json.id;\nconst meta = $('Attachment Handling').item.json;\nconst attachments = meta.attachments || [];\n\nreturn attachments.map(a => ({\n  json: {\n    email_id: emailId,\n    activeAttachment: a,\n    activePdfKey: a.binaryKey,\n    extractType: a.extractType,\n    filename: a.filename,\n    mimeType: a.mimeType,\n    storagePath: `email-attachments/${emailId}/${Date.now()}-${a.filename.replace(/[^\\w.\\-]/g, '_')}`,\n  },\n  binary: parent.binary,\n}));\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3728,
-        2416
+        3840,
+        2336
       ],
-      "id": "daa55069-b9f0-4a52-95ac-5b9ec2ca0642",
+      "id": "3bdc7ef2-05c1-4162-a5fa-0088a9e65f79",
       "name": "Split Attachments"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL || 'https://oxkshjaombffbdemqrqb.supabase.co' }}/storage/v1/object/pdfs/{{ $json.storagePath }}",
+        "url": "=https://oxkshjaombffbdemqrqb.supabase.co/storage/v1/object/pdfs/{{ $json.storagePath }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -2355,24 +2390,23 @@
             }
           ]
         },
-        "sendBinaryData": true,
-        "binaryPropertyName": "={{ $json.activePdfKey }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "={{ $json.activePdfKey }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3952,
-        2416
+        4064,
+        2336
       ],
-      "id": "97bceb9b-9946-446e-b1c3-397769cc8c70",
+      "id": "9841c7c6-a4f7-4276-934b-383b93d59460",
       "name": "Upload to Storage",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REPLACE_WITH_HEADER_AUTH_CRED_ID",
-          "name": "Supabase Storage (anon)"
+          "id": "bRvSu0VlQdvQ5ZVg",
+          "name": "lbh supabas"
         }
       }
     },
@@ -2403,15 +2437,15 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        4176,
-        2416
+        4288,
+        2336
       ],
-      "id": "2fe9b863-7e54-4502-acfb-5ee93729158b",
+      "id": "8031e15a-42df-4e57-8d75-b9ba3948c69c",
       "name": "Insert email_attachments row",
       "credentials": {
         "supabaseApi": {
-          "id": "REPLACE_WITH_YOUR_SUPABASE_CRED_ID",
-          "name": "Supabase account"
+          "id": "VA7km8hKLFMCwCFf",
+          "name": "Tim supabse"
         }
       }
     },
@@ -2425,7 +2459,7 @@
         4624,
         2416
       ],
-      "id": "94f787f9-57b7-413c-a5bf-8d29a1313a0b",
+      "id": "1b56744e-3240-4401-9622-82ea5879d689",
       "name": "Pre-filter (deterministic)"
     },
     {
@@ -2438,7 +2472,7 @@
           },
           "conditions": [
             {
-              "id": "562fe634-4137-46c9-a804-958d7909a775",
+              "id": "abd2f954-9ce2-454b-8798-e6b8606fa27d",
               "leftValue": "={{ $json.passed }}",
               "rightValue": "",
               "operator": {
@@ -2458,7 +2492,7 @@
         4848,
         2416
       ],
-      "id": "bda1d576-eb4a-4c5c-b1cc-c772c4394ec4",
+      "id": "c706763f-151b-4ff2-b34a-aafabe0bf568",
       "name": "Pre-filter Passed?"
     },
     {
@@ -2495,12 +2529,12 @@
         4848,
         2616
       ],
-      "id": "5aa67132-b22d-47f3-b911-900b24e832f3",
+      "id": "c213030f-bc32-484b-b4c4-947acacaf7ee",
       "name": "Mark Out of Scope",
       "credentials": {
         "supabaseApi": {
-          "id": "REPLACE_WITH_YOUR_SUPABASE_CRED_ID",
-          "name": "Supabase account"
+          "id": "VA7km8hKLFMCwCFf",
+          "name": "Tim supabse"
         }
       }
     },
@@ -2546,12 +2580,12 @@
         5200,
         2416
       ],
-      "id": "f39af937-9922-4016-8970-bb9537cf791e",
+      "id": "9c306fb7-9c75-4c79-9546-7463e7597fd9",
       "name": "Save Classification",
       "credentials": {
         "supabaseApi": {
-          "id": "REPLACE_WITH_YOUR_SUPABASE_CRED_ID",
-          "name": "Supabase account"
+          "id": "VA7km8hKLFMCwCFf",
+          "name": "Tim supabse"
         }
       }
     },
@@ -2574,7 +2608,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "2ed4a5b7-3806-411a-8491-18acdf153b5c"
+                    "id": "b4dacb0d-9f94-44e7-9dcd-e22bb6a3ceec"
                   }
                 ],
                 "combinator": "and"
@@ -2596,7 +2630,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "8667d41f-e013-48e9-91eb-f1b60cc19f74"
+                    "id": "2269e0a0-a622-4ca2-a725-37cfe29eb993"
                   }
                 ],
                 "combinator": "and"
@@ -2618,7 +2652,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "d9d5099c-dbce-410b-868e-802b8e30dc81"
+                    "id": "b6088b22-1bc2-4937-a529-2a56ceef5468"
                   }
                 ],
                 "combinator": "and"
@@ -2640,7 +2674,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "56c0c728-62ac-4360-a5e9-d01f54494f2a"
+                    "id": "1eb30719-6c26-4c50-931d-ef4a22b02101"
                   }
                 ],
                 "combinator": "and"
@@ -2659,7 +2693,7 @@
         3952,
         2136
       ],
-      "id": "45a0edf4-822e-4b0c-b488-9ae545e8aa6b",
+      "id": "f766887a-22f6-4666-8b0f-55b787c0527b",
       "name": "Route by File Type"
     },
     {
@@ -2674,7 +2708,7 @@
         4176,
         2086
       ],
-      "id": "161fed19-0443-460b-b88c-8e524322da48",
+      "id": "6020f0b1-3ce1-4632-a8ff-964785bb9580",
       "name": "Extract XLSX"
     },
     {
@@ -2689,7 +2723,7 @@
         4176,
         2236
       ],
-      "id": "b4c70769-0162-4547-98ff-8d44006cf7d3",
+      "id": "39e3d2d4-0c81-4ee6-a18d-2804d5a8e7d6",
       "name": "Extract CSV"
     },
     {
@@ -2704,7 +2738,7 @@
         4176,
         2386
       ],
-      "id": "9d817d78-62fc-4641-b51c-9c9f7885eae7",
+      "id": "65f2a324-ebb3-46a7-9f98-abc355fc1671",
       "name": "Extract Text"
     }
   ],
@@ -3857,7 +3891,25 @@
       "main": [
         [
           {
+            "node": "Has Attachments?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Attachments?": {
+      "main": [
+        [
+          {
             "node": "Split Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has PDF?",
             "type": "main",
             "index": 0
           }

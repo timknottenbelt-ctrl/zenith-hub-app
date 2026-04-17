@@ -238,7 +238,7 @@ def node_insert_email_row(pos: list[int]) -> dict:
         "name": "Insert Email Row",
         "credentials": {
             # User must already have this credential — same one the other Supabase nodes use
-            "supabaseApi": {"id": "REPLACE_WITH_YOUR_SUPABASE_CRED_ID", "name": "Supabase account"}
+            "supabaseApi": {"id": "VA7km8hKLFMCwCFf", "name": "Tim supabse"}
         },
     }
 
@@ -246,21 +246,17 @@ def node_insert_email_row(pos: list[int]) -> dict:
 def node_split_attachments(pos: list[int]) -> dict:
     """Fan out one item per attachment so we can upload each to Storage."""
     code = r"""// Fan out: one item per doc attachment, keeping email_id for linking.
+// Only reached when 'Has Attachments?' is true, so the list is non-empty.
 const parent = $input.first();
-const emailId = parent.json.id; // id returned by 'Insert Email Row'
-const meta = $('Attachment Handling').first().json;
+const emailId = $('Insert Email Row').item.json.id;
+const meta = $('Attachment Handling').item.json;
 const attachments = meta.attachments || [];
-
-if (attachments.length === 0) {
-  return [{ json: { ...meta, email_id: emailId, noAttachments: true } }];
-}
 
 return attachments.map(a => ({
   json: {
-    ...meta,
     email_id: emailId,
     activeAttachment: a,
-    activePdfKey: a.binaryKey,          // kept for backwards compatibility with downstream
+    activePdfKey: a.binaryKey,
     extractType: a.extractType,
     filename: a.filename,
     mimeType: a.mimeType,
@@ -280,13 +276,17 @@ return attachments.map(a => ({
 
 
 def node_upload_to_storage(pos: list[int]) -> dict:
-    """HTTP upload to Supabase Storage. Uses the anon key — the 'pdfs' bucket
-    has a public INSERT policy, so this works without a service role.
+    """HTTP upload to Supabase Storage via the Storage REST API.
+    URL hardcoded — the previous $env.SUPABASE_URL fallback produced
+    'undefined' when the env var wasn't set. Body is sent as binary from
+    the attachment key that Split Attachments fanned out per file.
     """
     return {
         "parameters": {
             "method": "POST",
-            "url": f"={{{{ $env.SUPABASE_URL || '{SUPABASE_URL}' }}}}/storage/v1/object/pdfs/{{{{ $json.storagePath }}}}",
+            "url": f"={SUPABASE_URL}/storage/v1/object/pdfs/{{{{ $json.storagePath }}}}",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
             "sendHeaders": True,
             "headerParameters": {
                 "parameters": [
@@ -294,10 +294,9 @@ def node_upload_to_storage(pos: list[int]) -> dict:
                     {"name": "x-upsert", "value": "true"},
                 ]
             },
-            "sendBinaryData": True,
-            "binaryPropertyName": "={{ $json.activePdfKey }}",
-            "authentication": "genericCredentialType",
-            "genericAuthType": "httpHeaderAuth",
+            "sendBody": True,
+            "contentType": "binaryData",
+            "inputDataFieldName": "={{ $json.activePdfKey }}",
             "options": {},
         },
         "type": "n8n-nodes-base.httpRequest",
@@ -306,10 +305,34 @@ def node_upload_to_storage(pos: list[int]) -> dict:
         "id": nid(),
         "name": "Upload to Storage",
         "credentials": {
-            # User must create an HTTP Header Auth credential named 'Supabase Storage (anon)'
-            # with header: Authorization = Bearer <anon key>, and also apikey = <anon key>
-            "httpHeaderAuth": {"id": "REPLACE_WITH_HEADER_AUTH_CRED_ID", "name": "Supabase Storage (anon)"}
+            "httpHeaderAuth": {"id": "bRvSu0VlQdvQ5ZVg", "name": "lbh supabas"}
         },
+    }
+
+
+def node_has_attachments_if(pos: list[int]) -> dict:
+    """IF gate: only go through the upload chain when there are actual
+    attachments. No-attachment emails bypass Split/Upload/Insert and flow
+    straight to Has PDF? (which also flows to data setter for classification)."""
+    return {
+        "parameters": {
+            "conditions": {
+                "options": {"caseSensitive": True, "typeValidation": "strict", "version": 2},
+                "conditions": [{
+                    "id": nid(),
+                    "leftValue": "={{ $('Attachment Handling').item.json.attachmentExists }}",
+                    "rightValue": "",
+                    "operator": {"type": "boolean", "operation": "true", "singleValue": True},
+                }],
+                "combinator": "and",
+            },
+            "options": {},
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": pos,
+        "id": nid(),
+        "name": "Has Attachments?",
     }
 
 
@@ -332,7 +355,7 @@ def node_insert_attachment_row(pos: list[int]) -> dict:
         "id": nid(),
         "name": "Insert email_attachments row",
         "credentials": {
-            "supabaseApi": {"id": "REPLACE_WITH_YOUR_SUPABASE_CRED_ID", "name": "Supabase account"}
+            "supabaseApi": {"id": "VA7km8hKLFMCwCFf", "name": "Tim supabse"}
         },
     }
 
@@ -544,7 +567,7 @@ def node_update_out_of_scope(pos: list[int]) -> dict:
         "id": nid(),
         "name": "Mark Out of Scope",
         "credentials": {
-            "supabaseApi": {"id": "REPLACE_WITH_YOUR_SUPABASE_CRED_ID", "name": "Supabase account"}
+            "supabaseApi": {"id": "VA7km8hKLFMCwCFf", "name": "Tim supabse"}
         },
     }
 
@@ -576,7 +599,7 @@ def node_update_classification(pos: list[int]) -> dict:
         "id": nid(),
         "name": "Save Classification",
         "credentials": {
-            "supabaseApi": {"id": "REPLACE_WITH_YOUR_SUPABASE_CRED_ID", "name": "Supabase account"}
+            "supabaseApi": {"id": "VA7km8hKLFMCwCFf", "name": "Tim supabse"}
         },
     }
 
@@ -715,16 +738,25 @@ def main() -> int:
     ax = find_node(wf["nodes"], "Attachment Handling")["position"]
     ox, oy = ax[0], ax[1]
     insert_email = node_insert_email_row([ox + 224, oy])
-    split_att = node_split_attachments([ox + 448, oy])
-    upload = node_upload_to_storage([ox + 672, oy])
-    insert_att = node_insert_attachment_row([ox + 896, oy])
+    has_att = node_has_attachments_if([ox + 384, oy])
+    split_att = node_split_attachments([ox + 560, oy - 80])
+    upload = node_upload_to_storage([ox + 784, oy - 80])
+    insert_att = node_insert_attachment_row([ox + 1008, oy - 80])
 
-    wf["nodes"].extend([insert_email, split_att, upload, insert_att])
+    wf["nodes"].extend([insert_email, has_att, split_att, upload, insert_att])
 
-    # Wire them
+    # Wire them:
+    #   Attachment Handling
+    #     → Insert Email Row
+    #     → Has Attachments?
+    #          true  → Split → Upload → Insert attachment row ─┐
+    #          false ─────────────────────────────────────────┤
+    #                                                          → Has PDF? (existing)
     disconnect(wf["connections"], "Attachment Handling", "Has PDF?")
     connect(wf["connections"], "Attachment Handling", "Insert Email Row")
-    connect(wf["connections"], "Insert Email Row", "Split Attachments")
+    connect(wf["connections"], "Insert Email Row", "Has Attachments?")
+    connect(wf["connections"], "Has Attachments?", "Split Attachments", src_idx=0)
+    connect(wf["connections"], "Has Attachments?", "Has PDF?", src_idx=1)
     connect(wf["connections"], "Split Attachments", "Upload to Storage")
     connect(wf["connections"], "Upload to Storage", "Insert email_attachments row")
     connect(wf["connections"], "Insert email_attachments row", "Has PDF?")
