@@ -144,7 +144,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "={{ $('data setter').first().json.text }}",
+        "text": "={{ $json.body }}",
         "hasOutputParser": true,
         "options": {
           "systemMessage": "=You are a maritime data extraction specialist for LBH Curaçao shipping agency.\n\nExtract vessel and cargo information from shipping inquiry emails into structured JSON format.\n\nCRITICAL: If the email mentions MULTIPLE vessels, you MUST create a SEPARATE object for EACH vessel in the vessels array.\n\n---\n\nWHAT TO EXTRACT:\n\nVESSEL:\n- name: Vessel name (or \"TBN\" if to be named)\n- imo: IMO number (string or null)\n- grt: Gross tonnage (number only, no commas)\n- dwt: Deadweight tonnage (number only)\n- loa: Length overall in meters (number only)\n- beam: Beam in meters (number only)\n- draft: Draft in meters (number only)\n- flag: Vessel flag state (string or null)\n\nCARGO:\n- operation_type: MUST be exactly one of: \"Loading\", \"Discharge\", \"STS\", \"Bunkering\" (or null)\n- cargo_type: Full cargo description (e.g., \"Bitumen grade 80/100 heated\")\n- quantity: Cargo quantity in MT (number only, no commas)\n\nPORT:\n- port: Port name (e.g., \"Curaçao\")\n- country: Country name\n- terminal: Terminal name mentioned by client (extract even if wrong)\n\nCONTACT:\n- email: Contact email address\n- name: Contact person name\n- company: Company name\n\nOTHER:\n- eta: Estimated time of arrival (if mentioned)\n- special_requirements: Any special requirements\n- notes: Additional important information\n\n---\n\nCRITICAL RULES:\n\n1. MULTIPLE VESSELS:\n   - Look for markers like \"Vessel 1\", \"Vessel 2\", \"First vessel\", \"Second vessel\"\n   - Look for multiple vessel names (e.g., \"MV Ocean King\" and \"MV Ocean Queen\")\n   - Look for multiple sets of vessel particulars (LOA, GRT, DWT repeated)\n   - Each vessel MUST get its own separate object in the vessels array\n   - Do NOT combine multiple vessels into one object\n   - If client asks for \"two vessels\" or \"separate EPDAs\", expect 2+ vessels\n\n2. NUMBERS ONLY:\n   - grt: 28500 (NOT \"28,500\" or \"approx. 28,500\")\n   - loa: 210 (NOT \"210.0 m\" or \"210m\")\n   - quantity: 20000 (NOT \"20,000 MT\")\n\n3. OPERATION TYPE:\n   - MUST be exactly: \"Loading\", \"Discharge\", \"STS\", or \"Bunkering\"\n   - If email says \"load\" → use \"Loading\"\n   - If email says \"discharge\" → use \"Discharge\"\n\n4. NULL VALUES:\n   - Use null (not \"Not found\", not empty string) for missing data\n   - Exception: vessel.name cannot be null (use \"TBN\" if unknown)\n\n5. SHARED INFORMATION:\n   - If contact info is the same for all vessels, repeat it for each vessel\n   - If port/terminal is the same, repeat it for each vessel\n   - Each vessel object must be COMPLETE and standalone\n\n6. TERMINAL:\n   - Extract exactly what client mentions (even if incorrect)\n   - System will correct it later based on cargo type\n\n---\n\nEXAMPLES:\n\nExample 1 - Single Vessel:\n{\n  \"vessels\": [\n    {\n      \"vessel\": {\"name\": \"MV Ocean King\", \"loa\": 210, \"grt\": 28500, ...},\n      \"cargo\": {\"operation_type\": \"Loading\", \"cargo_type\": \"Bitumen\", \"quantity\": 20000},\n      \"port\": {\"port\": \"Curaçao\", \"country\": \"Curaçao\", \"terminal\": null},\n      \"contact\": {\"email\": \"test@example.com\", \"name\": \"John\", \"company\": \"ABC\"},\n      \"other\": {\"eta\": null, \"special_requirements\": null, \"notes\": null}\n    }\n  ]\n}\n\nExample 2 - Multiple Vessels:\n{\n  \"vessels\": [\n    {\n      \"vessel\": {\"name\": \"MV Ocean King\", \"loa\": 210, \"grt\": 28500, \"dwt\": 42000, ...},\n      \"cargo\": {\"operation_type\": \"Loading\", \"cargo_type\": \"Bitumen grade 80/100\", \"quantity\": 20000},\n      \"port\": {\"port\": \"Curaçao\", \"country\": \"Curaçao\", \"terminal\": \"Bullen Bay\"},\n      \"contact\": {\"email\": \"test@example.com\", \"name\": \"Camila\", \"company\": \"Pacific Shipping\"},\n      \"other\": {\"eta\": null, \"special_requirements\": \"Heating required\", \"notes\": \"First vessel\"}\n    },\n    {\n      \"vessel\": {\"name\": \"MV Ocean Queen\", \"loa\": 205, \"grt\": 26800, \"dwt\": 39000, ...},\n      \"cargo\": {\"operation_type\": \"Loading\", \"cargo_type\": \"Bitumen grade 60/70\", \"quantity\": 18000},\n      \"port\": {\"port\": \"Curaçao\", \"country\": \"Curaçao\", \"terminal\": \"Bullen Bay\"},\n      \"contact\": {\"email\": \"test@example.com\", \"name\": \"Camila\", \"company\": \"Pacific Shipping\"},\n      \"other\": {\"eta\": null, \"special_requirements\": \"Heating required\", \"notes\": \"Second vessel\"}\n    }\n  ]\n}\n\n---\n\nDETECTION HINTS FOR MULTIPLE VESSELS:\n\nIf you see ANY of these patterns, there are multiple vessels:\n- \"Vessel 1\" and \"Vessel 2\"\n- Two different vessel names mentioned\n- Two sets of LOA/GRT/DWT numbers\n- \"First vessel\" / \"Second vessel\"\n- \"Both vessels\" or \"two vessels\"\n- \"Separate EPDAs\" or \"separate PDAs\"\n- Multiple IMO numbers\n- Text structured like:\n```\n  Vessel 1\n  Name: ...\n  LOA: ...\n  \n  Vessel 2\n  Name: ...\n  LOA: ...\n```\n\n---\n\nOUTPUT: Return ONLY valid JSON matching the schema. No explanations. No preamble."
@@ -365,7 +365,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Extract information from this email:\n\n{{ $('data setter').first().json.text }}\n\nReturn as JSON.",
+        "text": "=Extract information from this email:\n\n{{ $json.body }}\n\nReturn as JSON.",
         "hasOutputParser": true,
         "options": {
           "systemMessage": "You are a data extraction specialist for LBH Curaçao shipping agency.\n\n**YOUR TASK:** Extract vessel info, requested services, and questions from the email.\n\n**EXTRACT:**\n\n1. **Vessel Information:**\n   - vessel_name (or \"TBN\" if not mentioned)\n   - imo (if mentioned, otherwise null)\n   - flag (if mentioned, otherwise null)\n   - loa (in meters, if mentioned - only needed for bunkering, otherwise null)\n   - grt (if mentioned, otherwise null)\n\n2. **Port & ETA:**\n   - port (default \"Willemstad\" if Curaçao mentioned)\n   - eta (if mentioned, keep original format, otherwise null)\n\n3. **Requested Services** (check for these):\n   - Crew Change\n   - Spares Handling\n   - Medical Assistance\n   - Cash to Master\n   - Garbage Removal\n   - Fresh Water\n   - Provisions\n   - Launch Boat\n   - Bunkering\n   - Hotel Booking\n   - Airport Transfer\n   - General Questions\n\n4. **Questions Asked:**\n   - List any specific questions asked\n\n5. **Contact Info:**\n   - contact_name: the name of the SENDER of the email — look at how they sign off their own message, or how they introduce themselves in the body. This is the person who sent the inquiry TO LBH Curaçao.\n   - company_name: the company of the SENDER — look in the email header, body, or sender signature block.\n\n**RULES:**\n- If vessel name not mentioned, use \"TBN\"\n- If port not mentioned but Curaçao implied, use \"Willemstad\"\n- Extract ALL services mentioned\n- Extract ALL questions asked\n- NEVER use \"LBH Curacao\", \"LBH Curaçao\", or any variation as company_name — that is the recipient, not the sender\n- NEVER use names of LBH staff (such as \"Nagib de Rooy\") as contact_name — those appear in LBH reply signatures and are NOT the client\n- The contact is always the person who SENT the email to LBH, not LBH itself\n- If the sender's name cannot be determined with confidence, use null\n\n**CRITICAL OUTPUT RULES:**\n- vessel_name, imo, flag, loa, grt → GO INSIDE \"vessel\" object\n- port → separate field\n- eta → separate field\n- services → \"services_requested\" array\n- questions → \"questions\" array\n- contact_name, company_name → GO INSIDE \"contact\" object\n\n**EXAMPLE OUTPUT:**\n{\n  \"vessel\": {\n    \"name\": \"MV Evergreen\",\n    \"imo\": \"9261111\",\n    \"flag\": \"US\",\n    \"loa\": null,\n    \"grt\": null\n  },\n  \"port\": \"Willemstad\",\n  \"eta\": \"22 September 2025\",\n  \"services_requested\": [\"Crew Change\", \"Hotel Booking\"],\n  \"questions\": [\"What are visa requirements?\"],\n  \"contact\": {\n    \"name\": \"Henrik Johansson\",\n    \"company\": \"Northern Star Maritime\"\n  }\n}\n\nOUTPUT ONLY VALID JSON. NO MARKDOWN. NO BACKTICKS. NO EXPLANATIONS."
@@ -1560,7 +1560,7 @@
         3280,
         2416
       ],
-      "id": "0c5a9b5d-1afc-4cf8-b5f1-4e9f1f96225d",
+      "id": "622d0e6f-4aeb-4a4d-891b-9943205a1bf8",
       "name": "Attachment Handling"
     },
     {
@@ -2316,7 +2316,7 @@
         3504,
         2416
       ],
-      "id": "372ea71c-9c38-4eba-9a49-e20524cabb32",
+      "id": "a3faf1c0-091e-48c9-b029-4e1fc00d1952",
       "name": "Insert Email Row",
       "credentials": {
         "supabaseApi": {
@@ -2335,7 +2335,7 @@
           },
           "conditions": [
             {
-              "id": "5ed5b417-8b5f-456e-819c-b9e49af60a2c",
+              "id": "edf2ad37-6db5-4b4d-a190-444859a28a2a",
               "leftValue": "={{ $('Attachment Handling').first().json.attachmentExists }}",
               "rightValue": "",
               "operator": {
@@ -2355,7 +2355,7 @@
         3664,
         2416
       ],
-      "id": "6225265f-a8ea-492b-a23d-3771e0013493",
+      "id": "fc0677e5-2165-4553-86aa-15852bbb188f",
       "name": "Has Attachments?"
     },
     {
@@ -2368,7 +2368,7 @@
         3840,
         2336
       ],
-      "id": "a36332d5-8943-4434-ae73-550fe1add362",
+      "id": "ef1996df-ea14-4f77-b9fb-b3f501df19e0",
       "name": "Split Attachments"
     },
     {
@@ -2401,7 +2401,7 @@
         4064,
         2336
       ],
-      "id": "bee9b145-af83-4866-8419-c5f2dfc1bf3a",
+      "id": "87398203-0d35-4806-ba6b-7957b9eef4ac",
       "name": "Upload to Storage",
       "credentials": {
         "httpHeaderAuth": {
@@ -2440,7 +2440,7 @@
         4288,
         2336
       ],
-      "id": "da8f4f1e-0b61-428f-9014-23016b301c4e",
+      "id": "e82e6488-3bdd-4712-8f54-9cf85334362a",
       "name": "Insert email_attachments row",
       "credentials": {
         "supabaseApi": {
@@ -2459,7 +2459,7 @@
         4624,
         2416
       ],
-      "id": "bb2761f3-1abb-43e1-ab09-d957c665db22",
+      "id": "bee72bfc-7e1f-4732-813f-77670ec16439",
       "name": "Pre-filter (deterministic)"
     },
     {
@@ -2472,7 +2472,7 @@
           },
           "conditions": [
             {
-              "id": "f0d1ba4e-c016-43d2-8e52-a4ab39092617",
+              "id": "1a4f882a-74ba-4e0c-9b8c-0f67a80a5960",
               "leftValue": "={{ $json.passed }}",
               "rightValue": "",
               "operator": {
@@ -2492,7 +2492,7 @@
         4848,
         2416
       ],
-      "id": "f25c0e8b-5f42-4c38-8fa6-b3c2983145ac",
+      "id": "6b6412a2-62be-42ee-938f-d8b5650e4772",
       "name": "Pre-filter Passed?"
     },
     {
@@ -2529,7 +2529,7 @@
         4848,
         2616
       ],
-      "id": "83e57c44-0a9e-46b8-a9e1-2e0fd518fcea",
+      "id": "854c6ac9-6acc-4e91-ab4e-212864f039c7",
       "name": "Mark Out of Scope",
       "credentials": {
         "supabaseApi": {
@@ -2580,7 +2580,7 @@
         5200,
         2416
       ],
-      "id": "c3558df9-79eb-45a5-9595-bf575b79c005",
+      "id": "f1f4820f-588a-4cdf-ad91-ae9de5672029",
       "name": "Save Classification",
       "credentials": {
         "supabaseApi": {
@@ -2608,7 +2608,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "df9680e5-38fc-4a2c-a25c-50d8fca2cdb2"
+                    "id": "98da5538-a950-410c-bb64-209227957731"
                   }
                 ],
                 "combinator": "and"
@@ -2630,7 +2630,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "c6df6cc6-c27d-431f-8012-b55e4c4e94ea"
+                    "id": "8b4e3f62-20d6-4aa1-9f61-5cd379878d30"
                   }
                 ],
                 "combinator": "and"
@@ -2652,7 +2652,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "427958b0-ce4e-4faf-86fa-9d048f838975"
+                    "id": "b0eab9d6-75e0-40b8-b6c6-e03624d06a3b"
                   }
                 ],
                 "combinator": "and"
@@ -2674,7 +2674,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "d7e89794-92b8-4b5c-a438-e3371b5995fe"
+                    "id": "77ab2ec7-6140-4574-b438-149a46f5d720"
                   }
                 ],
                 "combinator": "and"
@@ -2693,7 +2693,7 @@
         3952,
         2136
       ],
-      "id": "d24805cd-94ad-4875-b97d-6f6b881fcba2",
+      "id": "82e3ef6f-d8a7-4509-913c-232e321f013f",
       "name": "Route by File Type"
     },
     {
@@ -2708,7 +2708,7 @@
         4176,
         2086
       ],
-      "id": "c602ec1b-409d-4911-9f6c-89bd214fe27a",
+      "id": "4c29ca42-2a1a-4427-a4ea-966740c7c83b",
       "name": "Extract XLSX"
     },
     {
@@ -2723,7 +2723,7 @@
         4176,
         2236
       ],
-      "id": "2e886483-857b-464f-9c30-d8eaacc4ccdc",
+      "id": "52bb9ebb-0835-4f4c-89ed-8d5a1cfe49f7",
       "name": "Extract CSV"
     },
     {
@@ -2738,7 +2738,7 @@
         4176,
         2386
       ],
-      "id": "d4e821f8-b5b7-4cc9-8fee-b805ea32d106",
+      "id": "1a4b393c-5bba-45b5-a648-b6715741b3b9",
       "name": "Extract Text"
     }
   ],
