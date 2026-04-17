@@ -673,7 +673,10 @@ def patch_classifier(wf: dict) -> None:
     """Update AI Agent1 system prompt and LLM response_format."""
     agent = find_node(wf["nodes"], "AI Agent1")
     agent["parameters"]["messages"]["messageValues"] = [{"message": CLASSIFIER_SYSTEM_PROMPT}]
-    agent["parameters"]["text"] = "=Email to classify:\n\n{{ $json.text }}"
+    # Pre-filter replaces $json with { passed: true }, so $json.text is gone
+    # by the time AI Agent1 runs. Reach back to 'data setter' — that's the
+    # last node that holds the combined email body + attachment text.
+    agent["parameters"]["text"] = "=Email to classify:\n\n{{ $('data setter').first().json.text }}"
 
     # Force JSON response from the LLM model node
     model = find_node(wf["nodes"], "OpenAI Chat Model3")
