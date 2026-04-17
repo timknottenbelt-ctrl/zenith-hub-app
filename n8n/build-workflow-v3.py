@@ -674,9 +674,12 @@ def patch_classifier(wf: dict) -> None:
     agent = find_node(wf["nodes"], "AI Agent1")
     agent["parameters"]["messages"]["messageValues"] = [{"message": CLASSIFIER_SYSTEM_PROMPT}]
     # Pre-filter replaces $json with { passed: true }, so $json.text is gone
-    # by the time AI Agent1 runs. Reach back to 'data setter' — that's the
-    # last node that holds the combined email body + attachment text.
-    agent["parameters"]["text"] = "=Email to classify:\n\n{{ $('data setter').first().json.text }}"
+    # by the time AI Agent1 runs. Reach back to 'Attachment Handling' — that
+    # is the single source of truth for the original email body. The
+    # PDF-extraction combiner still runs and enriches data setter, but using
+    # Attachment Handling directly guarantees a non-empty string even if
+    # data setter loses the text (as it did in v2.0).
+    agent["parameters"]["text"] = "=Email to classify:\n\n{{ $('Attachment Handling').first().json.text }}"
 
     # Force JSON response from the LLM model node
     model = find_node(wf["nodes"], "OpenAI Chat Model3")
@@ -714,6 +717,33 @@ if (parsed.confidence < 0.70 && parsed.status === 'processing') {
 
 return [{ json: { output: parsed } }];
 """
+
+
+def patch_data_setter_and_combiner(wf: dict) -> None:
+    """Fix the two v2.0 code nodes that produce the text AI Agent1 classifies.
+
+    v2.0 read from $('Has PDF?') or $input.first() — both of which are now
+    Supabase row responses (email row or attachment row) after my v3 inserts.
+    They don't have 'text'. Source of truth is 'Attachment Handling'."""
+    combiner = find_node(wf["nodes"], "Code in JavaScript4")
+    combiner["parameters"]["jsCode"] = r"""// Combine email body + extracted text from every attachment.
+// Email body is sourced from 'Attachment Handling' (original clean text),
+// not from the upstream Supabase row response which has no 'text' field.
+const emailText = $('Attachment Handling').first().json.text || '';
+const pdfTexts = $input.all().map(item => item.json.text || '').filter(t => t.length > 0);
+const combinedText = [emailText, ...pdfTexts].join('\n\n---PDF ATTACHMENT---\n\n');
+return [{ json: { text: combinedText } }];
+"""
+
+    ds = find_node(wf["nodes"], "data setter")
+    # Same fix for data setter: read text from Attachment Handling as fallback
+    # when the code path comes through Has PDF? false (no PDF combiner ran).
+    ds_code = ds["parameters"]["jsCode"]
+    ds_code = ds_code.replace(
+        "const rawText = $input.first().json.text || '';",
+        "const rawText = $input.first().json.text || $('Attachment Handling').first().json.text || '';",
+    )
+    ds["parameters"]["jsCode"] = ds_code
 
 
 def patch_switch(wf: dict) -> None:
@@ -811,6 +841,7 @@ def main() -> int:
     connect(wf["connections"], "Save Classification", "Switch")
 
     # 7. Classifier prompt + response_format + robust parser
+    patch_data_setter_and_combiner(wf)
     patch_classifier(wf)
     patch_classification_parser(wf)
     patch_switch(wf)

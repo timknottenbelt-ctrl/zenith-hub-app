@@ -1465,7 +1465,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Get email body text from Has PDF? node\nconst emailText = $('Has PDF?').first().json.text || '';\n\n// Get all PDF extracted texts from input (could be multiple PDFs)\nconst allItems = $input.all();\nconst pdfTexts = allItems.map(item => item.json.text || '').filter(t => t.length > 0);\n\n// Combine email body + all PDF texts\nconst combinedText = [emailText, ...pdfTexts].join('\\n\\n---PDF ATTACHMENT---\\n\\n');\n\nreturn [{\n  json: {\n    text: combinedText\n  }\n}];"
+        "jsCode": "// Combine email body + extracted text from every attachment.\n// Email body is sourced from 'Attachment Handling' (original clean text),\n// not from the upstream Supabase row response which has no 'text' field.\nconst emailText = $('Attachment Handling').first().json.text || '';\nconst pdfTexts = $input.all().map(item => item.json.text || '').filter(t => t.length > 0);\nconst combinedText = [emailText, ...pdfTexts].join('\\n\\n---PDF ATTACHMENT---\\n\\n');\nreturn [{ json: { text: combinedText } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1478,7 +1478,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rawText = $input.first().json.text || '';\n\n// Split email body en PDF bijlagen\nconst parts = rawText.split('---PDF ATTACHMENT---');\nlet emailBody = parts[0].trim();\nconst pdfParts = parts.slice(1).map(p => p.trim()).filter(p => p.length > 0);\n\n// Remove reply chains - cut at first reply marker\nconst replyMarkers = [\n    /^_{5,}/m,\n    /^-{5,}/m,\n    /^From:.*\\nSent:/m,\n    /^Op.*schreef.*:/m,\n    /^On.*wrote:/m,\n    /^-----Original Message-----/m,\n    /^Get Outlook for/m,\n    /This email is intended exclusively/m,\n    /Disclaimer:/m,\n];\n\nfor (const marker of replyMarkers) {\n    const match = emailBody.search(marker);\n    if (match > 80) {\n        emailBody = emailBody.substring(0, match).trim();\n        break;\n    }\n}\n\n// Remove excessive whitespace\nemailBody = emailBody.replace(/\\n{3,}/g, '\\n\\n').trim();\n\n// Get metadata from Attachment Handling\nconst meta = $('Attachment Handling').first().json;\nconst subject = meta.subject || 'Geen onderwerp';\nconst from = meta.from || 'Onbekend';\nconst fromName = meta.fromName || '';\nconst date = meta.date ? new Date(meta.date).toLocaleString('nl-NL', { timeZone: 'America/Curacao' }) : 'Onbekend';\n\n// Build clean formatted version for dashboard display\nlet formatted = '';\nformatted += 'Van:       ' + (fromName ? fromName + ' <' + from + '>' : from) + '\\n';\nformatted += 'Onderwerp: ' + subject + '\\n';\nformatted += 'Datum:     ' + date + '\\n';\nformatted += '───────────────────────────────────────\\n\\n';\nformatted += emailBody;\n\nif (pdfParts.length > 0) {\n    pdfParts.forEach((pdf, i) => {\n        const label = pdfParts.length > 1 ? ' ' + (i + 1) : '';\n        formatted += '\\n\\n── BIJLAGE' + label + ' ──\\n';\n        formatted += pdf;\n    });\n}\n\nfor (const item of $input.all()) {\n    item.json.text = rawText;\n    item.json.formatted_email = formatted;\n    item.json.myNewField = 1;\n}\n\nreturn $input.all();\n"
+        "jsCode": "const rawText = $input.first().json.text || $('Attachment Handling').first().json.text || '';\n\n// Split email body en PDF bijlagen\nconst parts = rawText.split('---PDF ATTACHMENT---');\nlet emailBody = parts[0].trim();\nconst pdfParts = parts.slice(1).map(p => p.trim()).filter(p => p.length > 0);\n\n// Remove reply chains - cut at first reply marker\nconst replyMarkers = [\n    /^_{5,}/m,\n    /^-{5,}/m,\n    /^From:.*\\nSent:/m,\n    /^Op.*schreef.*:/m,\n    /^On.*wrote:/m,\n    /^-----Original Message-----/m,\n    /^Get Outlook for/m,\n    /This email is intended exclusively/m,\n    /Disclaimer:/m,\n];\n\nfor (const marker of replyMarkers) {\n    const match = emailBody.search(marker);\n    if (match > 80) {\n        emailBody = emailBody.substring(0, match).trim();\n        break;\n    }\n}\n\n// Remove excessive whitespace\nemailBody = emailBody.replace(/\\n{3,}/g, '\\n\\n').trim();\n\n// Get metadata from Attachment Handling\nconst meta = $('Attachment Handling').first().json;\nconst subject = meta.subject || 'Geen onderwerp';\nconst from = meta.from || 'Onbekend';\nconst fromName = meta.fromName || '';\nconst date = meta.date ? new Date(meta.date).toLocaleString('nl-NL', { timeZone: 'America/Curacao' }) : 'Onbekend';\n\n// Build clean formatted version for dashboard display\nlet formatted = '';\nformatted += 'Van:       ' + (fromName ? fromName + ' <' + from + '>' : from) + '\\n';\nformatted += 'Onderwerp: ' + subject + '\\n';\nformatted += 'Datum:     ' + date + '\\n';\nformatted += '───────────────────────────────────────\\n\\n';\nformatted += emailBody;\n\nif (pdfParts.length > 0) {\n    pdfParts.forEach((pdf, i) => {\n        const label = pdfParts.length > 1 ? ' ' + (i + 1) : '';\n        formatted += '\\n\\n── BIJLAGE' + label + ' ──\\n';\n        formatted += pdf;\n    });\n}\n\nfor (const item of $input.all()) {\n    item.json.text = rawText;\n    item.json.formatted_email = formatted;\n    item.json.myNewField = 1;\n}\n\nreturn $input.all();\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1560,7 +1560,7 @@
         3280,
         2416
       ],
-      "id": "cd3ec6cc-4be3-4cb5-85db-c4fc7e4643ad",
+      "id": "6fd8c695-f16c-42ef-9043-c1e23ca551e7",
       "name": "Attachment Handling"
     },
     {
@@ -1858,7 +1858,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Email to classify:\n\n{{ $('data setter').first().json.text }}",
+        "text": "=Email to classify:\n\n{{ $('Attachment Handling').first().json.text }}",
         "messages": {
           "messageValues": [
             {
@@ -2316,7 +2316,7 @@
         3504,
         2416
       ],
-      "id": "4d837c40-07f7-4278-8a8c-95fc51e11ceb",
+      "id": "dfb6a62f-571b-484d-ae0e-fc95636c6d0e",
       "name": "Insert Email Row",
       "credentials": {
         "supabaseApi": {
@@ -2335,7 +2335,7 @@
           },
           "conditions": [
             {
-              "id": "bc6e8269-cecc-4ce3-a791-373551948389",
+              "id": "f7c8f1aa-6bd9-4840-9b75-695d8f588420",
               "leftValue": "={{ $('Attachment Handling').item.json.attachmentExists }}",
               "rightValue": "",
               "operator": {
@@ -2355,7 +2355,7 @@
         3664,
         2416
       ],
-      "id": "64185861-e094-4c9a-94e4-02736084bdc6",
+      "id": "d589bd8e-e607-46a5-88df-6c6b01c4f941",
       "name": "Has Attachments?"
     },
     {
@@ -2368,7 +2368,7 @@
         3840,
         2336
       ],
-      "id": "a85cb53b-22e5-46be-8b06-09e4be3b2c75",
+      "id": "9d5c4dfc-1e54-4989-b0a1-12a55dee74ec",
       "name": "Split Attachments"
     },
     {
@@ -2401,7 +2401,7 @@
         4064,
         2336
       ],
-      "id": "8ea3f0f3-8fb0-4f19-98e2-a6da42374d32",
+      "id": "81cc7960-131e-46de-877a-1c47a8a96186",
       "name": "Upload to Storage",
       "credentials": {
         "httpHeaderAuth": {
@@ -2440,7 +2440,7 @@
         4288,
         2336
       ],
-      "id": "d7fbc830-3dd5-4f72-8102-6e9ba6a88bf6",
+      "id": "7aed1785-d2a7-495c-8428-5210b2c026d6",
       "name": "Insert email_attachments row",
       "credentials": {
         "supabaseApi": {
@@ -2459,7 +2459,7 @@
         4624,
         2416
       ],
-      "id": "08525a85-be17-4097-b7d0-599cad602efc",
+      "id": "d5a84e96-104e-44dd-a978-f4d25ae398d8",
       "name": "Pre-filter (deterministic)"
     },
     {
@@ -2472,7 +2472,7 @@
           },
           "conditions": [
             {
-              "id": "cb11d526-d0f3-4e47-9a66-9695d9aea150",
+              "id": "7e979dd1-c287-4b3f-a444-36101fa34be5",
               "leftValue": "={{ $json.passed }}",
               "rightValue": "",
               "operator": {
@@ -2492,7 +2492,7 @@
         4848,
         2416
       ],
-      "id": "a83e2a0f-c879-4e0b-b5ea-c25361365b6c",
+      "id": "4818c222-caf5-4999-ad03-4a0a49b23db7",
       "name": "Pre-filter Passed?"
     },
     {
@@ -2529,7 +2529,7 @@
         4848,
         2616
       ],
-      "id": "6ab9a4c5-8630-467b-8033-394fa22ac681",
+      "id": "18d69dab-9a66-4922-98f3-1e836476bcf8",
       "name": "Mark Out of Scope",
       "credentials": {
         "supabaseApi": {
@@ -2580,7 +2580,7 @@
         5200,
         2416
       ],
-      "id": "81aa2eee-fa2c-4b0d-ba5b-3342be69e2eb",
+      "id": "f5004316-c766-42d1-8f03-00208cea7a87",
       "name": "Save Classification",
       "credentials": {
         "supabaseApi": {
@@ -2608,7 +2608,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "b01e4c79-f374-4f0f-ae70-828c4e28d00f"
+                    "id": "39812a90-29d7-43ab-bb7e-560f9c78e800"
                   }
                 ],
                 "combinator": "and"
@@ -2630,7 +2630,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "14718074-606b-4aaa-95b5-0bba15eb3430"
+                    "id": "3db6e135-b2de-4061-b509-13540a5bbff9"
                   }
                 ],
                 "combinator": "and"
@@ -2652,7 +2652,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "3a92e0d5-4691-49d1-9f7a-d6cd57ce2895"
+                    "id": "124cc871-4cc5-48c7-a7e5-06e1f994ed15"
                   }
                 ],
                 "combinator": "and"
@@ -2674,7 +2674,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "dea02922-db19-4dd7-b943-520b3c89f383"
+                    "id": "9a6b253a-fb78-4d16-8673-8d3309cbcdce"
                   }
                 ],
                 "combinator": "and"
@@ -2693,7 +2693,7 @@
         3952,
         2136
       ],
-      "id": "bb232c3e-366c-4bba-8ae1-8116e37f24ed",
+      "id": "e98e2996-cde4-45b0-91fe-dde34aa30b0b",
       "name": "Route by File Type"
     },
     {
@@ -2708,7 +2708,7 @@
         4176,
         2086
       ],
-      "id": "2907344e-818c-423d-aa1a-bb4b39bcc93c",
+      "id": "64e55213-66d1-49ca-97ea-482df48c1fcd",
       "name": "Extract XLSX"
     },
     {
@@ -2723,7 +2723,7 @@
         4176,
         2236
       ],
-      "id": "a3e7a821-0e66-4994-ae0a-aa38f492a7e1",
+      "id": "41611186-1a6f-47bc-b622-26510b140736",
       "name": "Extract CSV"
     },
     {
@@ -2738,7 +2738,7 @@
         4176,
         2386
       ],
-      "id": "a3682e76-f0b8-47a3-a314-29e8208a21b1",
+      "id": "848477f8-c395-43b9-a681-d0abbc961bfb",
       "name": "Extract Text"
     }
   ],
