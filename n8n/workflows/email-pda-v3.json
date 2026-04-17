@@ -1560,7 +1560,7 @@
         3280,
         2416
       ],
-      "id": "415f6586-7d53-4d6b-9f6e-0d498b61b736",
+      "id": "1b5a5f26-83bc-4214-a302-3b288d9df0c2",
       "name": "Attachment Handling"
     },
     {
@@ -2316,7 +2316,7 @@
         3504,
         2416
       ],
-      "id": "2b655a2e-d66d-4d40-b576-82a42ce5f9ba",
+      "id": "ad4107a4-b07d-4dbb-a446-396708c8d0e8",
       "name": "Insert Email Row",
       "credentials": {
         "supabaseApi": {
@@ -2335,7 +2335,7 @@
           },
           "conditions": [
             {
-              "id": "75c014ed-6ec5-4744-b3fb-79e08495aae1",
+              "id": "f142797a-c401-48df-a234-97e02905d3de",
               "leftValue": "={{ $('Attachment Handling').item.json.attachmentExists }}",
               "rightValue": "",
               "operator": {
@@ -2355,12 +2355,12 @@
         3664,
         2416
       ],
-      "id": "abd8b8d3-c2e6-4e4c-b59b-1dfe410d11ab",
+      "id": "eefc0869-8f4c-4e7c-a23b-e5f58c4a1c6d",
       "name": "Has Attachments?"
     },
     {
       "parameters": {
-        "jsCode": "// Fan out: one item per doc attachment, keeping email_id for linking.\n// Only reached when 'Has Attachments?' is true, so the list is non-empty.\nconst parent = $input.first();\nconst emailId = $('Insert Email Row').item.json.id;\nconst meta = $('Attachment Handling').item.json;\nconst attachments = meta.attachments || [];\n\nreturn attachments.map(a => ({\n  json: {\n    email_id: emailId,\n    activeAttachment: a,\n    activePdfKey: a.binaryKey,\n    extractType: a.extractType,\n    filename: a.filename,\n    mimeType: a.mimeType,\n    storagePath: `email-attachments/${emailId}/${Date.now()}-${a.filename.replace(/[^\\w.\\-]/g, '_')}`,\n  },\n  binary: parent.binary,\n}));\n"
+        "jsCode": "// Fan out: one item per doc attachment, keeping email_id for linking.\n// Only reached when 'Has Attachments?' is true, so the list is non-empty.\n//\n// Reach back to 'Attachment Handling' for the binary — the Supabase Insert\n// node strips binary data from its output, so $input.first() would give us\n// json-only and the Upload to Storage HTTP node would fail with\n// \"binary file 'attachment_X' not found\".\nconst parent = $('Attachment Handling').first();\nconst emailId = $('Insert Email Row').item.json.id;\nconst meta = $('Attachment Handling').item.json;\nconst attachments = meta.attachments || [];\n\nreturn attachments.map(a => ({\n  json: {\n    email_id: emailId,\n    activeAttachment: a,\n    activePdfKey: a.binaryKey,\n    extractType: a.extractType,\n    filename: a.filename,\n    mimeType: a.mimeType,\n    storagePath: `email-attachments/${emailId}/${Date.now()}-${a.filename.replace(/[^\\w.\\-]/g, '_')}`,\n  },\n  binary: parent.binary,\n}));\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -2368,7 +2368,7 @@
         3840,
         2336
       ],
-      "id": "3bdc7ef2-05c1-4162-a5fa-0088a9e65f79",
+      "id": "d1bfd00a-6c11-40c7-a7d1-51a9fe93e452",
       "name": "Split Attachments"
     },
     {
@@ -2401,7 +2401,7 @@
         4064,
         2336
       ],
-      "id": "9841c7c6-a4f7-4276-934b-383b93d59460",
+      "id": "df7a9c65-f7a1-4f2e-b92c-6a55d7f5de26",
       "name": "Upload to Storage",
       "credentials": {
         "httpHeaderAuth": {
@@ -2440,7 +2440,7 @@
         4288,
         2336
       ],
-      "id": "8031e15a-42df-4e57-8d75-b9ba3948c69c",
+      "id": "905aaeed-a93a-470a-8af9-edb5a82c8874",
       "name": "Insert email_attachments row",
       "credentials": {
         "supabaseApi": {
@@ -2459,7 +2459,7 @@
         4624,
         2416
       ],
-      "id": "1b56744e-3240-4401-9622-82ea5879d689",
+      "id": "b3e02c2c-1810-45ee-8127-5227026341ac",
       "name": "Pre-filter (deterministic)"
     },
     {
@@ -2472,7 +2472,7 @@
           },
           "conditions": [
             {
-              "id": "abd2f954-9ce2-454b-8798-e6b8606fa27d",
+              "id": "9d6a46b0-13fc-4817-a704-87d06fb6446b",
               "leftValue": "={{ $json.passed }}",
               "rightValue": "",
               "operator": {
@@ -2492,7 +2492,7 @@
         4848,
         2416
       ],
-      "id": "c706763f-151b-4ff2-b34a-aafabe0bf568",
+      "id": "84b009dd-ac37-4ef4-985d-76eaf17f3fc5",
       "name": "Pre-filter Passed?"
     },
     {
@@ -2529,7 +2529,7 @@
         4848,
         2616
       ],
-      "id": "c213030f-bc32-484b-b4c4-947acacaf7ee",
+      "id": "d7ff6ec2-d797-480b-9e14-3be6e255ce89",
       "name": "Mark Out of Scope",
       "credentials": {
         "supabaseApi": {
@@ -2580,7 +2580,7 @@
         5200,
         2416
       ],
-      "id": "9c306fb7-9c75-4c79-9546-7463e7597fd9",
+      "id": "1b3b128a-7129-4e81-bc25-149ef5c8f6d6",
       "name": "Save Classification",
       "credentials": {
         "supabaseApi": {
@@ -2608,7 +2608,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "b4dacb0d-9f94-44e7-9dcd-e22bb6a3ceec"
+                    "id": "8e487a34-d5ab-409b-a9c0-59d997a9a3a6"
                   }
                 ],
                 "combinator": "and"
@@ -2630,7 +2630,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "2269e0a0-a622-4ca2-a725-37cfe29eb993"
+                    "id": "e16b5949-7a54-42f2-92c5-9aee6f7ba3cb"
                   }
                 ],
                 "combinator": "and"
@@ -2652,7 +2652,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "b6088b22-1bc2-4937-a529-2a56ceef5468"
+                    "id": "d0b290cf-14ed-470a-8b6f-145ede5d3138"
                   }
                 ],
                 "combinator": "and"
@@ -2674,7 +2674,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "1eb30719-6c26-4c50-931d-ef4a22b02101"
+                    "id": "a32b3e22-dd7b-4eca-adbd-3fb326c45760"
                   }
                 ],
                 "combinator": "and"
@@ -2693,7 +2693,7 @@
         3952,
         2136
       ],
-      "id": "f766887a-22f6-4666-8b0f-55b787c0527b",
+      "id": "32371a8d-072f-42ff-b2c4-ab88c104519f",
       "name": "Route by File Type"
     },
     {
@@ -2708,7 +2708,7 @@
         4176,
         2086
       ],
-      "id": "6020f0b1-3ce1-4632-a8ff-964785bb9580",
+      "id": "2f4b74a5-9b5b-443c-9629-2aef3fb6c8da",
       "name": "Extract XLSX"
     },
     {
@@ -2723,7 +2723,7 @@
         4176,
         2236
       ],
-      "id": "39e3d2d4-0c81-4ee6-a18d-2804d5a8e7d6",
+      "id": "a6e6304b-33ee-4be2-b47f-db470ed15cc8",
       "name": "Extract CSV"
     },
     {
@@ -2738,7 +2738,7 @@
         4176,
         2386
       ],
-      "id": "65f2a324-ebb3-46a7-9f98-abc355fc1671",
+      "id": "c7821540-6d6b-4021-afde-2a46ba7a7bc2",
       "name": "Extract Text"
     }
   ],

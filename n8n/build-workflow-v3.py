@@ -247,7 +247,12 @@ def node_split_attachments(pos: list[int]) -> dict:
     """Fan out one item per attachment so we can upload each to Storage."""
     code = r"""// Fan out: one item per doc attachment, keeping email_id for linking.
 // Only reached when 'Has Attachments?' is true, so the list is non-empty.
-const parent = $input.first();
+//
+// Reach back to 'Attachment Handling' for the binary — the Supabase Insert
+// node strips binary data from its output, so $input.first() would give us
+// json-only and the Upload to Storage HTTP node would fail with
+// "binary file 'attachment_X' not found".
+const parent = $('Attachment Handling').first();
 const emailId = $('Insert Email Row').item.json.id;
 const meta = $('Attachment Handling').item.json;
 const attachments = meta.attachments || [];
