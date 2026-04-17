@@ -1560,7 +1560,7 @@
         3280,
         2416
       ],
-      "id": "549e89df-c2d8-48a1-b25c-8685ffe45b2e",
+      "id": "3041dccd-0612-454c-8d37-08fa212620b1",
       "name": "Attachment Handling"
     },
     {
@@ -2316,7 +2316,7 @@
         3504,
         2416
       ],
-      "id": "9d58063e-fa0e-47c5-a0d2-9d3750ab8a8c",
+      "id": "699a8e7b-83ca-4e1b-9998-40abf514a81c",
       "name": "Insert Email Row",
       "credentials": {
         "supabaseApi": {
@@ -2335,7 +2335,7 @@
           },
           "conditions": [
             {
-              "id": "fbdc7bcb-232b-4eb9-9b7f-fab850557b9e",
+              "id": "39467502-69c4-4f1c-a5fb-99e540ceb731",
               "leftValue": "={{ $('Attachment Handling').item.json.attachmentExists }}",
               "rightValue": "",
               "operator": {
@@ -2355,7 +2355,7 @@
         3664,
         2416
       ],
-      "id": "47f3e125-a875-4754-a649-37a18ac0e4f7",
+      "id": "1de93206-c196-475b-8ca7-88a38c7b0394",
       "name": "Has Attachments?"
     },
     {
@@ -2368,7 +2368,7 @@
         3840,
         2336
       ],
-      "id": "3ff6e235-cffb-489b-8282-c68bd2757c35",
+      "id": "e7dca68f-fbbd-4741-8004-ee76ab742268",
       "name": "Split Attachments"
     },
     {
@@ -2401,7 +2401,7 @@
         4064,
         2336
       ],
-      "id": "b7c41972-e72b-4117-9536-c3f2d7a9be16",
+      "id": "a93f171d-0707-419e-824b-aeadde99f7fd",
       "name": "Upload to Storage",
       "credentials": {
         "httpHeaderAuth": {
@@ -2417,19 +2417,19 @@
           "fieldValues": [
             {
               "fieldId": "email_id",
-              "fieldValue": "={{ $json.email_id }}"
+              "fieldValue": "={{ $('Split Attachments').item.json.email_id }}"
             },
             {
               "fieldId": "file_name",
-              "fieldValue": "={{ $json.filename }}"
+              "fieldValue": "={{ $('Split Attachments').item.json.filename }}"
             },
             {
               "fieldId": "file_path",
-              "fieldValue": "={{ $json.storagePath }}"
+              "fieldValue": "={{ $('Split Attachments').item.json.storagePath }}"
             },
             {
               "fieldId": "file_size",
-              "fieldValue": "={{ $json.activeAttachment?.size || null }}"
+              "fieldValue": "={{ $('Split Attachments').item.json.activeAttachment?.size || null }}"
             }
           ]
         }
@@ -2440,7 +2440,7 @@
         4288,
         2336
       ],
-      "id": "861a9e7b-70ff-4e3d-8951-9986e933a5e7",
+      "id": "515fc79e-6eb5-48fa-a6ba-848534d7bd6b",
       "name": "Insert email_attachments row",
       "credentials": {
         "supabaseApi": {
@@ -2459,7 +2459,7 @@
         4624,
         2416
       ],
-      "id": "0323783e-578d-48ae-869c-6ec7873312ce",
+      "id": "b1156624-e128-4ea5-91ab-16705f329d1e",
       "name": "Pre-filter (deterministic)"
     },
     {
@@ -2472,7 +2472,7 @@
           },
           "conditions": [
             {
-              "id": "7b915407-964f-48d9-bbdc-97487f00b4d7",
+              "id": "128bea50-889b-4d93-a059-e9ca71d8c157",
               "leftValue": "={{ $json.passed }}",
               "rightValue": "",
               "operator": {
@@ -2492,7 +2492,7 @@
         4848,
         2416
       ],
-      "id": "0d5bbeee-7062-42b2-b2cd-239ec35539c1",
+      "id": "0e96aca7-d56c-4568-b46a-974e259e9c7e",
       "name": "Pre-filter Passed?"
     },
     {
@@ -2529,7 +2529,7 @@
         4848,
         2616
       ],
-      "id": "96e18e40-6686-4f82-a9d2-42c034464148",
+      "id": "b312d79a-c7e3-4226-8016-7f16f94fb83f",
       "name": "Mark Out of Scope",
       "credentials": {
         "supabaseApi": {
@@ -2580,7 +2580,7 @@
         5200,
         2416
       ],
-      "id": "fb8b6e8b-a231-4195-9804-1b62472ba6dd",
+      "id": "60e9718b-4e93-4611-8400-4e42d8d012c2",
       "name": "Save Classification",
       "credentials": {
         "supabaseApi": {
@@ -2608,7 +2608,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "187a4817-ca71-4327-ba50-abb2489aa3f7"
+                    "id": "68c400d2-5ef7-43d1-9d3c-934ad0a8ec34"
                   }
                 ],
                 "combinator": "and"
@@ -2630,7 +2630,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "b5510fbc-9b10-4d56-a956-93f69cb13aa7"
+                    "id": "f5b55511-e410-4216-a227-0a0cd682079a"
                   }
                 ],
                 "combinator": "and"
@@ -2652,7 +2652,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "cdc8ee53-bf92-4dc0-842c-fb7296642037"
+                    "id": "deca2dbf-f009-4b7b-b86a-8daafc3bafb7"
                   }
                 ],
                 "combinator": "and"
@@ -2674,7 +2674,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "b749c0e4-fff8-4329-92c7-835bdf5a9e1c"
+                    "id": "d2c3afce-2467-4631-959c-b98cec5791aa"
                   }
                 ],
                 "combinator": "and"
@@ -2693,7 +2693,7 @@
         3952,
         2136
       ],
-      "id": "f66eecbf-6161-444f-b437-a160d2c0c504",
+      "id": "56dc5ff0-cf18-4bff-a7c5-1a02e99ac7b9",
       "name": "Route by File Type"
     },
     {
@@ -2708,7 +2708,7 @@
         4176,
         2086
       ],
-      "id": "b94e7a12-6c56-48d8-b56d-ddc1d2a0c581",
+      "id": "0eeaabab-0b84-48f7-874f-5831ddf6039d",
       "name": "Extract XLSX"
     },
     {
@@ -2723,7 +2723,7 @@
         4176,
         2236
       ],
-      "id": "9bfca847-1ba2-42f2-b8e5-5daafa59c338",
+      "id": "4d9e4623-c3f7-4061-85e0-a0d177a76da6",
       "name": "Extract CSV"
     },
     {
@@ -2738,7 +2738,7 @@
         4176,
         2386
       ],
-      "id": "a5a8bd32-51f0-4a82-8c2e-198b6b510f5c",
+      "id": "7f8aed3f-441b-416c-952d-4522bca512ca",
       "name": "Extract Text"
     }
   ],
