@@ -714,15 +714,15 @@ return [{ json: { output: parsed } }];
 
 
 def patch_switch(wf: dict) -> None:
-    """Switch routes by output.email_type — same as v2.0, but now status
-    has already been written to the email row so the downstream branches
-    can focus on their domain logic."""
+    """Switch routes by the email_type that Save Classification just wrote
+    to the 'Email Type' column. By the time Switch runs, $json is the
+    Supabase UPDATE response (the DB row), not the LLM output — so
+    $json.output.email_type would be undefined. Use bracket notation on
+    the column name since it contains a space."""
     sw = find_node(wf["nodes"], "Switch")
-    # keep existing rules — v2.0 already routes OWNERS_AGENT / LOADING_DISCHARGE / OUT_OF_SCOPE
-    # just ensure pointers are sane
     for rule in sw["parameters"]["rules"]["values"]:
         for cond in rule["conditions"]["conditions"]:
-            cond["leftValue"] = "={{ $json.output.email_type }}"
+            cond["leftValue"] = '={{ $json["Email Type"] }}'
 
 
 # -------------------------------------------------------------------
