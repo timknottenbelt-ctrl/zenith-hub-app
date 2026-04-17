@@ -874,6 +874,15 @@ def main() -> int:
     disconnect(wf["connections"], "Generate Quotation Email", "Classify Request Type")
     connect(wf["connections"], "Generate Quotation Email", "Store Owners Agent Email1")
 
+    # 9b. Has PDF? was reading $json.attachmentExists — that field does not
+    #     exist on the email row (what flows into Has PDF? via Insert Email
+    #     Row → Has Attachments? false OR Insert email_attachments row). So
+    #     the condition always evaluated to falsy and PDF extraction never
+    #     ran. Reach back to Attachment Handling where the field actually is.
+    has_pdf = find_node(wf["nodes"], "Has PDF?")
+    for cond in has_pdf["parameters"]["conditions"]["conditions"]:
+        cond["leftValue"] = "={{ $('Attachment Handling').first().json.attachmentExists }}"
+
     # 10. 'Store Owners Agent Email1' was an INSERT in v2.0 — that predates
     #     my v3 'Insert Email Row' which already creates the row. Turn this
     #     into an UPDATE on the same row (matched by id) so each OWNERS_AGENT
