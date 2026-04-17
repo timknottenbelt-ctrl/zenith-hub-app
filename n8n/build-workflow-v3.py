@@ -874,6 +874,24 @@ def main() -> int:
     disconnect(wf["connections"], "Generate Quotation Email", "Classify Request Type")
     connect(wf["connections"], "Generate Quotation Email", "Store Owners Agent Email1")
 
+    # Blanket rewrite: every $('NodeName').item.json -> $('NodeName').first().json
+    #
+    # n8n's paired-item tracker loses the link after any IF / merge / multi-
+    # hop chain — the error is "Paired item data for item from node X is
+    # unavailable". Since exactly one email flows through per workflow run,
+    # .first() is safe and equivalent, and avoids whack-a-mole on every
+    # downstream node that references an upstream one.
+    import re as _re
+    def _fix(obj):
+        if isinstance(obj, str):
+            return _re.sub(r"\$\('([^']+)'\)\.item\.json", r"$('\1').first().json", obj)
+        if isinstance(obj, dict):
+            return {k: _fix(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_fix(v) for v in obj]
+        return obj
+    wf["nodes"] = _fix(wf["nodes"])
+
     # Finally: workflow metadata
     wf["name"] = "Email - PDA - v3.0"
     wf.pop("pinData", None)
