@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,8 +11,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import {
   ArrowLeft,
   Mail,
-  Plus,
-  X,
   FileText,
   Download,
   Eye,
@@ -26,6 +23,8 @@ import {
 } from "lucide-react";
 import { useTransitionNavigate } from "@/hooks/useTransitionNavigate";
 import { WEBHOOKS, webhookPostJSON } from "@/lib/webhooks";
+import { toDownloadUrl } from "@/lib/pdf-utils";
+import { EmailRecipientsEditor } from "@/components/email/EmailRecipientsEditor";
 
 interface FDAProject {
   project_id: string;
@@ -60,31 +59,8 @@ interface ExtraAttachment {
   url: string;
 }
 
-// Webhook URL is now centralized in src/lib/webhooks.ts
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
-
-// Convert storage path to downloadable URL
-function getPublicPdfUrl(url: string | null): string | null {
-  if (!url) return null;
-
-  // If already a full URL, return as-is
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
-
-  // Signed URL path like /object/sign/... should stay signed (works for private buckets too)
-  if (url.startsWith("/object/sign/")) {
-    return encodeURI(`${SUPABASE_URL}/storage/v1${url}`);
-  }
-
-  // Public object path reference
-  if (url.includes("fda-final-packages/")) {
-    return encodeURI(`${SUPABASE_URL}/storage/v1/object/public/${url}`);
-  }
-
-  return url;
-}
+// Storage URL helpers are centralized in src/lib/pdf-utils.ts
+const getPublicPdfUrl = toDownloadUrl;
 
 export default function FDAEmailPreview() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -100,8 +76,6 @@ export default function FDAEmailPreview() {
   // Email form state
   const [toEmails, setToEmails] = useState<string[]>([]);
   const [ccEmails, setCcEmails] = useState<string[]>([]);
-  const [newToEmail, setNewToEmail] = useState("");
-  const [newCcEmail, setNewCcEmail] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [extraAttachments, setExtraAttachments] = useState<ExtraAttachment[]>([]);
@@ -279,67 +253,7 @@ export default function FDAEmailPreview() {
     };
   }, [fetchProjectAndDraft, projectId]);
 
-  // Email validation
-  function isValidEmail(email: string): boolean {
-    return EMAIL_REGEX.test(email.trim());
-  }
-
-  // Add TO email
-  function addToEmail() {
-    const email = newToEmail.trim();
-    if (!email) return;
-    if (!isValidEmail(email)) {
-      toast({ title: "Invalid email", description: "Please enter a valid email address", variant: "destructive" });
-      return;
-    }
-    if (toEmails.includes(email)) {
-      toast({ title: "Duplicate", description: "This email is already added", variant: "destructive" });
-      return;
-    }
-    setToEmails([...toEmails, email]);
-    setNewToEmail("");
-  }
-
-  // Remove TO email
-  function removeToEmail(index: number) {
-    setToEmails(toEmails.filter((_, i) => i !== index));
-  }
-
-  // Add CC email
-  function addCcEmail() {
-    const email = newCcEmail.trim();
-    if (!email) return;
-    if (!isValidEmail(email)) {
-      toast({ title: "Invalid email", description: "Please enter a valid email address", variant: "destructive" });
-      return;
-    }
-    if (ccEmails.includes(email)) {
-      toast({ title: "Duplicate", description: "This email is already added", variant: "destructive" });
-      return;
-    }
-    setCcEmails([...ccEmails, email]);
-    setNewCcEmail("");
-  }
-
-  // Remove CC email
-  function removeCcEmail(index: number) {
-    setCcEmails(ccEmails.filter((_, i) => i !== index));
-  }
-
-  // Handle keyboard for adding emails
-  function handleToKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addToEmail();
-    }
-  }
-
-  function handleCcKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addCcEmail();
-    }
-  }
+  // Recipient add/remove/validation is handled inside <EmailRecipientsEditor>.
 
   // Upload extra attachment
   async function handleUploadAttachment(e: React.ChangeEvent<HTMLInputElement>) {
@@ -555,68 +469,12 @@ export default function FDAEmailPreview() {
 
 
         {/* Recipients Section */}
-        <Card className="card-premium">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-sm font-medium">Recipients</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* TO Field */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">To</label>
-              <div className="flex flex-wrap gap-2 p-3 border rounded-lg min-h-[48px] bg-background">
-                {toEmails.map((email, index) => (
-                  <Badge key={index} variant="secondary" className="flex items-center gap-1 py-1 px-2">
-                    {email}
-                    <button type="button" onClick={() => removeToEmail(index)} className="ml-1 hover:text-destructive">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-                <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                  <Input
-                    type="email"
-                    placeholder="Add recipient..."
-                    value={newToEmail}
-                    onChange={(e) => setNewToEmail(e.target.value)}
-                    onKeyDown={handleToKeyDown}
-                    className="border-0 shadow-none focus-visible:ring-0 p-0 h-auto"
-                  />
-                  <Button type="button" variant="ghost" size="sm" onClick={addToEmail} disabled={!newToEmail.trim()}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* CC Field */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">CC</label>
-              <div className="flex flex-wrap gap-2 p-3 border rounded-lg min-h-[48px] bg-background">
-                {ccEmails.map((email, index) => (
-                  <Badge key={index} variant="outline" className="flex items-center gap-1 py-1 px-2">
-                    {email}
-                    <button type="button" onClick={() => removeCcEmail(index)} className="ml-1 hover:text-destructive">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-                <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                  <Input
-                    type="email"
-                    placeholder="Add CC recipient..."
-                    value={newCcEmail}
-                    onChange={(e) => setNewCcEmail(e.target.value)}
-                    onKeyDown={handleCcKeyDown}
-                    className="border-0 shadow-none focus-visible:ring-0 p-0 h-auto"
-                  />
-                  <Button type="button" variant="ghost" size="sm" onClick={addCcEmail} disabled={!newCcEmail.trim()}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <EmailRecipientsEditor
+          toEmails={toEmails}
+          onToChange={setToEmails}
+          ccEmails={ccEmails}
+          onCcChange={setCcEmails}
+        />
 
         {/* Subject Section */}
         <Card className="card-premium">

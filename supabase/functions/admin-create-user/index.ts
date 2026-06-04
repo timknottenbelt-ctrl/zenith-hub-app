@@ -8,12 +8,13 @@ const corsHeaders = {
 };
 
 interface CreateUserRequest {
-  action?: "create" | "delete";
+  action?: "create" | "delete" | "resend-invite";
   email: string;
   password?: string;
   name?: string;
   role?: "admin" | "user";
-  userId?: string; // For delete action
+  userId?: string;
+  redirectTo?: string;
 }
 
 serve(async (req: Request) => {
@@ -39,13 +40,11 @@ serve(async (req: Request) => {
       );
     }
 
-    console.log("admin-create-user: auth header ok; token length:", token.length);
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Validate the token (signing-keys compatible)
+    // Validate the token
     const authClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
       auth: {
@@ -66,7 +65,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // Use service role for authorization + user creation
+    // Use service role for admin operations
     const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         persistSession: false,
@@ -104,7 +103,6 @@ serve(async (req: Request) => {
         );
       }
 
-      // Prevent self-deletion
       if (userId === requestingUserId) {
         return new Response(
           JSON.stringify({ error: "Cannot delete yourself" }),
@@ -112,19 +110,9 @@ serve(async (req: Request) => {
         );
       }
 
-      // Delete from user_roles first (foreign key constraint)
-      await adminClient
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userId);
+      await adminClient.from("user_roles").delete().eq("user_id", userId);
+      await adminClient.from("profiles").delete().eq("id", userId);
 
-      // Delete from profiles
-      await adminClient
-        .from("profiles")
-        .delete()
-        .eq("id", userId);
-
-      // Delete the auth user
       const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
 
       if (deleteError) {
@@ -135,83 +123,128 @@ serve(async (req: Request) => {
         );
       }
 
-      console.log("User deleted successfully:", userId);
-
       return new Response(
         JSON.stringify({ success: true, message: "User deleted" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // ===== CREATE USER =====
-    const { email, password, name, role } = body;
+    // ===== RESEND INVITE =====
+    if (action === "resend-invite") {
+      const { userId, redirectTo } = body;
 
-    if (!email || !password) {
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: "User ID required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get the user's email
+      const { data: userData, error: userError } = await adminClient.auth.admin.getUserById(userId);
+      if (userError || !userData.user?.email) {
+        return new Response(
+          JSON.stringify({ error: "User not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Generate a new invite link
+      const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+        type: "invite",
+        email: userData.user.email,
+        options: {
+          redirectTo: redirectTo || undefined,
+        },
+      });
+
+      if (linkError) {
+        console.error("Resend invite error:", linkError);
+        return new Response(
+          JSON.stringify({ error: linkError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response(
-        JSON.stringify({ error: "Email and password required" }),
+        JSON.stringify({ success: true, message: "Invite resent" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== CREATE USER (INVITE FLOW) =====
+    const { email, name, role, redirectTo } = body;
+
+    if (!email) {
+      return new Response(
+        JSON.stringify({ error: "Email is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Create the user using admin API
-    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+    // Invite the user — this creates the account AND sends an invite email.
+    // The user clicks the link → lands on /reset-password → sets their password.
+    const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
       email,
-      password,
-      email_confirm: true, // Auto-confirm email
-      user_metadata: { name },
-    });
+      {
+        data: { name: name || undefined },
+        redirectTo: redirectTo || undefined,
+      }
+    );
 
-    if (createError) {
-      console.error("Create user error:", createError);
+    if (inviteError) {
+      console.error("Invite user error:", inviteError);
       return new Response(
-        JSON.stringify({ error: createError.message }),
+        JSON.stringify({ error: inviteError.message }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (!newUser.user) {
+    if (!inviteData.user) {
       return new Response(
         JSON.stringify({ error: "Failed to create user" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Update profile with name and must_change_password flag
+    const newUserId = inviteData.user.id;
+
+    // Set up profile
     const { error: profileError } = await adminClient
       .from("profiles")
       .upsert({
-        id: newUser.user.id,
+        id: newUserId,
         email: email,
         name: name || null,
         must_change_password: true,
       }, { onConflict: "id" });
 
     if (profileError) {
-      console.error("Profile update error:", profileError);
+      console.error("Profile upsert error:", profileError);
     }
 
-    // Update user role
+    // Set up role (upsert in case trigger already created a 'pending' row)
     const { error: roleUpdateError } = await adminClient
       .from("user_roles")
-      .update({
+      .upsert({
+        user_id: newUserId,
         role: role || "user",
         approved_at: new Date().toISOString(),
         approved_by: requestingUserId,
-      })
-      .eq("user_id", newUser.user.id);
+      }, { onConflict: "user_id" });
 
     if (roleUpdateError) {
-      console.error("Role update error:", roleUpdateError);
+      console.error("Role upsert error:", roleUpdateError);
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        user: { 
-          id: newUser.user.id, 
-          email: newUser.user.email,
-          name: name 
-        } 
+      JSON.stringify({
+        success: true,
+        user: {
+          id: newUserId,
+          email: inviteData.user.email,
+          name: name,
+        },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

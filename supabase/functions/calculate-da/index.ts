@@ -1,0 +1,96 @@
+// calculate-da — computes a full Disbursement Account for a vessel using the DA
+// rate tables (da_* tables) + _shared/da.ts, merges any user-added extra lines,
+// optionally stores the result in da_outputs, and returns it.
+//
+// Dual auth: x-api-key (server/n8n) OR a logged-in user (dashboard).
+import { createClient } from "npm:@supabase/supabase-js@2.90.1";
+import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { requireUser } from "../_shared/auth.ts";
+import { calculateDA, type DaConfig, type DaVessel } from "../_shared/da.ts";
+
+interface ExtraLine { label: string; amount: number; currency?: string }
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return handleOptions();
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+
+  // Auth: machine key OR logged-in user.
+  const apiKey = Deno.env.get("INBOUND_API_KEY");
+  const machineOk = apiKey && req.headers.get("x-api-key") === apiKey;
+  if (!machineOk) {
+    const auth = await requireUser(req);
+    if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status ?? 401);
+  }
+
+  let body: {
+    vessel?: DaVessel & {
+      vessel_name?: string; operation_type?: string; cargo_type?: string;
+      cargo_quantity?: number; area?: string; terminal?: string;
+      client_name?: string; client_email?: string;
+    };
+    extra_lines?: ExtraLine[];
+    source?: string; source_id?: number; doc_type?: string;
+    store?: boolean;
+  };
+  try {
+    body = await req.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON body" }, 400);
+  }
+  const v = body.vessel;
+  if (!v || v.gt == null) return jsonResponse({ error: "vessel.gt is required" }, 400);
+
+  const db = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
+  );
+
+  try {
+    // Load rate config.
+    const [pil, tow, lin, set] = await Promise.all([
+      db.from("da_pilotage_tariffs").select("gt_min,gt_max,pilotage_ang,hc_surcharge_ang").eq("is_active", true),
+      db.from("da_towage_tariffs").select("gt_min,gt_max,tariff_a").eq("is_active", true),
+      db.from("da_linesmen_tariffs").select("gt_min,gt_max,amount").eq("is_active", true),
+      db.from("da_settings").select("key,value"),
+    ]);
+    const settings: Record<string, number> = {};
+    for (const r of set.data ?? []) settings[r.key] = Number(r.value);
+    const config: DaConfig = {
+      pilotage: (pil.data ?? []) as DaConfig["pilotage"],
+      towage: (tow.data ?? []) as DaConfig["towage"],
+      linesmen: (lin.data ?? []) as DaConfig["linesmen"],
+      settings,
+    };
+
+    const da = calculateDA(v, config);
+
+    // Merge user-added extra lines (NGO agency fee, bank charges, ...).
+    const extra = (body.extra_lines ?? []).map((e) => ({
+      label: e.label, currency: e.currency ?? "USD", amount: Math.round(Number(e.amount) * 100) / 100,
+    }));
+    const total = Math.round((da.total + extra.reduce((a, e) => a + e.amount, 0)) * 100) / 100;
+
+    let da_output_id: number | null = null;
+    if (body.store) {
+      const row = {
+        source: body.source ?? "manual", source_id: body.source_id ?? null,
+        doc_type: body.doc_type ?? "PDA",
+        vessel_name: v.vessel_name ?? null, gt: v.gt, loa: v.loa ?? null, dwt: v.dwt ?? null,
+        port_stay: v.port_stay ?? null, tugs: v.tugs ?? null, linesmen_hours: v.linesmen_hours ?? null,
+        facility: v.facility ?? null, area: v.area ?? null, terminal: v.terminal ?? null,
+        operation_type: v.operation_type ?? null, cargo_type: v.cargo_type ?? null, cargo_quantity: v.cargo_quantity ?? null,
+        client_name: v.client_name ?? null, client_email: v.client_email ?? null,
+        lines: da.lines, extra_lines: extra, total, status: "draft",
+      };
+      const { data, error } = await db.from("da_outputs").insert(row).select("id").single();
+      if (error) return jsonResponse({ error: error.message }, 500);
+      da_output_id = data.id;
+    }
+
+    return jsonResponse({ success: true, da_output_id, lines: da.lines, extra_lines: extra, total });
+  } catch (error) {
+    console.error("[calculate-da] error:", error);
+    return jsonResponse({ error: error instanceof Error ? error.message : "unknown" }, 500);
+  }
+});

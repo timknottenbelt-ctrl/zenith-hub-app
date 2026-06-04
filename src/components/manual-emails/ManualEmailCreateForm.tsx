@@ -53,33 +53,57 @@ export function ManualEmailCreateForm({
     }
 
     try {
-      const formData = new FormData();
-      formData.append("email_content", emailContent);
-      formData.append("agent_type", originalAgentType);
-      if (originalSubject) formData.append("subject", originalSubject);
-      if (pdfFile) formData.append("pdf", pdfFile);
-
       let lastError: Error | null = null;
       let success = false;
-      const maxRetries = 3;
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      // Primary path: Supabase-native pipeline (manual-email-create) for
+      // text-only inquiries. Falls back to n8n on any error or when a PDF is
+      // attached (PDF text extraction still lives in n8n).
+      if (!pdfFile) {
         try {
-          const { data: responseData, error: fnError } = await supabase.functions.invoke("trigger-manual-email", {
-            body: formData,
+          const { data, error } = await supabase.functions.invoke("manual-email-create", {
+            body: {
+              email_content: emailContent,
+              agent_type: originalAgentType,
+              subject: originalSubject || undefined,
+            },
           });
-
-          if (fnError) throw new Error(fnError.message || "Webhook request failed");
-          if (responseData?.upstream_status && responseData.upstream_status >= 400) {
-            console.warn("n8n upstream error:", responseData);
-          }
+          if (error) throw new Error(error.message || "manual-email-create failed");
+          if (!data?.success) throw new Error(data?.error || "manual-email-create returned no data");
           success = true;
-          break;
         } catch (err) {
           lastError = err instanceof Error ? err : new Error(String(err));
-          console.warn(`[ManualEmail] Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
-          if (attempt < maxRetries) {
-            await new Promise((r) => setTimeout(r, 1500 * attempt));
+          console.warn("[ManualEmail] manual-email-create failed, falling back to n8n:", lastError.message);
+        }
+      }
+
+      // Fallback path (or PDF attached): n8n via trigger-manual-email, with retries.
+      if (!success) {
+        const formData = new FormData();
+        formData.append("email_content", emailContent);
+        formData.append("agent_type", originalAgentType);
+        if (originalSubject) formData.append("subject", originalSubject);
+        if (pdfFile) formData.append("pdf", pdfFile);
+
+        const maxRetries = 3;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            const { data: responseData, error: fnError } = await supabase.functions.invoke("trigger-manual-email", {
+              body: formData,
+            });
+
+            if (fnError) throw new Error(fnError.message || "Webhook request failed");
+            if (responseData?.upstream_status && responseData.upstream_status >= 400) {
+              console.warn("n8n upstream error:", responseData);
+            }
+            success = true;
+            break;
+          } catch (err) {
+            lastError = err instanceof Error ? err : new Error(String(err));
+            console.warn(`[ManualEmail] Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+            if (attempt < maxRetries) {
+              await new Promise((r) => setTimeout(r, 1500 * attempt));
+            }
           }
         }
       }

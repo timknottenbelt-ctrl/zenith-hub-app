@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { toPublicUrl } from "@/lib/pdf-utils";
 import {
   Mail,
   CheckCircle,
@@ -47,30 +48,9 @@ interface FDAProject {
   lbh_number: string;
 }
 
-const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
-
-function getAttachmentDownloadUrl(attachmentUrl: string): string {
-  if (!attachmentUrl) return "";
-  
-  if (attachmentUrl.startsWith("http://") || attachmentUrl.startsWith("https://")) {
-    return attachmentUrl;
-  }
-  
-  if (attachmentUrl.startsWith("/object/sign/")) {
-    const match = attachmentUrl.match(/\/object\/sign\/fda-final-packages\/([^/]+)\/(.+?)(\?|$)/);
-    if (match) {
-      const [, projectId, fileName] = match;
-      return `${SUPABASE_URL}/storage/v1/object/public/fda-final-packages/${projectId}/${fileName}`;
-    }
-    return `${SUPABASE_URL}/storage/v1${attachmentUrl}`;
-  }
-  
-  if (attachmentUrl.includes("fda-final-packages/")) {
-    return `${SUPABASE_URL}/storage/v1/object/public/${attachmentUrl}`;
-  }
-  
-  return attachmentUrl;
-}
+// Storage URL handling is centralized in src/lib/pdf-utils.ts.
+// History only shows fda-final-packages (a public bucket), so we resolve to a public URL.
+const getAttachmentDownloadUrl = (url: string): string => toPublicUrl(url) ?? "";
 
 export default function FDAEmailHistory() {
   const navigate = useTransitionNavigate();

@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -13,7 +12,6 @@ import {
   ArrowLeft,
   Mail,
   Plus,
-  X,
   FileText,
   Download,
   Eye,
@@ -30,6 +28,7 @@ import { useTransitionNavigate } from "@/hooks/useTransitionNavigate";
 import * as XLSX from "xlsx";
 import { FDACuracaoWizardSteps } from "@/components/fda-curacao/FDACuracaoWizardSteps";
 import { WEBHOOKS, webhookPostJSON } from "@/lib/webhooks";
+import { EmailComposer } from "@/components/email/EmailComposer";
 
 interface FDACuracaoProject {
   project_id: string;
@@ -81,7 +80,6 @@ interface ExtraAttachment {
 }
 
 // Webhook URL is now centralized in src/lib/webhooks.ts
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
 
 /** Convert literal escaped \n sequences to real newlines */
@@ -223,8 +221,6 @@ export default function FDACuracaoEmail() {
   // Email form state
   const [toEmails, setToEmails] = useState<string[]>([]);
   const [ccEmails, setCcEmails] = useState<string[]>([]);
-  const [newToEmail, setNewToEmail] = useState("");
-  const [newCcEmail, setNewCcEmail] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [extraAttachments, setExtraAttachments] = useState<ExtraAttachment[]>([]);
@@ -536,61 +532,7 @@ export default function FDACuracaoEmail() {
     }
   }
 
-  function isValidEmail(email: string): boolean {
-    return EMAIL_REGEX.test(email.trim());
-  }
-
-  function addToEmail() {
-    const email = newToEmail.trim();
-    if (!email) return;
-    if (!isValidEmail(email)) {
-      toast({ title: "Invalid email", description: "Please enter a valid email address", variant: "destructive" });
-      return;
-    }
-    if (toEmails.includes(email)) {
-      toast({ title: "Duplicate", description: "This email is already added", variant: "destructive" });
-      return;
-    }
-    setToEmails([...toEmails, email]);
-    setNewToEmail("");
-  }
-
-  function removeToEmail(index: number) {
-    setToEmails(toEmails.filter((_, i) => i !== index));
-  }
-
-  function addCcEmail() {
-    const email = newCcEmail.trim();
-    if (!email) return;
-    if (!isValidEmail(email)) {
-      toast({ title: "Invalid email", description: "Please enter a valid email address", variant: "destructive" });
-      return;
-    }
-    if (ccEmails.includes(email)) {
-      toast({ title: "Duplicate", description: "This email is already added", variant: "destructive" });
-      return;
-    }
-    setCcEmails([...ccEmails, email]);
-    setNewCcEmail("");
-  }
-
-  function removeCcEmail(index: number) {
-    setCcEmails(ccEmails.filter((_, i) => i !== index));
-  }
-
-  function handleToKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addToEmail();
-    }
-  }
-
-  function handleCcKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addCcEmail();
-    }
-  }
+  // Recipient add/remove/validation is handled inside <EmailRecipientsEditor>.
 
   async function handleUploadAttachment(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1025,68 +967,19 @@ export default function FDACuracaoEmail() {
           <CardContent>
             {hasDraft ? (
               <div className="space-y-4">
-                {/* TO Field */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">To</label>
-                  <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
-                    {toEmails.map((email, i) => (
-                      <Badge key={i} variant="secondary" className="gap-1">
-                        {email}
-                        <button onClick={() => removeToEmail(i)} className="ml-1 hover:text-destructive">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                    <Input
-                      value={newToEmail}
-                      onChange={(e) => setNewToEmail(e.target.value)}
-                      onKeyDown={handleToKeyDown}
-                      onBlur={addToEmail}
-                      placeholder="Add email..."
-                      className="flex-1 min-w-[150px] border-0 shadow-none focus-visible:ring-0 h-7 p-0"
-                    />
-                  </div>
-                </div>
-
-                {/* CC Field */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">CC</label>
-                  <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
-                    {ccEmails.map((email, i) => (
-                      <Badge key={i} variant="secondary" className="gap-1">
-                        {email}
-                        <button onClick={() => removeCcEmail(i)} className="ml-1 hover:text-destructive">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                    <Input
-                      value={newCcEmail}
-                      onChange={(e) => setNewCcEmail(e.target.value)}
-                      onKeyDown={handleCcKeyDown}
-                      onBlur={addCcEmail}
-                      placeholder="Add CC..."
-                      className="flex-1 min-w-[150px] border-0 shadow-none focus-visible:ring-0 h-7 p-0"
-                    />
-                  </div>
-                </div>
-
-                {/* Subject */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Subject</label>
-                  <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Email subject" />
-                </div>
-
-                {/* Body */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Message</label>
-                  <Textarea
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    placeholder="Email body..."
-                    className="min-h-[200px] whitespace-pre-wrap"
-                  />
-                </div>
+                {/* Recipients + Subject + Body */}
+                <EmailComposer
+                  variant="compact"
+                  addOnBlur
+                  toEmails={toEmails}
+                  onToChange={setToEmails}
+                  ccEmails={ccEmails}
+                  onCcChange={setCcEmails}
+                  subject={subject}
+                  onSubjectChange={setSubject}
+                  body={body}
+                  onBodyChange={setBody}
+                />
 
                 {/* Extra Attachments */}
                 {extraAttachments.length > 0 && (

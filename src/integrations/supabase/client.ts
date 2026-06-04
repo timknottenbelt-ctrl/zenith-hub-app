@@ -3,7 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94a3NoamFvbWJmZmJkZW1xcnFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0NDc1ODAsImV4cCI6MjA4MDAyMzU4MH0.sOjGp5S6sKEcKm1xWolIjJpMpA__ncqDK8nJxbyJmYA";
+// New-format publishable key. The legacy anon JWT was disabled platform-wide on
+// 2026-04-20, which broke every frontend Supabase call (login, password reset, ...).
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_KJox5swPIcwq6PyTfDpAuQ_pyWGtqga";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

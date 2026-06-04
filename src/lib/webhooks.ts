@@ -1,90 +1,96 @@
 /**
- * Centralized webhook configuration with Basic Auth.
+ * Centralized webhook client.
  *
- * All n8n webhooks are routed through this module so that
- * URLs and authentication are defined in a single place.
+ * IMPORTANT: the frontend NEVER talks to n8n directly and NEVER holds the n8n
+ * Basic Auth credentials. All webhook calls are routed through the
+ * `n8n-webhook` Supabase Edge Function, which:
+ *   - requires a valid logged-in Supabase user,
+ *   - maps a webhook KEY to the real n8n URL (server-side allowlist),
+ *   - adds the Basic Auth header from server-side secrets.
+ *
+ * To add a new webhook: add the KEY here AND in the edge function's
+ * WEBHOOK_PATHS map (supabase/functions/n8n-webhook/index.ts).
  */
+import { supabase } from "@/integrations/supabase/client";
 
-const WEBHOOK_BASE = "https://lbhcuracao.app.n8n.cloud/webhook";
+const SUPABASE_URL = "https://oxkshjaombffbdemqrqb.supabase.co";
+// New-format publishable key (legacy anon JWT was disabled platform-wide 2026-04-20).
+const SUPABASE_ANON_KEY = "sb_publishable_KJox5swPIcwq6PyTfDpAuQ_pyWGtqga";
 
-const BASIC_AUTH_USER = "lbh-webhook-2026";
-const BASIC_AUTH_PASS = "L@bh_W3bh00k_C!2026";
-const BASIC_AUTH_HEADER = `Basic ${btoa(`${BASIC_AUTH_USER}:${BASIC_AUTH_PASS}`)}`;
+const PROXY_URL = `${SUPABASE_URL}/functions/v1/n8n-webhook`;
 
-// ─── Webhook URLs ────────────────────────────────────────────────────────────
-
+// ─── Webhook keys (must match the edge function allowlist) ───────────────────
 export const WEBHOOKS = {
   /** FDA Curaçao – invoice upload */
-  FDA_CURACAO_INVOICE_UPLOAD: `${WEBHOOK_BASE}/invoice-upload-curacao`,
-
+  FDA_CURACAO_INVOICE_UPLOAD: "FDA_CURACAO_INVOICE_UPLOAD",
   /** FDA (Bonaire) – invoice upload */
-  FDA_INVOICE_UPLOAD: `${WEBHOOK_BASE}/invoice-upload`,
-
+  FDA_INVOICE_UPLOAD: "FDA_INVOICE_UPLOAD",
   /** FDA – Merge PDF (Front Page step) */
-  FDA_MERGE_PDF: `${WEBHOOK_BASE}/9f21d8c2-3d6e-4cd9-bfb3-a5dd29aa125a`,
-
+  FDA_MERGE_PDF: "FDA_MERGE_PDF",
   /** FDA Curaçao – Send to Uruguay */
-  SEND_TO_URUGUAY: `${WEBHOOK_BASE}/send-to-uruguay`,
-
+  SEND_TO_URUGUAY: "SEND_TO_URUGUAY",
   /** FDA – Send FDA Email */
-  SEND_FDA_EMAIL: `${WEBHOOK_BASE}/bd83b476-e7a1-49d6-891f-c4fe214ed915`,
-
+  SEND_FDA_EMAIL: "SEND_FDA_EMAIL",
   /** AI Inquiries – Loading / Discharge email */
-  SEND_EMAIL_LOADING_DISCHARGE: `${WEBHOOK_BASE}/Send-Email-Loading-Discharge`,
-
+  SEND_EMAIL_LOADING_DISCHARGE: "SEND_EMAIL_LOADING_DISCHARGE",
   /** AI Inquiries – Owners Agent email */
-  SEND_EMAIL_OWNERS_AGENT: `${WEBHOOK_BASE}/Send-Email-Owners-Agent`,
-
+  SEND_EMAIL_OWNERS_AGENT: "SEND_EMAIL_OWNERS_AGENT",
   /** AI Inquiries – Referral (Out of Scope) email */
-  SEND_REFERRAL_EMAIL: `${WEBHOOK_BASE}/SEND-REFERRAL-EMAIL`,
-
+  SEND_REFERRAL_EMAIL: "SEND_REFERRAL_EMAIL",
   /** Manual Email – creation / PDA */
-  MANUAL_EMAIL_CREATION: "https://lbhcuracao.app.n8n.cloud/webhook/MANUAL-EMAIL-CREATION",
+  MANUAL_EMAIL_CREATION: "MANUAL_EMAIL_CREATION",
 } as const;
+
+export type WebhookKey = (typeof WEBHOOKS)[keyof typeof WEBHOOKS];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Default headers used for JSON webhook calls. */
-function jsonHeaders(): Record<string, string> {
+/** Auth headers carrying the current user's session (falls back to anon). */
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token ?? SUPABASE_ANON_KEY;
   return {
-    Authorization: BASIC_AUTH_HEADER,
-    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
+    apikey: SUPABASE_ANON_KEY,
   };
 }
 
-/** Headers for FormData calls (no Content-Type – browser sets boundary). */
-function formDataHeaders(): Record<string, string> {
-  return {
-    Authorization: BASIC_AUTH_HEADER,
-  };
+function proxyUrl(key: string): string {
+  return `${PROXY_URL}?key=${encodeURIComponent(key)}`;
 }
 
 /**
- * POST JSON to a webhook with Basic Auth.
+ * POST JSON to a webhook (via the edge-function proxy).
  * Returns the raw Response so callers can inspect status / body.
  */
 export async function webhookPostJSON(
-  url: string,
+  key: string,
   payload: unknown,
+  opts?: { signal?: AbortSignal },
 ): Promise<Response> {
-  return fetch(url, {
+  const headers = { ...(await authHeaders()), "Content-Type": "application/json" };
+  return fetch(proxyUrl(key), {
     method: "POST",
-    headers: jsonHeaders(),
+    headers,
     body: JSON.stringify(payload),
+    signal: opts?.signal,
   });
 }
 
 /**
- * POST FormData to a webhook with Basic Auth.
- * Content-Type is set automatically by the browser.
+ * POST FormData to a webhook (via the edge-function proxy).
+ * Content-Type is set automatically by the browser (multipart boundary).
  */
 export async function webhookPostFormData(
-  url: string,
+  key: string,
   formData: FormData,
+  opts?: { signal?: AbortSignal },
 ): Promise<Response> {
-  return fetch(url, {
+  const headers = await authHeaders();
+  return fetch(proxyUrl(key), {
     method: "POST",
-    headers: formDataHeaders(),
+    headers,
     body: formData,
+    signal: opts?.signal,
   });
 }

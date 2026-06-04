@@ -7,7 +7,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 
 const Overview = lazy(() => import("./pages/Overview"));
 const AIInquiries = lazy(() => import("./pages/AIInquiries"));
@@ -29,6 +29,21 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const PDACreator = lazy(() => import("./pages/PDACreator"));
+const DACreator = lazy(() => import("./pages/DACreator"));
+
+// Warm ALL route chunks shortly after first load so subsequent navigation is
+// instant (no chunk fetch, no Suspense flash). Vite dedupes already-loaded ones.
+function preloadAllRoutes() {
+  void import("./pages/Overview"); void import("./pages/AIInquiries");
+  void import("./pages/ManualEmails"); void import("./pages/SentPDAs");
+  void import("./pages/FDACreator"); void import("./pages/FDACuracao");
+  void import("./pages/FDAEmailHistory"); void import("./pages/FDACuracaoHistory");
+  void import("./pages/FDAEmailPreview"); void import("./pages/FDACuracaoEmail");
+  void import("./pages/KnowledgeBase"); void import("./pages/Contacts");
+  void import("./pages/Settings"); void import("./pages/UserManagement");
+  void import("./pages/PDACreator"); void import("./pages/DACreator");
+  void import("./pages/NotFound");
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +57,12 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
+  useEffect(() => {
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => void };
+    if (w.requestIdleCallback) w.requestIdleCallback(preloadAllRoutes);
+    else setTimeout(preloadAllRoutes, 1200);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
@@ -60,6 +81,7 @@ const App = () => {
                   <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
                   <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
                   <Route path="/pda-admin" element={<ProtectedRoute><PDACreator /></ProtectedRoute>} />
+                  <Route path="/da-creator" element={<ProtectedRoute><DACreator /></ProtectedRoute>} />
                   <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
                   <Route path="/fda-curacao" element={<ProtectedRoute><FDACuracao /></ProtectedRoute>} />
                   <Route path="/fda-curacao/history" element={<ProtectedRoute><FDACuracaoHistory /></ProtectedRoute>} />

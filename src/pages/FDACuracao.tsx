@@ -346,15 +346,11 @@ export default function FDACuracao() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-      const response = await fetch(WEBHOOKS.FDA_CURACAO_INVOICE_UPLOAD, {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Authorization": `Basic ${btoa("lbh-webhook-2026:L@bh_W3bh00k_C!2026")}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await webhookPostJSON(
+        WEBHOOKS.FDA_CURACAO_INVOICE_UPLOAD,
+        payload,
+        { signal: controller.signal },
+      );
 
       clearTimeout(timeoutId);
 

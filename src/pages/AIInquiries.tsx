@@ -65,7 +65,9 @@ interface EmailAttachment {
 }
 
 const EMAIL_TYPE_MAP: Record<string, string[]> = {
-  'CARGO_AGENT': ['CARGO AGENT', 'CARGO_AGENT', 'CARGO AGENT 2'],
+  // The classifier writes cargo inquiries as 'LOADING_DISCHARGE_AGENT' — that is
+  // the Cargo Agent category. (Without it this tab showed 0 messages.)
+  'CARGO_AGENT': ['CARGO AGENT', 'CARGO_AGENT', 'CARGO AGENT 2', 'LOADING_DISCHARGE_AGENT', 'LOADING DISCHARGE AGENT'],
   'OWNERS_AGENT': ['OWNERS_AGENT', 'OWNERS AGENT'],
   'OUT_OF_SCOPE': ['OUT_OF_SCOPE', 'Out of Scope', 'REFERRAL', 'OUT OF SCOPE'],
   'INCOMPLETE': ['INCOMPLETE'], // special: filters by status instead of Email Type
@@ -330,16 +332,15 @@ export default function AIInquiries() {
   }
 
   const getWebhookUrl = (emailType: string | null): string | null => {
-    switch (emailType) {
-      case 'CARGO AGENT':
-        return WEBHOOKS.SEND_EMAIL_LOADING_DISCHARGE;
-      case 'OWNERS_AGENT':
-        return WEBHOOKS.SEND_EMAIL_OWNERS_AGENT;
-      case 'Out of Scope':
-        return WEBHOOKS.SEND_REFERRAL_EMAIL;
-      default:
-        return null;
+    if (!emailType) return null;
+    // Normalize ("Out of Scope" / "CARGO AGENT" / "LOADING_DISCHARGE_AGENT" -> token)
+    const t = emailType.toUpperCase().replace(/[\s-]+/g, '_');
+    if (['CARGO_AGENT', 'CARGO_AGENT_2', 'LOADING_DISCHARGE_AGENT'].includes(t)) {
+      return WEBHOOKS.SEND_EMAIL_LOADING_DISCHARGE;
     }
+    if (t === 'OWNERS_AGENT') return WEBHOOKS.SEND_EMAIL_OWNERS_AGENT;
+    if (['OUT_OF_SCOPE', 'REFERRAL'].includes(t)) return WEBHOOKS.SEND_REFERRAL_EMAIL;
+    return null;
   };
 
   async function handleUpdateStatus(status: 'approved' | 'rejected') {
