@@ -8,6 +8,15 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import {
+  AreaChart,
+  Area,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
+import {
   FileText,
   ArrowRight,
   Mail,
@@ -20,6 +29,8 @@ import {
   AlertCircle,
   Globe,
   TrendingUp,
+  Ship,
+  ArrowUpRight,
 } from 'lucide-react';
 
 // Memoized stat card component
@@ -44,6 +55,68 @@ const StatRow = memo(function StatRow({
     </div>
   );
 });
+
+// Compact KPI tile for the hero strip
+const KpiTile = memo(function KpiTile({
+  label,
+  value,
+  icon: Icon,
+  accent,
+  sub,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string }>;
+  accent: 'primary' | 'success' | 'info' | 'warning';
+  sub?: React.ReactNode;
+  onClick?: () => void;
+}) {
+  const accentMap = {
+    primary: 'bg-primary/10 text-primary',
+    success: 'bg-success/10 text-success',
+    info: 'bg-info/10 text-info',
+    warning: 'bg-warning/10 text-warning',
+  } as const;
+  return (
+    <Card
+      className={`card-premium group relative overflow-hidden ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
+      onClick={onClick}
+    >
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className={`p-2 rounded-lg ${accentMap[accent]}`}>
+            <Icon className="w-4 h-4" />
+          </div>
+          {onClick && (
+            <ArrowUpRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all" />
+          )}
+        </div>
+        <p className="text-3xl font-bold tracking-tight tabular-nums">{value}</p>
+        <p className="text-xs font-medium text-muted-foreground mt-1">{label}</p>
+        {sub && <div className="mt-2">{sub}</div>}
+      </CardContent>
+    </Card>
+  );
+});
+
+// Custom tooltip for the activity chart
+function ActivityTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-border/60 bg-popover/95 backdrop-blur-sm px-3 py-2 shadow-lg text-xs">
+      <p className="font-semibold text-foreground mb-1">{label}</p>
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <span className="w-2 h-2 rounded-full bg-primary" />
+        Ontvangen: <span className="font-semibold text-foreground">{payload[0]?.payload?.received ?? 0}</span>
+      </div>
+      <div className="flex items-center gap-2 text-muted-foreground mt-0.5">
+        <span className="w-2 h-2 rounded-full bg-success" />
+        Verzonden: <span className="font-semibold text-foreground">{payload[0]?.payload?.sent ?? 0}</span>
+      </div>
+    </div>
+  );
+}
 
 // Fetch all dashboard data in parallel
 async function fetchDashboardData() {
@@ -91,8 +164,48 @@ async function fetchDashboardData() {
   
   // Total ready = only emails with a valid category (not null/empty Email Type)
   const totalReady = cargoAgent + ownersAgent + outOfScope;
-  
+
+  // ── 14-day activity series (received vs sent per day) ──
+  const DAYS = 14;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const series: { key: string; label: string; received: number; sent: number }[] = [];
+  const idx: Record<string, number> = {};
+  for (let i = DAYS - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    idx[key] = series.length;
+    series.push({
+      key,
+      label: d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }),
+      received: 0,
+      sent: 0,
+    });
+  }
+  for (const e of emails) {
+    if (!e.created_at) continue;
+    const key = new Date(e.created_at).toISOString().slice(0, 10);
+    const pos = idx[key];
+    if (pos === undefined) continue;
+    series[pos].received += 1;
+    if (e.status === 'sent') series[pos].sent += 1;
+  }
+  const last7 = emails.filter((e) => {
+    if (!e.created_at) return false;
+    const diff = today.getTime() - new Date(e.created_at).getTime();
+    return diff >= 0 && diff < 7 * 24 * 3600 * 1000;
+  }).length;
+  const prev7 = emails.filter((e) => {
+    if (!e.created_at) return false;
+    const diff = today.getTime() - new Date(e.created_at).getTime();
+    return diff >= 7 * 24 * 3600 * 1000 && diff < 14 * 24 * 3600 * 1000;
+  }).length;
+  const trendPct = prev7 === 0 ? (last7 > 0 ? 100 : 0) : Math.round(((last7 - prev7) / prev7) * 100);
+
   return {
+    activity: series,
+    trend: { last7, prev7, trendPct },
     stats: {
       cargoAgent,
       ownersAgent,
@@ -131,6 +244,9 @@ export default function Overview() {
     vessels: 0, contacts: 0, fdaCreatorCount: 0, fdaCuracaoCount: 0,
   };
   const recentEmails = data?.recentEmails || [];
+  const activity = data?.activity || [];
+  const trend = data?.trend || { last7: 0, prev7: 0, trendPct: 0 };
+  const fdaTotalSent = stats.fdaSent + stats.fdaCwSent;
 
   const getStatusIcon = useCallback((status: string) => {
     switch (status) {
@@ -172,6 +288,128 @@ export default function Overview() {
   return (
     <DashboardLayout title={t('overview.title')}>
       <div className="space-y-8">
+        {/* KPI Strip */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiTile
+            label="Aanvragen klaar"
+            value={stats.totalReady}
+            icon={Inbox}
+            accent="primary"
+            onClick={navigateTo('/inquiries')}
+            sub={
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <AlertCircle className="w-3 h-3 text-warning" /> {stats.incomplete} incompleet
+              </span>
+            }
+          />
+          <KpiTile
+            label="PDA's verzonden"
+            value={stats.pdaSent}
+            icon={Send}
+            accent="success"
+            onClick={navigateTo('/inquiries/sent')}
+          />
+          <KpiTile
+            label="FDA's verzonden"
+            value={fdaTotalSent}
+            icon={FileText}
+            accent="info"
+            onClick={navigateTo('/fda/history')}
+            sub={
+              <span className="text-xs text-muted-foreground">
+                {stats.fdaSent} std · {stats.fdaCwSent} CW
+              </span>
+            }
+          />
+          <KpiTile
+            label="Schepen"
+            value={stats.vessels}
+            icon={Ship}
+            accent="primary"
+          />
+        </div>
+
+        {/* Activity Chart */}
+        <Card className="card-premium">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
+            <div>
+              <CardTitle className="text-lg font-semibold">Activiteit</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Aanvragen per dag · laatste 14 dagen</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="secondary"
+                className={`gap-1 font-semibold ${trend.trendPct >= 0 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}
+              >
+                <TrendingUp className={`w-3.5 h-3.5 ${trend.trendPct < 0 ? 'rotate-180' : ''}`} />
+                {trend.trendPct >= 0 ? '+' : ''}{trend.trendPct}%
+              </Badge>
+              <span className="text-xs text-muted-foreground">vs vorige week</span>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-2">
+            <div className="h-[220px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={activity} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gReceived" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gSent" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.4} vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={false}
+                    axisLine={false}
+                    interval="preserveStartEnd"
+                    minTickGap={20}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                    width={32}
+                  />
+                  <Tooltip content={<ActivityTooltip />} cursor={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }} />
+                  <Area
+                    type="monotone"
+                    dataKey="received"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2.5}
+                    fill="url(#gReceived)"
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 2, stroke: 'hsl(var(--background))' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="sent"
+                    stroke="hsl(var(--success))"
+                    strokeWidth={2}
+                    fill="url(#gSent)"
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 2, stroke: 'hsl(var(--background))' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex items-center gap-5 mt-3 pl-1">
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="w-2.5 h-2.5 rounded-full bg-primary" /> Ontvangen
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="w-2.5 h-2.5 rounded-full bg-success" /> Verzonden
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Hero Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Nieuwe Aanvragen */}
