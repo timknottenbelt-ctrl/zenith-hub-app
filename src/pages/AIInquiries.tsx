@@ -479,7 +479,7 @@ export default function AIInquiries() {
   };
 
   const originalText = selectedEmail
-    ? (selectedEmail.original_email || selectedEmail.orignal_email || '')
+    ? prettifyOriginal(selectedEmail.original_email || selectedEmail.orignal_email || '')
     : '';
   const confidence = selectedEmail ? (selectedEmail as any).classification_confidence as number | null : null;
   const reasoning = selectedEmail ? (selectedEmail as any).classification_reasoning as string | null : null;
@@ -895,6 +895,28 @@ export default function AIInquiries() {
       </Tabs>
     </DashboardLayout>
   );
+}
+
+/** Display-only: make a flattened / HTML email body readable. Never mutates stored data. */
+function prettifyOriginal(raw: string): string {
+  if (!raw) return '';
+  let t = raw;
+  // HTML -> text: turn structural tags into line breaks, drop the rest, decode entities.
+  if (/<[a-z/][^>]*>/i.test(t)) {
+    t = t
+      .replace(/<\s*br\s*\/?>/gi, '\n')
+      .replace(/<\/\s*(p|div|tr|li|h[1-6]|table)\s*>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>').replace(/&#39;/gi, "'").replace(/&quot;/gi, '"');
+  }
+  // Wall of text with no breaks: insert breaks before thread headers and sign-offs.
+  if (!t.includes('\n')) {
+    t = t
+      .replace(/\s+(From:|Van:|Sent:|Verzonden:|To:|Aan:|Subject:|Onderwerp:|Cc:|Date:)\s*/g, '\n$1 ')
+      .replace(/\s+(Best regards|Kind regards|Best Regards|Kind Regards|Regards,|Thanks and regards|Met vriendelijke groet|Good day|Good Day)\b/g, '\n\n$1');
+  }
+  return t.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 /** Map a raw "Email Type" value to one of the three canonical category keys. */

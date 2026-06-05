@@ -80,6 +80,9 @@ Estimated Port Stay: [port_stay] days
 "Email: agency@lbhcuracao.com"
 "Website: www.lbh-curacao.com"
 RULES: never write "Curaçao" (use "Curacao"); never mention attachments/drive links; skip GRT/DWT lines if missing; ~100-150 words (200-250 with KB).
+FORMATTING (CRITICAL): the "body" value MUST contain real line breaks written as \\n. Put a blank line (\\n\\n)
+between every section (greeting, opening, each vessel block, KB section, closing). Put each detail label on its
+own line. Never return the body as one run-on block. Example: "Dear Capt. Smith,\\n\\nThank you for your inquiry regarding loading operations at Willemstad, Curacao.\\n\\n--- VESSEL 1: MV Ocean King ---\\nLOA: 210 m\\nGRT: 28500\\nCargo: 20000 MT Bitumen\\nOperation: Loading\\n\\nBest regards,\\nLBH Curacao\\nEmail: agency@lbhcuracao.com\\nWebsite: www.lbh-curacao.com"
 OUTPUT ONLY VALID JSON: { "subject": "LBH Curacao - Rate Quotation for [Vessel] at [Port]", "body": "Full email text" }`;
 
 Deno.serve(async (req) => {
