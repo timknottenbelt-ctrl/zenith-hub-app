@@ -91,6 +91,11 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.noOriginal': 'No original email text available',
     'inquiries.documents': 'Documents',
     'inquiries.reviewHint': 'Compare the request with the AI reply, then approve or reject.',
+    'inquiries.generateReply': 'Generate reply',
+    'inquiries.regenerate': 'Regenerate',
+    'inquiries.replyGenerated': 'AI reply generated',
+    'inquiries.noDraftYet': 'No AI draft for this email yet. Click "Generate reply" to write one from the original.',
+    'inquiries.generating': 'Generating AI reply…',
 
     // Sent PDAs
     'sentPdas.title': 'Sent PDAs',
@@ -354,6 +359,11 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.noOriginal': 'Geen originele e-mailtekst beschikbaar',
     'inquiries.documents': 'Documenten',
     'inquiries.reviewHint': 'Vergelijk de aanvraag met het AI-antwoord, keur dan goed of af.',
+    'inquiries.generateReply': 'Genereer antwoord',
+    'inquiries.regenerate': 'Opnieuw genereren',
+    'inquiries.replyGenerated': 'AI-antwoord gegenereerd',
+    'inquiries.noDraftYet': 'Nog geen AI-concept voor deze e-mail. Klik "Genereer antwoord" om er een te schrijven op basis van de originele mail.',
+    'inquiries.generating': 'AI-antwoord genereren…',
 
     // Sent PDAs
     'sentPdas.title': 'Verzonden PDAs',
@@ -616,6 +626,11 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.noOriginal': 'No hay texto de correo original disponible',
     'inquiries.documents': 'Documentos',
     'inquiries.reviewHint': 'Compare la solicitud con la respuesta de IA, luego apruebe o rechace.',
+    'inquiries.generateReply': 'Generar respuesta',
+    'inquiries.regenerate': 'Regenerar',
+    'inquiries.replyGenerated': 'Respuesta de IA generada',
+    'inquiries.noDraftYet': 'Aún no hay borrador de IA para este correo. Haga clic en "Generar respuesta".',
+    'inquiries.generating': 'Generando respuesta de IA…',
 
     // Sent PDAs
     'sentPdas.title': 'PDAs Enviados',

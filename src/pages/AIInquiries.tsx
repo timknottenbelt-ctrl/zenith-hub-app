@@ -84,6 +84,11 @@ const EMAIL_TYPE_MAP: Record<string, string[]> = {
   'INCOMPLETE': ['INCOMPLETE'], // special: filters by status instead of Email Type
 };
 
+// Light column set for the list query — never pull the big body/original_email
+// HTML for hundreds of rows (that made the page slow). Full row is fetched on click.
+const LIST_COLS =
+  'id, subject, company_name, contact_name, vessel_name, port, status, created_at, email_to_person, missing_information, "Email Type", classification_confidence';
+
 // Canonical category each tab moves an email *into* (writes to the "Email Type" column).
 const MOVE_TARGETS = [
   { key: 'LOADING_DISCHARGE_AGENT', tab: 'CARGO_AGENT' },
@@ -100,6 +105,7 @@ export default function AIInquiries() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [composing, setComposing] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [emailAttachments, setEmailAttachments] = useState<EmailAttachment[]>([]);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
@@ -145,7 +151,7 @@ export default function AIInquiries() {
     if (!Number.isFinite(id)) return;
     const found = emails.find((e) => e.id === id);
     if (found && selectedEmail?.id !== id) {
-      setSelectedEmail(found);
+      selectEmail(id);
     }
   }, [searchParams, emails, selectedEmail?.id]);
 
@@ -220,7 +226,9 @@ export default function AIInquiries() {
   useEffect(() => {
     if (selectedEmail) {
       setEditSubject(selectedEmail.subject || '');
-      setEditBody(selectedEmail.body || '');
+      // Only load `body` as the editable draft if it's a REAL AI reply — not raw
+      // Outlook HTML and not just a copy of the original email.
+      setEditBody(isRealAiReply(selectedEmail) ? (selectedEmail.body || '') : '');
       fetchEmailAttachments(selectedEmail.id);
       setPreviewPdfUrl(null);
     } else {
@@ -231,7 +239,7 @@ export default function AIInquiries() {
   async function fetchEmails() {
     setLoading(true);
 
-    let query = supabase.from('email').select('*');
+    let query = supabase.from('email').select(LIST_COLS);
 
     // Exclude sent/approved emails from all tabs - they belong in Sent PDAs
     query = query.not('status', 'in', '("approved","sent")');
@@ -250,15 +258,22 @@ export default function AIInquiries() {
       query = query.in('Email Type', emailTypes).neq('status', 'out_of_scope');
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(300);
 
     if (error) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
     } else {
-      setEmails(data || []);
+      setEmails((data || []) as unknown as Email[]);
     }
     setLoading(false);
     fetchCounts();
+  }
+
+  // Fetch the FULL row (body, original_email, links…) only when an email is opened.
+  async function selectEmail(emailId: number) {
+    setEmailIdInUrl(emailId);
+    const { data } = await supabase.from('email').select('*').eq('id', emailId).single();
+    if (data) setSelectedEmail(data as Email);
   }
 
   // Per-tab counts for the tab badges (kept in sync after every fetch/action).
@@ -371,6 +386,29 @@ export default function AIInquiries() {
     setSelectedEmail(null);
     setEmailIdInUrl(null);
     fetchEmails();
+  }
+
+  // Generate (or regenerate) a clean, well-formatted AI reply for the open email.
+  async function handleCompose() {
+    if (!selectedEmail) return;
+    setComposing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('compose-reply', {
+        body: { email_id: selectedEmail.id },
+      });
+      if (error) throw error;
+      if (data?.email) {
+        setSelectedEmail(data.email as Email);
+        toast({ title: t('common.success'), description: t('inquiries.replyGenerated') });
+        fetchEmails();
+      } else {
+        throw new Error(data?.error || 'compose failed');
+      }
+    } catch (e: any) {
+      toast({ title: t('common.error'), description: e.message || t('common.error_occurred'), variant: 'destructive' });
+    } finally {
+      setComposing(false);
+    }
   }
 
   async function handleUpdateStatus(status: 'approved' | 'rejected') {
@@ -504,6 +542,7 @@ export default function AIInquiries() {
   const confidence = selectedEmail ? (selectedEmail as any).classification_confidence as number | null : null;
   const reasoning = selectedEmail ? (selectedEmail as any).classification_reasoning as string | null : null;
   const currentCategory = selectedEmail ? categoryKey(selectedEmail['Email Type']) : null;
+  const hasAiReply = selectedEmail ? isRealAiReply(selectedEmail) : false;
 
   return (
     <DashboardLayout title={t('inquiries.title')}>
@@ -619,7 +658,7 @@ export default function AIInquiries() {
                             return (
                               <button
                                 key={email.id}
-                                onClick={() => { setSelectedEmail(email); setEmailIdInUrl(email.id); }}
+                                onClick={() => selectEmail(email.id)}
                                 className={`w-full text-left px-3 py-2.5 flex gap-3 cursor-pointer transition-colors border-b border-border/40 border-l-[3px] ${
                                   selected ? 'bg-primary/5 border-l-primary' : 'border-l-transparent hover:bg-muted/40'
                                 }`}
@@ -818,11 +857,28 @@ export default function AIInquiries() {
 
                     {/* AI draft editor */}
                     <div className="flex flex-col min-h-0">
-                      <div className="flex items-center gap-2 px-5 py-2.5 bg-primary/[0.04]">
-                        <Sparkles className="w-3.5 h-3.5 text-primary" />
-                        <span className="text-xs font-semibold uppercase tracking-wide text-primary">{t('inquiries.aiDraft')}</span>
+                      <div className="flex items-center justify-between gap-2 px-5 py-2 bg-primary/[0.04]">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-xs font-semibold uppercase tracking-wide text-primary">{t('inquiries.aiDraft')}</span>
+                        </div>
+                        <Button
+                          variant="outline" size="sm"
+                          className="h-7 text-xs rounded-lg gap-1.5"
+                          onClick={handleCompose}
+                          disabled={composing}
+                        >
+                          {composing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                          {hasAiReply ? t('inquiries.regenerate') : t('inquiries.generateReply')}
+                        </Button>
                       </div>
                       <div className="px-5 py-4 space-y-3">
+                        {!hasAiReply && !editBody && (
+                          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 text-xs">
+                            <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                            <span>{t('inquiries.noDraftYet')}</span>
+                          </div>
+                        )}
                         <div className="space-y-1.5">
                           <Label htmlFor="subject" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t('inquiries.emailSubject')}</Label>
                           <Input
@@ -839,7 +895,7 @@ export default function AIInquiries() {
                             id="body"
                             value={editBody}
                             onChange={(e) => setEditBody(e.target.value)}
-                            placeholder={t('inquiries.emailBody')}
+                            placeholder={composing ? t('inquiries.generating') : t('inquiries.emailBody')}
                             className="h-[240px] text-sm rounded-lg bg-muted/20 border-border/60 focus:bg-card leading-relaxed resize-none"
                           />
                         </div>
@@ -954,6 +1010,15 @@ export default function AIInquiries() {
       </Tabs>
     </DashboardLayout>
   );
+}
+
+/** Is the email's `body` a genuine AI-written reply (vs raw HTML or a copy of the original)? */
+function isRealAiReply(email: Email): boolean {
+  const b = (email.body || '').trim();
+  if (!b) return false;
+  if (/<(div|html|table|p |span|body|head)/i.test(b)) return false; // raw Outlook HTML
+  if (b === (email.original_email || '').trim() || b === (email.orignal_email || '').trim()) return false;
+  return true;
 }
 
 /** Initials (max 2) from a company/contact name. */
