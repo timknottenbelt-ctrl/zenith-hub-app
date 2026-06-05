@@ -336,7 +336,7 @@ export function ManualEmailDetail({ email, onDelete, onEmailUpdated, onRefresh }
               )}
 
               {/* Parsed Body */}
-              <div className="p-5 space-y-4 bg-white">
+              <div className="p-5 space-y-4 bg-card">
                 {bodyBlocks.map((block, i) => {
                   if (block.type === 'vessel') {
                     return (

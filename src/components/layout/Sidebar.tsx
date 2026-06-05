@@ -61,7 +61,7 @@ export const Sidebar = memo(function Sidebar() {
   const userInitial = (user?.user_metadata?.name || user?.email || 'U').charAt(0).toUpperCase();
 
   return (
-    <aside className="fixed left-3 top-3 bottom-3 w-[256px] bg-white rounded-2xl flex flex-col z-50"
+    <aside className="fixed left-3 top-3 bottom-3 w-[256px] bg-card rounded-2xl flex flex-col z-50 border border-border/40"
       style={{ boxShadow: '0 4px 24px -4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.02)' }}>
       {/* Logo */}
       <div className="h-[68px] flex items-center px-5 shrink-0">

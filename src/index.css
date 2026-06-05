@@ -119,6 +119,11 @@
     background-attachment: fixed;
   }
 
+  .dark body {
+    background: linear-gradient(135deg, hsl(224 71% 4%) 0%, hsl(225 60% 6%) 50%, hsl(226 55% 8%) 100%);
+    background-attachment: fixed;
+  }
+
   html {
     overflow-x: hidden;
     scroll-behavior: smooth;
@@ -183,7 +188,7 @@
 
   /* Floating card — the core card style */
   .card-premium {
-    @apply bg-white rounded-2xl transition-shadow duration-200;
+    @apply bg-card text-card-foreground rounded-2xl transition-shadow duration-200;
     box-shadow: var(--shadow-float);
     border: none;
   }
@@ -197,6 +202,10 @@
     background: rgba(255, 255, 255, 0.72);
     backdrop-filter: blur(20px) saturate(1.2);
     -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  }
+
+  .dark .glass {
+    background: rgba(13, 18, 33, 0.72);
   }
 
   /* Interactions */

@@ -256,7 +256,7 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
   };
 
   return (
-    <header className="h-[68px] py-5 mt-3 rounded-2xl flex items-center justify-between px-6 sticky top-3 z-40 glass border-b border-gray-200"
+    <header className="h-[68px] py-5 mt-3 rounded-2xl flex items-center justify-between px-6 sticky top-3 z-40 glass border border-border/40"
       style={{ boxShadow: '0 2px 12px -4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.02)' }}>
       <h1 className="text-[17px] font-semibold text-foreground tracking-tight">{title}</h1>
 
@@ -285,7 +285,7 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
           </div>
 
           {showResults && (searchQuery || searchResults.length > 0) && (
-            <div className="absolute top-full right-0 mt-2 min-w-[420px] bg-white rounded-2xl z-50 overflow-hidden"
+            <div className="absolute top-full right-0 mt-2 min-w-[420px] bg-popover text-popover-foreground rounded-2xl z-50 overflow-hidden border border-border/40"
               style={{ boxShadow: '0 16px 48px -8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)' }}>
               <ScrollArea className="max-h-[400px]">
                 {isSearching ? (

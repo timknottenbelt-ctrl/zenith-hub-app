@@ -123,7 +123,7 @@ export default function ManualEmails() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
-        <TabsList className="bg-white/60 backdrop-blur-sm p-1 rounded-xl h-auto inline-flex gap-1"
+        <TabsList className="bg-card/60 backdrop-blur-sm p-1 rounded-xl h-auto inline-flex gap-1"
           style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           <TabsTrigger value="create" className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">
             <PlusCircle className="w-3.5 h-3.5" />
