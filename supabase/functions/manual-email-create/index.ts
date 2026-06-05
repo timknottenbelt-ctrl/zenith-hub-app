@@ -12,6 +12,21 @@ import { requireUser } from "../_shared/auth.ts";
 import { chat } from "../_shared/openai.ts";
 import { semanticSearch } from "../_shared/rag.ts";
 import { calculatePda, type PdaConfig, type VesselInput } from "../_shared/pda.ts";
+import { extractText, getDocumentProxy } from "npm:unpdf";
+
+/** Extract text from a base64-encoded PDF (edge-friendly). */
+async function pdfToText(base64: string): Promise<string> {
+  try {
+    const clean = base64.includes(",") ? base64.split(",")[1] : base64;
+    const bin = Uint8Array.from(atob(clean), (c) => c.charCodeAt(0));
+    const pdf = await getDocumentProxy(bin);
+    const { text } = await extractText(pdf, { mergePages: true });
+    return Array.isArray(text) ? text.join("\n") : text;
+  } catch (e) {
+    console.error("[manual-email-create] pdf extract failed:", e);
+    return "";
+  }
+}
 
 interface Extracted {
   vessels: Array<VesselInput & { imo?: string; flag?: string }>;
@@ -78,13 +93,20 @@ Deno.serve(async (req) => {
     if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status ?? 401);
   }
 
-  let input: { email_content?: string; agent_type?: string; subject?: string; email_id?: number };
+  let input: { email_content?: string; agent_type?: string; subject?: string; email_id?: number; pdf_base64?: string };
   try {
     input = await req.json();
   } catch {
     return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
-  if (!input.email_content) return jsonResponse({ error: "email_content is required" }, 400);
+  if (!input.email_content && !input.pdf_base64) {
+    return jsonResponse({ error: "email_content or pdf_base64 is required" }, 400);
+  }
+
+  // Combine the pasted text with any attached PDF's extracted text.
+  const pdfText = input.pdf_base64 ? await pdfToText(input.pdf_base64) : "";
+  const emailText = [input.email_content, pdfText && `ATTACHED PDF:\n${pdfText}`]
+    .filter(Boolean).join("\n\n").trim();
 
   const db = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -110,7 +132,7 @@ Deno.serve(async (req) => {
       await chat(
         [
           { role: "system", content: EXTRACT_PROMPT },
-          { role: "user", content: input.email_content },
+          { role: "user", content: emailText },
         ],
         { model: "gpt-4o", temperature: 0 },
       ),

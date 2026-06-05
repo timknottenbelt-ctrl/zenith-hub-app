@@ -53,62 +53,28 @@ export function ManualEmailCreateForm({
     }
 
     try {
-      let lastError: Error | null = null;
-      let success = false;
-
-      // Primary path: Supabase-native pipeline (manual-email-create) for
-      // text-only inquiries. Falls back to n8n on any error or when a PDF is
-      // attached (PDF text extraction still lives in n8n).
-      if (!pdfFile) {
-        try {
-          const { data, error } = await supabase.functions.invoke("manual-email-create", {
-            body: {
-              email_content: emailContent,
-              agent_type: originalAgentType,
-              subject: originalSubject || undefined,
-            },
-          });
-          if (error) throw new Error(error.message || "manual-email-create failed");
-          if (!data?.success) throw new Error(data?.error || "manual-email-create returned no data");
-          success = true;
-        } catch (err) {
-          lastError = err instanceof Error ? err : new Error(String(err));
-          console.warn("[ManualEmail] manual-email-create failed, falling back to n8n:", lastError.message);
-        }
+      // Read an attached PDF (if any) as base64 so the Supabase pipeline can
+      // extract its text itself — manual emails no longer depend on n8n.
+      let pdf_base64: string | undefined;
+      if (pdfFile) {
+        pdf_base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error("Kon PDF niet lezen"));
+          reader.readAsDataURL(pdfFile);
+        });
       }
 
-      // Fallback path (or PDF attached): n8n via trigger-manual-email, with retries.
-      if (!success) {
-        const formData = new FormData();
-        formData.append("email_content", emailContent);
-        formData.append("agent_type", originalAgentType);
-        if (originalSubject) formData.append("subject", originalSubject);
-        if (pdfFile) formData.append("pdf", pdfFile);
-
-        const maxRetries = 3;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            const { data: responseData, error: fnError } = await supabase.functions.invoke("trigger-manual-email", {
-              body: formData,
-            });
-
-            if (fnError) throw new Error(fnError.message || "Webhook request failed");
-            if (responseData?.upstream_status && responseData.upstream_status >= 400) {
-              console.warn("n8n upstream error:", responseData);
-            }
-            success = true;
-            break;
-          } catch (err) {
-            lastError = err instanceof Error ? err : new Error(String(err));
-            console.warn(`[ManualEmail] Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
-            if (attempt < maxRetries) {
-              await new Promise((r) => setTimeout(r, 1500 * attempt));
-            }
-          }
-        }
-      }
-
-      if (!success && lastError) throw lastError;
+      const { data, error } = await supabase.functions.invoke("manual-email-create", {
+        body: {
+          email_content: emailContent,
+          agent_type: originalAgentType,
+          subject: originalSubject || undefined,
+          pdf_base64,
+        },
+      });
+      if (error) throw new Error(error.message || "Verwerking mislukt");
+      if (!data?.success) throw new Error(data?.error || "Verwerking mislukt");
 
       setEmailContent("");
       setSubject("");
