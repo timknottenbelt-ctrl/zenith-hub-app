@@ -132,7 +132,7 @@ export default function Auth() {
           <p className="text-sm text-muted-foreground/60 mt-1">Maritime Services Portal</p>
         </div>
 
-        <div className="bg-white rounded-2xl p-6" style={{ boxShadow: '0 16px 48px -12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02)' }}>
+        <div className="bg-card rounded-2xl p-6" style={{ boxShadow: '0 16px 48px -12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02)' }}>
           <h2 className="text-lg font-semibold text-center mb-5">Inloggen</h2>
 
           <form onSubmit={handleLogin} className="space-y-4">

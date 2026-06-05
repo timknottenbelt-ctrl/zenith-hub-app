@@ -520,10 +520,10 @@ export default function AIInquiries() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
         <TabsList className="bg-card/60 backdrop-blur-sm p-1 h-auto inline-flex gap-1 rounded-xl" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          <TabsTrigger value="CARGO_AGENT" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.cargoAgent')}</TabsTrigger>
-          <TabsTrigger value="OWNERS_AGENT" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.ownersAgent')}</TabsTrigger>
-          <TabsTrigger value="OUT_OF_SCOPE" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.outOfScope')}</TabsTrigger>
-          <TabsTrigger value="INCOMPLETE" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">{t('inquiries.incomplete')}</TabsTrigger>
+          <TabsTrigger value="CARGO_AGENT" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">{t('inquiries.cargoAgent')}</TabsTrigger>
+          <TabsTrigger value="OWNERS_AGENT" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">{t('inquiries.ownersAgent')}</TabsTrigger>
+          <TabsTrigger value="OUT_OF_SCOPE" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">{t('inquiries.outOfScope')}</TabsTrigger>
+          <TabsTrigger value="INCOMPLETE" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">{t('inquiries.incomplete')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-5">
@@ -951,7 +951,7 @@ export default function AIInquiries() {
                           value={editSubject}
                           onChange={(e) => setEditSubject(e.target.value)}
                           placeholder={t('inquiries.emailSubject')}
-                          className="h-10 rounded-lg bg-muted/20 border-border/60 focus:bg-white"
+                          className="h-10 rounded-lg bg-muted/20 border-border/60 focus:bg-card"
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -961,7 +961,7 @@ export default function AIInquiries() {
                           value={editBody}
                           onChange={(e) => setEditBody(e.target.value)}
                           placeholder={t('inquiries.emailBody')}
-                          className="min-h-[180px] text-sm rounded-lg bg-muted/20 border-border/60 focus:bg-white leading-relaxed"
+                          className="min-h-[180px] text-sm rounded-lg bg-muted/20 border-border/60 focus:bg-card leading-relaxed"
                         />
                       </div>
 

@@ -393,7 +393,7 @@ export function ManualEmailDetail({ email, onDelete, onEmailUpdated, onRefresh }
           </button>
           {showOriginal && (
             <div className="mt-2 rounded-xl overflow-hidden" style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.06)' }}>
-              <pre className="p-4 text-sm whitespace-pre-wrap font-sans leading-relaxed text-foreground/70 max-h-[300px] overflow-y-auto bg-white">{email.email_content}</pre>
+              <pre className="p-4 text-sm whitespace-pre-wrap font-sans leading-relaxed text-foreground/70 max-h-[300px] overflow-y-auto bg-card">{email.email_content}</pre>
             </div>
           )}
         </div>

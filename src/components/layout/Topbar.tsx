@@ -277,7 +277,7 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
                 setShowResults(true);
               }}
               onFocus={() => setShowResults(true)}
-              className="pl-9 pr-16 h-9 w-64 bg-black/[0.03] border-transparent hover:bg-black/[0.05] focus:bg-white focus:border-primary/20 rounded-xl text-sm placeholder:text-muted-foreground/40"
+              className="pl-9 pr-16 h-9 w-64 bg-black/[0.03] border-transparent hover:bg-black/[0.05] focus:bg-card focus:border-primary/20 rounded-xl text-sm placeholder:text-muted-foreground/40"
             />
             <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/40 bg-black/[0.04] px-1.5 py-0.5 rounded-md font-mono">
               ⌘K

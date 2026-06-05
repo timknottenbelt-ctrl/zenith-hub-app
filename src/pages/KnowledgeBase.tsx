@@ -333,7 +333,7 @@ export default function KnowledgeBase() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
               <Input ref={searchRef} value={search} onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search knowledge base..."
-                className="pl-9 pr-9 h-10 bg-black/[0.02] border-transparent hover:bg-black/[0.04] focus:bg-white focus:border-primary/20 rounded-xl text-sm" />
+                className="pl-9 pr-9 h-10 bg-black/[0.02] border-transparent hover:bg-black/[0.04] focus:bg-card focus:border-primary/20 rounded-xl text-sm" />
               {search && (
                 <Button variant="ghost" size="sm"
                   className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0 rounded-lg"
@@ -555,7 +555,7 @@ export default function KnowledgeBase() {
 
       {/* ── Detail Dialog ── */}
       <Dialog open={viewMode === "detail" && !!detailEntry} onOpenChange={(open) => { if (!open) backToList(); }}>
-        <DialogContent className="max-w-2xl bg-white rounded-2xl border-0 p-0 gap-0 overflow-hidden"
+        <DialogContent className="max-w-2xl bg-popover rounded-2xl border-0 p-0 gap-0 overflow-hidden"
           style={{ boxShadow: '0 24px 64px -12px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.04)' }}>
           <DialogTitle className="sr-only">Knowledge Entry Detail</DialogTitle>
           {detailEntry && (() => {
