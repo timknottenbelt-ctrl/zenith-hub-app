@@ -329,7 +329,9 @@ export default function FDACreator() {
   }
 
   async function handleUpdateInvoiceNumber(id: string, num: string) {
-    await supabase.from("fda_invoices").update({ invoice_number: num }).eq("id", id);
+    const { error } = await supabase.from("fda_invoices").update({ invoice_number: num }).eq("id", id);
+    if (error) toast({ title: "Niet opgeslagen", description: error.message, variant: "destructive" });
+    else toast({ title: "Factuurnummer opgeslagen" });
   }
 
   // ─── Send to Webhook ────────────────────────────────────────────────────

@@ -230,7 +230,7 @@ export function ManualEmailDetail({ email, onDelete, onEmailUpdated, onRefresh }
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          {email.status === "error" && (
+          {(email.status === "error" || (email.status === "processing" && Date.now() - new Date(email.created_at).getTime() > 30000)) && (
             <Button variant="outline" size="sm" onClick={handleRetryEmail} disabled={retrying} className="gap-1.5 rounded-lg h-8 text-xs">
               {retrying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
               Opnieuw
@@ -266,13 +266,13 @@ export function ManualEmailDetail({ email, onDelete, onEmailUpdated, onRefresh }
             {email.pda_link_1 && (
               <a href={email.pda_link_1} target="_blank" rel="noopener noreferrer"
                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary/8 text-primary rounded-lg hover:bg-primary/15 transition-colors">
-                <ExternalLink className="w-3 h-3" /> PDA Link 1
+                <ExternalLink className="w-3 h-3" /> DA (PDF)
               </a>
             )}
             {email.pda_link_2 && (
               <a href={email.pda_link_2} target="_blank" rel="noopener noreferrer"
                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary/8 text-primary rounded-lg hover:bg-primary/15 transition-colors">
-                <ExternalLink className="w-3 h-3" /> PDA Link 2
+                <ExternalLink className="w-3 h-3" /> DA (Excel)
               </a>
             )}
             {email.pdf_path && (
