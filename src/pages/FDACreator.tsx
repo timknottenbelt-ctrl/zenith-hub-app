@@ -382,7 +382,10 @@ export default function FDACreator() {
     const hasFinalPdf = !!selectedProject?.final_pdf_url;
     const hasInvoices = invoices.length > 0;
 
-    const setupComplete = !!formData.lbh_number && !!formData.ship_name;
+    // Setup is only truly complete when the fields required for sending are
+    // filled — otherwise the sidebar showed a green check but "Verstuur" failed.
+    const setupComplete = !!formData.lbh_number && !!formData.ship_name &&
+      !!formData.vessel_arrived && !!formData.vessel_sailed && !!formData.operation;
     const invoicesComplete = hasInvoices;
     const frontpageComplete = hasFinalPdf || isSentStatus;
     const processingComplete = hasSheet || hasFinalPdf || isSentStatus;
@@ -575,7 +578,13 @@ export default function FDACreator() {
                   </Card>
 
                   <div className="flex justify-end">
-                    <Button onClick={() => { handleSaveProject(); setStepInUrl("invoices"); }}>
+                    <Button onClick={() => {
+                      handleSaveProject();
+                      if (!formData.vessel_arrived || !formData.vessel_sailed || !formData.operation) {
+                        toast({ title: "Let op", description: "Vul aankomst, vertrek en operatie in vóór je de FDA verstuurt." });
+                      }
+                      setStepInUrl("invoices");
+                    }}>
                       Opslaan & Volgende →
                     </Button>
                   </div>

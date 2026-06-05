@@ -114,7 +114,7 @@ function parseEmailBody(body: string): BodyBlock[] {
 export function ManualEmailDetail({ email, onDelete, onEmailUpdated, onRefresh }: ManualEmailDetailProps) {
   const [copied, setCopied] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const [showOriginal, setShowOriginal] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(true);
 
   const bodyBlocks = useMemo(() => {
     if (!email?.body) return [];

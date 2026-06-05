@@ -397,7 +397,10 @@ export default function FDACuracao() {
     const isSentStatus = s === "sent" || s === "completed";
     const hasSheet = !!selectedProject?.google_sheet_url;
     const hasInvoices = invoices.length > 0;
-    const setupComplete = !!formData.lbh_number && !!formData.ship_name;
+    // Setup only complete when the send-required fields are filled too (the
+    // sidebar previously showed complete while "Verstuur" still failed).
+    const setupComplete = !!formData.lbh_number && !!formData.ship_name &&
+      !!formData.vessel_arrived && !!formData.vessel_sailed && !!formData.operation;
 
     return [
       { id: "setup", label: "Setup", icon: Settings, status: setupComplete ? "complete" : "warning" },
