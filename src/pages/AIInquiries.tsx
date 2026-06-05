@@ -237,9 +237,16 @@ export default function AIInquiries() {
 
     if (activeTab === 'INCOMPLETE') {
       query = query.not('missing_information', 'is', null);
+    } else if (activeTab === 'OUT_OF_SCOPE') {
+      // Out of Scope = anything the system flagged out_of_scope (regardless of the
+      // AI's category guess) OR explicitly typed as out-of-scope. This catches the
+      // rows whose status is out_of_scope but whose Email Type still says OWNERS_AGENT.
+      query = query.or('status.eq.out_of_scope,"Email Type".in.("OUT_OF_SCOPE","Out of Scope","REFERRAL","OUT OF SCOPE")');
     } else {
+      // Service tabs (Cargo/Owners): match the category BUT never show rows the
+      // system already flagged out_of_scope — that was the leak into Owners Agent.
       const emailTypes = EMAIL_TYPE_MAP[activeTab];
-      query = query.in('Email Type', emailTypes);
+      query = query.in('Email Type', emailTypes).neq('status', 'out_of_scope');
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
