@@ -113,6 +113,7 @@ export default function AIInquiries() {
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   // Sync /inquiries?q=... with the local search (Topbar can write this param)
   useEffect(() => {
@@ -257,6 +258,25 @@ export default function AIInquiries() {
       setEmails(data || []);
     }
     setLoading(false);
+    fetchCounts();
+  }
+
+  // Per-tab counts for the tab badges (kept in sync after every fetch/action).
+  async function fetchCounts() {
+    const base = () =>
+      supabase.from('email').select('*', { count: 'exact', head: true }).not('status', 'in', '("approved","sent")');
+    const [cargo, owners, oos, incomplete] = await Promise.all([
+      base().in('Email Type', EMAIL_TYPE_MAP['CARGO_AGENT']).neq('status', 'out_of_scope'),
+      base().in('Email Type', EMAIL_TYPE_MAP['OWNERS_AGENT']).neq('status', 'out_of_scope'),
+      base().or('status.eq.out_of_scope,"Email Type".in.("OUT_OF_SCOPE","Out of Scope","REFERRAL","OUT OF SCOPE")'),
+      base().not('missing_information', 'is', null),
+    ]);
+    setCounts({
+      CARGO_AGENT: cargo.count ?? 0,
+      OWNERS_AGENT: owners.count ?? 0,
+      OUT_OF_SCOPE: oos.count ?? 0,
+      INCOMPLETE: incomplete.count ?? 0,
+    });
   }
 
   async function fetchEmailAttachments(emailId: number) {
@@ -505,11 +525,26 @@ export default function AIInquiries() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedEmail(null); }} className="space-y-5">
-        <TabsList className="bg-card/60 backdrop-blur-sm p-1 h-auto inline-flex gap-1 rounded-xl" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          <TabsTrigger value="CARGO_AGENT" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">{t('inquiries.cargoAgent')}</TabsTrigger>
-          <TabsTrigger value="OWNERS_AGENT" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">{t('inquiries.ownersAgent')}</TabsTrigger>
-          <TabsTrigger value="OUT_OF_SCOPE" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">{t('inquiries.outOfScope')}</TabsTrigger>
-          <TabsTrigger value="INCOMPLETE" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">{t('inquiries.incomplete')}</TabsTrigger>
+        <TabsList className="bg-card/60 backdrop-blur-sm p-1 h-auto inline-flex flex-wrap gap-1 rounded-xl" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+          {([
+            ['CARGO_AGENT', t('inquiries.cargoAgent')],
+            ['OWNERS_AGENT', t('inquiries.ownersAgent')],
+            ['OUT_OF_SCOPE', t('inquiries.outOfScope')],
+            ['INCOMPLETE', t('inquiries.incomplete')],
+          ] as const).map(([key, label]) => (
+            <TabsTrigger
+              key={key}
+              value={key}
+              className="text-sm px-3.5 py-2 rounded-lg gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm"
+            >
+              {label}
+              <span className={`min-w-[20px] text-center text-[11px] font-semibold px-1.5 py-0 rounded-full transition-colors ${
+                activeTab === key ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+              }`}>
+                {counts[key] ?? '·'}
+              </span>
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-5">
@@ -553,8 +588,17 @@ export default function AIInquiries() {
               <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
                 <ScrollArea className="h-full">
                   {loading ? (
-                    <div className="flex items-center justify-center p-12">
-                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    <div className="divide-y divide-border/40">
+                      {Array.from({ length: 7 }).map((_, i) => (
+                        <div key={i} className="px-3 py-2.5 flex gap-3 animate-pulse">
+                          <div className="w-9 h-9 rounded-xl bg-muted shrink-0" />
+                          <div className="flex-1 space-y-2 py-0.5">
+                            <div className="h-3 bg-muted rounded w-2/3" />
+                            <div className="h-2.5 bg-muted/60 rounded w-1/2" />
+                            <div className="h-2.5 bg-muted/40 rounded w-1/3" />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : filteredEmails.length === 0 ? (
                     <div className="text-center p-12 text-muted-foreground">
@@ -563,41 +607,56 @@ export default function AIInquiries() {
                     </div>
                   ) : (
                     <div>
-                      {filteredEmails.map((email) => (
-                        <div
-                          key={email.id}
-                          onClick={() => { setSelectedEmail(email); setEmailIdInUrl(email.id); }}
-                          className={`px-4 py-3 cursor-pointer transition-all duration-75 border-b border-border/40 hover:bg-muted/40 ${
-                            selectedEmail?.id === email.id
-                              ? 'bg-primary/5 border-l-[3px] border-l-primary'
-                              : 'border-l-[3px] border-l-transparent'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="text-sm font-semibold text-foreground leading-snug line-clamp-1">
-                              {email.company_name || email.contact_name || t('inquiries.noSubject')}
-                            </p>
-                            <span className="text-[11px] text-muted-foreground whitespace-nowrap">{formatTime(email.created_at)}</span>
+                      {groupByDate(filteredEmails).map((group) => (
+                        <div key={group.label}>
+                          <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 border-b border-border/30">
+                            {group.label} <span className="text-muted-foreground/40">· {group.emails.length}</span>
                           </div>
-                          {email.vessel_name && (
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <Ship className="w-3 h-3 text-primary/60" />
-                              <span className="text-xs font-medium text-foreground/80">{email.vessel_name}</span>
-                            </div>
-                          )}
-                          <p className="text-xs text-muted-foreground line-clamp-1">{email.subject || t('inquiries.noSubject')}</p>
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <Badge className={`${getStatusBadge(email.status)} text-[10px] px-1.5 py-0 h-5 border`} variant="secondary">
-                              {getStatusIcon(email.status)}
-                              <span className="ml-1">{email.status}</span>
-                            </Badge>
-                            {email.port && (
-                              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                <MapPin className="w-2.5 h-2.5" />
-                                {email.port}
-                              </span>
-                            )}
-                          </div>
+                          {group.emails.map((email) => {
+                            const who = email.company_name || email.contact_name || t('inquiries.noSubject');
+                            const conf = (email as any).classification_confidence as number | null;
+                            const selected = selectedEmail?.id === email.id;
+                            return (
+                              <button
+                                key={email.id}
+                                onClick={() => { setSelectedEmail(email); setEmailIdInUrl(email.id); }}
+                                className={`w-full text-left px-3 py-2.5 flex gap-3 cursor-pointer transition-colors border-b border-border/40 border-l-[3px] ${
+                                  selected ? 'bg-primary/5 border-l-primary' : 'border-l-transparent hover:bg-muted/40'
+                                }`}
+                              >
+                                <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center text-[11px] font-bold ${avatarColor(who)}`}>
+                                  {initials(who)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="text-sm font-semibold text-foreground leading-snug truncate">{who}</p>
+                                    <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">{formatTime(email.created_at)}</span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{email.subject || t('inquiries.noSubject')}</p>
+                                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                    <Badge className={`${getStatusBadge(email.status)} text-[10px] px-1.5 py-0 h-[18px] border`} variant="secondary">
+                                      {getStatusIcon(email.status)}<span className="ml-1">{email.status}</span>
+                                    </Badge>
+                                    {email.vessel_name && (
+                                      <span className="inline-flex items-center gap-0.5 text-[10px] text-foreground/70 bg-muted/60 px-1.5 h-[18px] rounded-md max-w-[130px]">
+                                        <Ship className="w-2.5 h-2.5 text-primary/60 shrink-0" /><span className="truncate">{email.vessel_name}</span>
+                                      </span>
+                                    )}
+                                    {email.port && (
+                                      <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                        <MapPin className="w-2.5 h-2.5" />{email.port}
+                                      </span>
+                                    )}
+                                    {typeof conf === 'number' && conf < 0.6 && (
+                                      <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-amber-400" title="Lage AI-zekerheid — controleer classificatie">
+                                        <Sparkles className="w-2.5 h-2.5" />{Math.round(conf * 100)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       ))}
                     </div>
@@ -895,6 +954,47 @@ export default function AIInquiries() {
       </Tabs>
     </DashboardLayout>
   );
+}
+
+/** Initials (max 2) from a company/contact name. */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+  'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+  'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+  'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+  'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
+  'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300',
+  'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
+];
+/** Stable colour per sender so the same company always looks the same. */
+function avatarColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+/** Group emails into Today / This week / Older buckets (input already newest-first). */
+function groupByDate(emails: Email[]): { label: string; emails: Email[] }[] {
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startWeek = startToday - now.getDay() * 86400000;
+  const buckets: Record<string, Email[]> = { Vandaag: [], 'Deze week': [], Ouder: [] };
+  for (const e of emails) {
+    const ts = new Date(e.created_at).getTime();
+    if (ts >= startToday) buckets['Vandaag'].push(e);
+    else if (ts >= startWeek) buckets['Deze week'].push(e);
+    else buckets['Ouder'].push(e);
+  }
+  return Object.entries(buckets)
+    .filter(([, list]) => list.length > 0)
+    .map(([label, list]) => ({ label, emails: list }));
 }
 
 /** Display-only: make a flattened / HTML email body readable. Never mutates stored data. */
