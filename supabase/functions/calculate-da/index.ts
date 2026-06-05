@@ -5,6 +5,7 @@
 // Dual auth: x-api-key (server/n8n) OR a logged-in user (dashboard).
 import { createClient } from "npm:@supabase/supabase-js@2.90.1";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { reportError } from "../_shared/tados.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { calculateDA, type DaConfig, type DaVessel } from "../_shared/da.ts";
 
@@ -91,6 +92,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ success: true, da_output_id, lines: da.lines, extra_lines: extra, total });
   } catch (error) {
     console.error("[calculate-da] error:", error);
+    await reportError("calculate-da", error);
     return jsonResponse({ error: error instanceof Error ? error.message : "unknown" }, 500);
   }
 });

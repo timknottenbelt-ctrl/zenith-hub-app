@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.90.1";
+import { reportError } from "../_shared/tados.ts";
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -96,6 +97,7 @@ Deno.serve(async (req) => {
     return new Response(respBody, { status: upstream.status, headers: respHeaders });
   } catch (error) {
     console.error("[n8n-webhook] proxy error:", error);
+    await reportError("n8n-webhook", error);
     return json(
       { error: error instanceof Error ? error.message : "proxy_error" },
       502,

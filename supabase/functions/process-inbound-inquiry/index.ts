@@ -11,6 +11,7 @@
 // Auth-gated. Uses OPENAI_API_KEY + service-role DB access.
 import { createClient } from "npm:@supabase/supabase-js@2.90.1";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { reportError } from "../_shared/tados.ts";
 import { chat } from "../_shared/openai.ts";
 import { semanticSearch } from "../_shared/rag.ts";
 import { calculatePda, type PdaConfig, type VesselInput } from "../_shared/pda.ts";
@@ -233,6 +234,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ success: true, classification: cls.type, data });
   } catch (error) {
     console.error("[process-inbound-inquiry] error:", error);
+    await reportError("process-inbound-inquiry", error);
     return jsonResponse({ error: error instanceof Error ? error.message : "unknown" }, 500);
   }
 });

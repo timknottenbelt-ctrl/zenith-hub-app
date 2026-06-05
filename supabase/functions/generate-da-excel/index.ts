@@ -4,6 +4,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.90.1";
 import * as XLSX from "npm:xlsx@0.18.5";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { reportError } from "../_shared/tados.ts";
 import { requireUser } from "../_shared/auth.ts";
 
 interface Line { label: string; currency: string; amount: number }
@@ -63,6 +64,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ success: true, excel_url: url });
   } catch (e) {
     console.error("[generate-da-excel]", e);
+    await reportError("generate-da-excel", e);
     return jsonResponse({ error: e instanceof Error ? e.message : "unknown" }, 500);
   }
 });

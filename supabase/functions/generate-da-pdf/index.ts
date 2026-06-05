@@ -4,6 +4,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.90.1";
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { reportError } from "../_shared/tados.ts";
 import { requireUser } from "../_shared/auth.ts";
 
 interface Line { label: string; currency: string; amount: number }
@@ -90,6 +91,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ success: true, pdf_url: url });
   } catch (e) {
     console.error("[generate-da-pdf]", e);
+    await reportError("generate-da-pdf", e);
     return jsonResponse({ error: e instanceof Error ? e.message : "unknown" }, 500);
   }
 });

@@ -8,6 +8,7 @@
 // Auth-gated. Uses OPENAI_API_KEY + service-role DB access.
 import { createClient } from "npm:@supabase/supabase-js@2.90.1";
 import { corsHeaders, jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { reportError } from "../_shared/tados.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { chat } from "../_shared/openai.ts";
 import { semanticSearch } from "../_shared/rag.ts";
@@ -264,6 +265,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("[manual-email-create] error:", error);
+    await reportError("manual-email-create", error);
     return jsonResponse({ error: error instanceof Error ? error.message : "unknown" }, 500);
   }
 });
