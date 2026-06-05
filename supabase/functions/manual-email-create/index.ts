@@ -204,6 +204,38 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: result.error.message }, 500);
     }
 
+    // 7. For cargo (loading/discharge) inquiries, also produce the full DA
+    //    (cost breakdown) + PDF + Excel, and link them on the email row.
+    //    Non-fatal: a DA failure never breaks email creation.
+    const op = (v0.operation_type || "").toLowerCase();
+    if ((op.includes("load") || op.includes("discharge")) && v0.grt) {
+      try {
+        const FN = `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
+        const hdr = { "Content-Type": "application/json", "x-api-key": Deno.env.get("INBOUND_API_KEY") ?? "" };
+        const da = await fetch(`${FN}/calculate-da`, {
+          method: "POST", headers: hdr,
+          body: JSON.stringify({
+            vessel: {
+              vessel_name: v0.name, gt: v0.grt, loa: v0.loa, dwt: v0.dwt,
+              port_stay: p0.port_stay, tugs: p0.tugs, linesmen_hours: 2, facility: "Bouy",
+              operation_type: v0.operation_type, cargo_type: v0.cargo_type, cargo_quantity: v0.cargo_quantity,
+              terminal: p0.terminal, area: p0.area, client_name: extracted.contact?.name,
+            },
+            store: true, source: "manual_email", source_id: result.data.id, doc_type: "PDA",
+          }),
+        }).then((r) => r.json());
+        if (da?.da_output_id) {
+          const pdf = await fetch(`${FN}/generate-da-pdf`, { method: "POST", headers: hdr, body: JSON.stringify({ da_output_id: da.da_output_id }) }).then((r) => r.json());
+          const xls = await fetch(`${FN}/generate-da-excel`, { method: "POST", headers: hdr, body: JSON.stringify({ da_output_id: da.da_output_id }) }).then((r) => r.json());
+          await db.from("manual_emails").update({ pda_link_1: pdf?.pdf_url ?? null, pda_link_2: xls?.excel_url ?? null }).eq("id", result.data.id);
+          result.data.pda_link_1 = pdf?.pdf_url ?? null;
+          result.data.pda_link_2 = xls?.excel_url ?? null;
+        }
+      } catch (e) {
+        console.error("[manual-email-create] DA generation failed (non-fatal):", e);
+      }
+    }
+
     return new Response(JSON.stringify({ success: true, data: result.data }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

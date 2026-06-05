@@ -201,6 +201,35 @@ Deno.serve(async (req) => {
 
     const { data, error } = await db.from("email").insert(row).select().single();
     if (error) return jsonResponse({ error: error.message }, 500);
+
+    // Cargo inquiry -> also produce the DA (cost breakdown) + PDF/Excel and link
+    // them on the email row. Non-fatal.
+    if (cls.type === "LOADING_DISCHARGE_AGENT" && v0.grt) {
+      try {
+        const FN = `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
+        const hdr = { "Content-Type": "application/json", "x-api-key": Deno.env.get("INBOUND_API_KEY") ?? "" };
+        const da = await fetch(`${FN}/calculate-da`, {
+          method: "POST", headers: hdr,
+          body: JSON.stringify({
+            vessel: {
+              vessel_name: v0.name, gt: v0.grt, loa: v0.loa, port_stay: p0?.port_stay, tugs: p0?.tugs,
+              linesmen_hours: 2, facility: "Bouy", operation_type: v0.operation_type, cargo_type: v0.cargo_type,
+              cargo_quantity: v0.cargo_quantity, terminal: p0?.terminal, area: p0?.area, client_name: extracted.contact?.name,
+            },
+            store: true, source: "email", source_id: data.id, doc_type: "PDA",
+          }),
+        }).then((r) => r.json());
+        if (da?.da_output_id) {
+          const pdf = await fetch(`${FN}/generate-da-pdf`, { method: "POST", headers: hdr, body: JSON.stringify({ da_output_id: da.da_output_id }) }).then((r) => r.json());
+          const xls = await fetch(`${FN}/generate-da-excel`, { method: "POST", headers: hdr, body: JSON.stringify({ da_output_id: da.da_output_id }) }).then((r) => r.json());
+          await db.from("email").update({ pdf_url: pdf?.pdf_url ?? null, doc_link: xls?.excel_url ?? null }).eq("id", data.id);
+          data.pdf_url = pdf?.pdf_url ?? null;
+        }
+      } catch (e) {
+        console.error("[process-inbound-inquiry] DA generation failed (non-fatal):", e);
+      }
+    }
+
     return jsonResponse({ success: true, classification: cls.type, data });
   } catch (error) {
     console.error("[process-inbound-inquiry] error:", error);

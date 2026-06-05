@@ -62,9 +62,14 @@ Deno.serve(async (req) => {
       parsedBody = { raw: responseBody };
     }
 
+    // Reflect upstream failures as an error status so the caller can react
+    // (was always 200, which hid n8n failures behind a fake "success").
     return new Response(
       JSON.stringify({ upstream_status: webhookResponse.status, data: parsedBody }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      {
+        status: webhookResponse.status >= 400 ? 502 : 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (error) {
     console.error("[trigger-manual-email] Error proxying to n8n webhook:", error);

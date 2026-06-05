@@ -16,6 +16,7 @@ import {
   Send,
   ShieldCheck,
   Anchor,
+  Calculator,
 } from 'lucide-react';
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { key: 'aiInquiries', icon: MessageSquare, path: '/inquiries', group: 'operations' },
   { key: 'sentPDAs', icon: Send, path: '/inquiries/sent', group: 'operations' },
   { key: 'pdaAdmin', icon: Anchor, path: '/pda-admin', group: 'operations' },
+  { key: 'daCreator', icon: Calculator, path: '/da-creator', group: 'operations' },
   { key: 'fdaCreator', icon: FileText, path: '/fda', group: 'documents' },
   { key: 'fdaCuracao', icon: FileText, path: '/fda-curacao', group: 'documents' },
   { key: 'knowledgeBase', icon: BookOpen, path: '/knowledge', group: 'resources' },
