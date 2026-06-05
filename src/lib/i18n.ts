@@ -82,7 +82,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.pdf': 'PDF',
     'inquiries.manual': 'Manual',
     'inquiries.onlyPdf': 'Only PDF files are allowed',
-    
+    'inquiries.originalRequest': 'Original Request',
+    'inquiries.aiDraft': 'AI Draft Reply',
+    'inquiries.moveTo': 'Move to',
+    'inquiries.moved': 'Moved to',
+    'inquiries.aiClassification': 'AI Classification',
+    'inquiries.confidence': 'Confidence',
+    'inquiries.noOriginal': 'No original email text available',
+    'inquiries.documents': 'Documents',
+    'inquiries.reviewHint': 'Compare the request with the AI reply, then approve or reject.',
+
     // Sent PDAs
     'sentPdas.title': 'Sent PDAs',
     'sentPdas.noSentPdas': 'No sent PDAs found',
@@ -336,7 +345,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.pdf': 'PDF',
     'inquiries.manual': 'Handmatig',
     'inquiries.onlyPdf': 'Alleen PDF bestanden zijn toegestaan',
-    
+    'inquiries.originalRequest': 'Originele aanvraag',
+    'inquiries.aiDraft': 'AI Concept-antwoord',
+    'inquiries.moveTo': 'Verplaats naar',
+    'inquiries.moved': 'Verplaatst naar',
+    'inquiries.aiClassification': 'AI Classificatie',
+    'inquiries.confidence': 'Zekerheid',
+    'inquiries.noOriginal': 'Geen originele e-mailtekst beschikbaar',
+    'inquiries.documents': 'Documenten',
+    'inquiries.reviewHint': 'Vergelijk de aanvraag met het AI-antwoord, keur dan goed of af.',
+
     // Sent PDAs
     'sentPdas.title': 'Verzonden PDAs',
     'sentPdas.noSentPdas': 'Geen verzonden PDAs gevonden',
@@ -589,7 +607,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.pdf': 'PDF',
     'inquiries.manual': 'Manual',
     'inquiries.onlyPdf': 'Solo se permiten archivos PDF',
-    
+    'inquiries.originalRequest': 'Solicitud Original',
+    'inquiries.aiDraft': 'Borrador de IA',
+    'inquiries.moveTo': 'Mover a',
+    'inquiries.moved': 'Movido a',
+    'inquiries.aiClassification': 'Clasificación IA',
+    'inquiries.confidence': 'Confianza',
+    'inquiries.noOriginal': 'No hay texto de correo original disponible',
+    'inquiries.documents': 'Documentos',
+    'inquiries.reviewHint': 'Compare la solicitud con la respuesta de IA, luego apruebe o rechace.',
+
     // Sent PDAs
     'sentPdas.title': 'PDAs Enviados',
     'sentPdas.noSentPdas': 'No se encontraron PDAs enviados',

@@ -3,7 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
@@ -28,14 +37,16 @@ import {
   Calendar,
   Upload,
   FileText,
+  FileSpreadsheet,
   X,
   PlusCircle,
   Trash2,
   Building2,
   User,
   Search,
-  ChevronDown,
-  ChevronUp,
+  Sparkles,
+  ArrowLeftRight,
+  Send,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -73,6 +84,13 @@ const EMAIL_TYPE_MAP: Record<string, string[]> = {
   'INCOMPLETE': ['INCOMPLETE'], // special: filters by status instead of Email Type
 };
 
+// Canonical category each tab moves an email *into* (writes to the "Email Type" column).
+const MOVE_TARGETS = [
+  { key: 'LOADING_DISCHARGE_AGENT', tab: 'CARGO_AGENT' },
+  { key: 'OWNERS_AGENT', tab: 'OWNERS_AGENT' },
+  { key: 'OUT_OF_SCOPE', tab: 'OUT_OF_SCOPE' },
+] as const;
+
 export default function AIInquiries() {
   const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -81,16 +99,15 @@ export default function AIInquiries() {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [emailAttachments, setEmailAttachments] = useState<EmailAttachment[]>([]);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Form state for editing
+  // Form state for editing the AI draft
   const [editSubject, setEditSubject] = useState('');
   const [editBody, setEditBody] = useState('');
-  const [showOriginal, setShowOriginal] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // Search and filter state
@@ -155,16 +172,11 @@ export default function AIInquiries() {
 
       filtered = filtered.filter(email => {
         const createdDate = new Date(email.created_at);
-
         switch (dateFilter) {
-          case 'today':
-            return createdDate >= startOfToday;
-          case 'thisWeek':
-            return createdDate >= startOfWeek && createdDate < startOfToday;
-          case 'older':
-            return createdDate < startOfWeek;
-          default:
-            return true;
+          case 'today': return createdDate >= startOfToday;
+          case 'thisWeek': return createdDate >= startOfWeek && createdDate < startOfToday;
+          case 'older': return createdDate < startOfWeek;
+          default: return true;
         }
       });
     }
@@ -192,9 +204,6 @@ export default function AIInquiries() {
       return;
     }
 
-    // PDFs and plain text render inline in the iframe; Office/CSV files
-    // are opened in a new tab so the browser can download or hand off to
-    // the native application.
     const kind = getAttachmentKind(attachment.file_name);
     if (kind === 'pdf' || kind === 'text') {
       setPreviewPdfUrl(data.signedUrl);
@@ -212,7 +221,7 @@ export default function AIInquiries() {
       setEditSubject(selectedEmail.subject || '');
       setEditBody(selectedEmail.body || '');
       fetchEmailAttachments(selectedEmail.id);
-      setShowOriginal(false);
+      setPreviewPdfUrl(null);
     } else {
       setEmailAttachments([]);
     }
@@ -255,7 +264,6 @@ export default function AIInquiries() {
 
   async function uploadFiles(files: FileList | File[]) {
     if (!selectedEmail) return;
-
     setUploadingPdf(true);
 
     for (const file of Array.from(files)) {
@@ -263,25 +271,18 @@ export default function AIInquiries() {
         toast({ title: t('common.error'), description: t('inquiries.onlyPdf'), variant: 'destructive' });
         continue;
       }
-
       const filePath = `email-attachments/${selectedEmail.id}/${Date.now()}-${file.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('pdfs')
-        .upload(filePath, file);
-
+      const { error: uploadError } = await supabase.storage.from('pdfs').upload(filePath, file);
       if (uploadError) {
         toast({ title: t('common.error'), description: uploadError.message, variant: 'destructive' });
         continue;
       }
-
       const { error: insertError } = await supabase.from('email_attachments').insert({
         email_id: selectedEmail.id,
         file_path: filePath,
         file_name: file.name,
         file_size: file.size,
       });
-
       if (insertError) {
         toast({ title: 'Error', description: insertError.message, variant: 'destructive' });
       }
@@ -299,49 +300,51 @@ export default function AIInquiries() {
     e.target.value = '';
   }
 
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  }
-
-  function handleDragLeave(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  }
-
+  function handleDragOver(e: React.DragEvent) { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }
+  function handleDragLeave(e: React.DragEvent) { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }
   function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
+    e.preventDefault(); e.stopPropagation(); setIsDragging(false);
     const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      uploadFiles(files);
-    }
+    if (files.length > 0) uploadFiles(files);
   }
 
   async function handleDeleteAttachment(attachment: EmailAttachment) {
     await supabase.storage.from('pdfs').remove([attachment.file_path]);
     await supabase.from('email_attachments').delete().eq('id', attachment.id);
-    if (selectedEmail) {
-      await fetchEmailAttachments(selectedEmail.id);
-    }
+    if (selectedEmail) await fetchEmailAttachments(selectedEmail.id);
     toast({ title: t('common.success'), description: t('inquiries.attachmentDeleted') });
   }
 
   const getWebhookUrl = (emailType: string | null): string | null => {
     if (!emailType) return null;
-    // Normalize ("Out of Scope" / "CARGO AGENT" / "LOADING_DISCHARGE_AGENT" -> token)
-    const t = emailType.toUpperCase().replace(/[\s-]+/g, '_');
-    if (['CARGO_AGENT', 'CARGO_AGENT_2', 'LOADING_DISCHARGE_AGENT'].includes(t)) {
+    const tt = emailType.toUpperCase().replace(/[\s-]+/g, '_');
+    if (['CARGO_AGENT', 'CARGO_AGENT_2', 'LOADING_DISCHARGE_AGENT'].includes(tt)) {
       return WEBHOOKS.SEND_EMAIL_LOADING_DISCHARGE;
     }
-    if (t === 'OWNERS_AGENT') return WEBHOOKS.SEND_EMAIL_OWNERS_AGENT;
-    if (['OUT_OF_SCOPE', 'REFERRAL'].includes(t)) return WEBHOOKS.SEND_REFERRAL_EMAIL;
+    if (tt === 'OWNERS_AGENT') return WEBHOOKS.SEND_EMAIL_OWNERS_AGENT;
+    if (['OUT_OF_SCOPE', 'REFERRAL'].includes(tt)) return WEBHOOKS.SEND_REFERRAL_EMAIL;
     return null;
   };
+
+  // Manually move an email into another category (fixes mis-classifications).
+  async function handleMoveCategory(target: string) {
+    if (!selectedEmail || target === categoryKey(selectedEmail['Email Type'])) return;
+    setMoving(true);
+    const { error } = await supabase
+      .from('email')
+      .update({ 'Email Type': target })
+      .eq('id', selectedEmail.id);
+    setMoving(false);
+    if (error) {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+      return;
+    }
+    const label = categoryLabel(target);
+    toast({ title: t('inquiries.moved'), description: label });
+    setSelectedEmail(null);
+    setEmailIdInUrl(null);
+    fetchEmails();
+  }
 
   async function handleUpdateStatus(status: 'approved' | 'rejected') {
     if (!selectedEmail) return;
@@ -350,19 +353,14 @@ export default function AIInquiries() {
     try {
       if (status === 'approved') {
         const webhookUrl = getWebhookUrl(selectedEmail['Email Type']);
-
         if (webhookUrl) {
           const attachmentUrls: { file_name: string; url: string }[] = [];
           for (const attachment of emailAttachments) {
             const { data: signedUrlData } = await supabase.storage
               .from('pdfs')
               .createSignedUrl(attachment.file_path, 60 * 60 * 24 * 7);
-
             if (signedUrlData?.signedUrl) {
-              attachmentUrls.push({
-                file_name: attachment.file_name,
-                url: signedUrlData.signedUrl,
-              });
+              attachmentUrls.push({ file_name: attachment.file_name, url: signedUrlData.signedUrl });
             }
           }
 
@@ -383,15 +381,8 @@ export default function AIInquiries() {
             attachments: attachmentUrls,
           };
 
-          console.log('Calling webhook:', webhookUrl, payload);
-
           const response = await webhookPostJSON(webhookUrl, payload);
-
-          if (!response.ok) {
-            throw new Error(`Webhook failed: ${response.statusText}`);
-          }
-
-          console.log('Webhook response:', await response.text());
+          if (!response.ok) throw new Error(`Webhook failed: ${response.statusText}`);
         }
       }
 
@@ -423,10 +414,11 @@ export default function AIInquiries() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      draft: 'bg-amber-50 text-amber-700 border-amber-200',
-      approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      sent: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      rejected: 'bg-red-50 text-red-700 border-red-200',
+      draft: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20',
+      out_of_scope: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20',
+      approved: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20',
+      sent: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20',
+      rejected: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20',
     };
     return styles[status] || 'bg-muted text-muted-foreground';
   };
@@ -449,43 +441,25 @@ export default function AIInquiries() {
       .from('vessel_pda_data')
       .delete()
       .eq('supabase_email_id', selectedEmail.id);
-
-    if (vesselDeleteError) {
-      console.warn('Could not delete vessel_pda_data for email', selectedEmail.id, vesselDeleteError);
-    }
+    if (vesselDeleteError) console.warn('Could not delete vessel_pda_data', vesselDeleteError);
 
     if (emailAttachments.length) {
       const paths = emailAttachments.map((a) => a.file_path);
       const { error: storageError } = await supabase.storage.from('pdfs').remove(paths);
-      if (storageError) {
-        console.warn('Could not remove attachment files', storageError);
-      }
-
-      const { error: attachmentsError } = await supabase
-        .from('email_attachments')
-        .delete()
-        .eq('email_id', selectedEmail.id);
-
-      if (attachmentsError) {
-        console.warn('Could not delete attachment records', attachmentsError);
-      }
+      if (storageError) console.warn('Could not remove attachment files', storageError);
+      const { error: attachmentsError } = await supabase.from('email_attachments').delete().eq('email_id', selectedEmail.id);
+      if (attachmentsError) console.warn('Could not delete attachment records', attachmentsError);
     }
 
     const { error } = await supabase.from('email').delete().eq('id', selectedEmail.id);
-
     if (error) {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('common.error_occurred'),
-        variant: 'destructive',
-      });
+      toast({ title: t('common.error'), description: error.message || t('common.error_occurred'), variant: 'destructive' });
     } else {
       toast({ title: t('common.success'), description: t('inquiries.emailDeleted') });
       setSelectedEmail(null);
       setEmailIdInUrl(null);
       fetchEmails();
     }
-
     setDeleting(false);
   }
 
@@ -493,11 +467,16 @@ export default function AIInquiries() {
     const d = new Date(dateStr);
     const now = new Date();
     const isToday = d.toDateString() === now.toDateString();
-    if (isToday) {
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
+    if (isToday) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     return d.toLocaleDateString([], { day: 'numeric', month: 'short' });
   };
+
+  const originalText = selectedEmail
+    ? (selectedEmail.original_email || selectedEmail.orignal_email || '')
+    : '';
+  const confidence = selectedEmail ? (selectedEmail as any).classification_confidence as number | null : null;
+  const reasoning = selectedEmail ? (selectedEmail as any).classification_reasoning as string | null : null;
+  const currentCategory = selectedEmail ? categoryKey(selectedEmail['Email Type']) : null;
 
   return (
     <DashboardLayout title={t('inquiries.title')}>
@@ -518,7 +497,7 @@ export default function AIInquiries() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedEmail(null); }} className="space-y-5">
         <TabsList className="bg-card/60 backdrop-blur-sm p-1 h-auto inline-flex gap-1 rounded-xl" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           <TabsTrigger value="CARGO_AGENT" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">{t('inquiries.cargoAgent')}</TabsTrigger>
           <TabsTrigger value="OWNERS_AGENT" className="text-sm px-4 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">{t('inquiries.ownersAgent')}</TabsTrigger>
@@ -528,7 +507,7 @@ export default function AIInquiries() {
 
         <TabsContent value={activeTab} className="mt-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-            {/* Email List */}
+            {/* ── Email List ── */}
             <Card className="card-premium lg:col-span-4 flex flex-col min-h-0 overflow-hidden">
               <CardHeader className="pb-3 pt-4 px-4 space-y-3 shrink-0">
                 <div className="flex items-center justify-between">
@@ -580,10 +559,7 @@ export default function AIInquiries() {
                       {filteredEmails.map((email) => (
                         <div
                           key={email.id}
-                          onClick={() => {
-                            setSelectedEmail(email);
-                            setEmailIdInUrl(email.id);
-                          }}
+                          onClick={() => { setSelectedEmail(email); setEmailIdInUrl(email.id); }}
                           className={`px-4 py-3 cursor-pointer transition-all duration-75 border-b border-border/40 hover:bg-muted/40 ${
                             selectedEmail?.id === email.id
                               ? 'bg-primary/5 border-l-[3px] border-l-primary'
@@ -623,371 +599,278 @@ export default function AIInquiries() {
               </CardContent>
             </Card>
 
-            {/* Email Detail */}
-            <div className="lg:col-span-8 space-y-4 min-w-0">
+            {/* ── Email Detail ── */}
+            <div className="lg:col-span-8 min-w-0">
               {selectedEmail ? (
-                <>
-                  {/* Header & Meta */}
-                  <Card className="card-premium overflow-hidden">
-                    <CardHeader className="pb-3 pt-4 px-5">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                        <div className="space-y-2.5 min-w-0 flex-1">
-                          <CardTitle className="text-base font-semibold leading-snug">{selectedEmail.subject || t('inquiries.noSubject')}</CardTitle>
-                          <div className="space-y-1 text-sm">
-                            {(selectedEmail.contact_name || selectedEmail.company_name) && (
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide w-10 shrink-0">From</span>
-                                <span className="text-foreground min-w-0 break-words">
-                                  {selectedEmail.contact_name && <span className="font-medium">{selectedEmail.contact_name}</span>}
-                                  {selectedEmail.contact_name && selectedEmail.company_name && ' '}
-                                  {selectedEmail.company_name && (
-                                    <span className="text-muted-foreground">&lt;{selectedEmail.company_name}&gt;</span>
-                                  )}
-                                </span>
-                              </div>
-                            )}
-                            {selectedEmail.email_to_person && (
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide w-10 shrink-0">To</span>
-                                <span className="text-foreground min-w-0 break-words">{selectedEmail.email_to_person}</span>
-                              </div>
-                            )}
-                            {selectedEmail.cc_recipients && selectedEmail.cc_recipients.length > 0 && (
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide w-10 shrink-0">Cc</span>
-                                <span className="text-foreground min-w-0 break-words">{selectedEmail.cc_recipients.join(', ')}</span>
-                              </div>
-                            )}
-                            {selectedEmail.bcc_recipients && selectedEmail.bcc_recipients.length > 0 && (
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide w-10 shrink-0">Bcc</span>
-                                <span className="text-foreground min-w-0 break-words">{selectedEmail.bcc_recipients.join(', ')}</span>
-                              </div>
-                            )}
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide w-10 shrink-0">Date</span>
-                              <span className="text-muted-foreground">
-                                {new Date(selectedEmail.created_at).toLocaleString('nl-NL', {
-                                  dateStyle: 'medium',
-                                  timeStyle: 'short',
-                                  timeZone: 'America/Curacao',
-                                })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button variant="outline" size="sm" className="h-8 text-xs rounded-lg gap-1.5" onClick={() => setShowPreview(!showPreview)}>
-                            <Eye className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">{showPreview ? t('inquiries.hideOriginal') : t('inquiries.showOriginal')}</span>
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/5 rounded-lg">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>{t('inquiries.deleteEmail')}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  {t('inquiries.deleteConfirm')}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={handleDeleteEmail}
-                                  disabled={deleting}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  {deleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-                                  {t('common.delete')}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                <Card className="card-premium overflow-hidden flex flex-col">
+                  {/* Header: subject + classification + actions */}
+                  <div className="px-5 pt-4 pb-3 border-b border-border/50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <h2 className="text-base font-semibold leading-snug truncate">{selectedEmail.subject || t('inquiries.noSubject')}</h2>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          <Badge className={`${getStatusBadge(selectedEmail.status)} text-[10px] px-1.5 py-0 h-5 border`} variant="secondary">
+                            {getStatusIcon(selectedEmail.status)}
+                            <span className="ml-1">{selectedEmail.status}</span>
+                          </Badge>
+                          {/* AI classification chip with reasoning tooltip */}
+                          {currentCategory && (
+                            <TooltipProvider delayDuration={150}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0 h-5 rounded-md bg-primary/8 text-primary border border-primary/15 cursor-default">
+                                    <Sparkles className="w-2.5 h-2.5" />
+                                    {categoryLabel(currentCategory)}
+                                    {typeof confidence === 'number' && (
+                                      <span className="opacity-70">· {Math.round(confidence * 100)}%</span>
+                                    )}
+                                  </span>
+                                </TooltipTrigger>
+                                {reasoning && (
+                                  <TooltipContent className="max-w-xs text-xs">
+                                    <p className="font-medium mb-0.5">{t('inquiries.aiClassification')}</p>
+                                    <p className="text-muted-foreground">{reasoning}</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                         </div>
                       </div>
-                    </CardHeader>
-                    <CardContent className="px-5 pb-5">
-                      {/* Meta Info Chips */}
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-                        {selectedEmail.company_name && (
-                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
-                            <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
-                              <Building2 className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">{t('inquiries.company')}</p>
-                              <p className="text-sm font-medium truncate">{selectedEmail.company_name}</p>
-                            </div>
-                          </div>
-                        )}
-                        {selectedEmail.contact_name && (
-                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
-                            <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
-                              <User className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">{t('inquiries.contact')}</p>
-                              <p className="text-sm font-medium truncate">{selectedEmail.contact_name}</p>
-                            </div>
-                          </div>
-                        )}
-                        {selectedEmail.vessel_name && (
-                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
-                            <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
-                              <Ship className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">{t('inquiries.vessel')} 1</p>
-                              <p className="text-sm font-medium truncate">{selectedEmail.vessel_name}</p>
-                              {selectedEmail.imo && <p className="text-[10px] text-muted-foreground">IMO: {selectedEmail.imo}</p>}
-                            </div>
-                          </div>
-                        )}
-                        {selectedEmail.vessel_2_name && (
-                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
-                            <div className="w-8 h-8 rounded-lg bg-secondary/60 flex items-center justify-center shrink-0">
-                              <Ship className="w-4 h-4 text-secondary-foreground" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">{t('inquiries.vessel')} 2</p>
-                              <p className="text-sm font-medium truncate">{selectedEmail.vessel_2_name}</p>
-                              {selectedEmail.vessel_2_imo && <p className="text-[10px] text-muted-foreground">IMO: {selectedEmail.vessel_2_imo}</p>}
-                            </div>
-                          </div>
-                        )}
-                        {selectedEmail.port && (
-                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
-                            <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
-                              <MapPin className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">{t('inquiries.port')}</p>
-                              <p className="text-sm font-medium truncate">{selectedEmail.port}</p>
-                            </div>
-                          </div>
-                        )}
-                        {selectedEmail.eta && (
-                          <div className="flex items-center gap-2.5 p-3 bg-black/[0.02] rounded-xl">
-                            <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
-                              <Calendar className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">{t('inquiries.eta')}</p>
-                              <p className="text-sm font-medium">{selectedEmail.eta}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Move / reclassify */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 text-xs rounded-lg gap-1.5" disabled={moving}>
+                              {moving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowLeftRight className="w-3.5 h-3.5" />}
+                              <span className="hidden sm:inline">{t('inquiries.moveTo')}</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuLabel className="text-xs">{t('inquiries.moveTo')}</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {MOVE_TARGETS.map((m) => (
+                              <DropdownMenuItem
+                                key={m.key}
+                                disabled={m.key === currentCategory}
+                                onClick={() => handleMoveCategory(m.key)}
+                                className="text-sm gap-2"
+                              >
+                                {m.key === currentCategory && <CheckCircle className="w-3.5 h-3.5 text-primary" />}
+                                <span className={m.key === currentCategory ? 'text-primary font-medium' : ''}>{categoryLabel(m.key)}</span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
 
-                      {/* Links */}
-                      <div className="flex flex-wrap gap-2 mb-4">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/5 rounded-lg">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>{t('inquiries.deleteEmail')}</AlertDialogTitle>
+                              <AlertDialogDescription>{t('inquiries.deleteConfirm')}</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleDeleteEmail} disabled={deleting}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                {deleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                                {t('common.delete')}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+
+                    {/* Meta strip */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-xs">
+                      {(selectedEmail.contact_name || selectedEmail.company_name) && (
+                        <MetaItem icon={<User className="w-3 h-3" />}>
+                          {selectedEmail.contact_name}
+                          {selectedEmail.contact_name && selectedEmail.company_name && ' · '}
+                          {selectedEmail.company_name && <span className="text-muted-foreground">{selectedEmail.company_name}</span>}
+                        </MetaItem>
+                      )}
+                      {selectedEmail.email_to_person && (
+                        <MetaItem icon={<Mail className="w-3 h-3" />}>{selectedEmail.email_to_person}</MetaItem>
+                      )}
+                      {selectedEmail.vessel_name && (
+                        <MetaItem icon={<Ship className="w-3 h-3" />}>
+                          {selectedEmail.vessel_name}{selectedEmail.imo ? ` (IMO ${selectedEmail.imo})` : ''}
+                          {selectedEmail.vessel_2_name ? ` + ${selectedEmail.vessel_2_name}` : ''}
+                        </MetaItem>
+                      )}
+                      {selectedEmail.port && <MetaItem icon={<MapPin className="w-3 h-3" />}>{selectedEmail.port}</MetaItem>}
+                      {selectedEmail.eta && <MetaItem icon={<Calendar className="w-3 h-3" />}>{selectedEmail.eta}</MetaItem>}
+                      <MetaItem icon={<Clock className="w-3 h-3" />}>
+                        {new Date(selectedEmail.created_at).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Curacao' })}
+                      </MetaItem>
+                    </div>
+
+                    {/* Document links */}
+                    {(selectedEmail.pdf_url || selectedEmail.doc_link || selectedEmail.dock_link_2 || selectedEmail['Google sheet url']) && (
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {selectedEmail.pdf_url && (
+                          <DocLink href={selectedEmail.pdf_url} icon={<FileText className="w-3 h-3" />} className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400">DA (PDF)</DocLink>
+                        )}
                         {selectedEmail.doc_link && (
-                          <a href={selectedEmail.doc_link} target="_blank" rel="noopener noreferrer"
-                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary/8 text-primary rounded-lg hover:bg-primary/15 transition-colors">
-                            <ExternalLink className="w-3 h-3" /> {t('inquiries.docLink')} 1
-                          </a>
+                          <DocLink href={selectedEmail.doc_link} icon={<FileSpreadsheet className="w-3 h-3" />} className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400">DA (Excel)</DocLink>
                         )}
                         {selectedEmail.dock_link_2 && (
-                          <a href={selectedEmail.dock_link_2} target="_blank" rel="noopener noreferrer"
-                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary/8 text-primary rounded-lg hover:bg-primary/15 transition-colors">
-                            <ExternalLink className="w-3 h-3" /> {t('inquiries.docLink')} 2
-                          </a>
+                          <DocLink href={selectedEmail.dock_link_2} icon={<ExternalLink className="w-3 h-3" />} className="bg-primary/8 text-primary hover:bg-primary/15">{t('inquiries.docLink')} 2</DocLink>
                         )}
                         {selectedEmail['Google sheet url'] && (
-                          <a href={selectedEmail['Google sheet url']} target="_blank" rel="noopener noreferrer"
-                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors">
-                            <ExternalLink className="w-3 h-3" /> {t('inquiries.googleSheet')}
-                          </a>
-                        )}
-                        {selectedEmail.pdf_url && (
-                          <a href={selectedEmail.pdf_url} target="_blank" rel="noopener noreferrer"
-                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors">
-                            <ExternalLink className="w-3 h-3" /> {t('inquiries.pdf')}
-                          </a>
+                          <DocLink href={selectedEmail['Google sheet url']} icon={<ExternalLink className="w-3 h-3" />} className="bg-primary/8 text-primary hover:bg-primary/15">{t('inquiries.googleSheet')}</DocLink>
                         )}
                       </div>
+                    )}
+                  </div>
 
-                      {/* Original Email — collapsible */}
-                      {showPreview && (selectedEmail.original_email || selectedEmail.orignal_email) && (
-                        <div className="rounded-lg border border-border/60 overflow-hidden">
-                          <button
-                            onClick={() => setShowOriginal(!showOriginal)}
-                            className="w-full flex items-center justify-between px-4 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
-                          >
-                            <span className="text-xs font-medium text-muted-foreground">{t('inquiries.originalEmail')}</span>
-                            {showOriginal ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
-                          </button>
-                          {showOriginal && (
-                            <div className="px-4 py-3 max-h-60 overflow-y-auto">
-                              <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground/80">{selectedEmail.original_email || selectedEmail.orignal_email}</pre>
-                            </div>
+                  {/* ── Side-by-side compare: Original request | AI draft ── */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border/50">
+                    {/* Original */}
+                    <div className="flex flex-col min-h-0">
+                      <div className="flex items-center gap-2 px-5 py-2.5 bg-muted/30">
+                        <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('inquiries.originalRequest')}</span>
+                      </div>
+                      <ScrollArea className="h-[340px]">
+                        <div className="px-5 py-4">
+                          {originalText ? (
+                            <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground/80">{originalText}</pre>
+                          ) : (
+                            <p className="text-sm text-muted-foreground/60 italic">{t('inquiries.noOriginal')}</p>
                           )}
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                      </ScrollArea>
+                    </div>
 
-                  {/* PDF Attachments */}
-                  <Card className="card-premium overflow-hidden">
-                    <CardHeader className="pb-2 pt-4 px-5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-primary" />
-                          <span className="text-sm font-semibold">{t('inquiries.pdfAttachments')}</span>
-                          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">{emailAttachments.length}</span>
-                        </div>
-                        <label className="cursor-pointer">
-                          <Button variant="outline" size="sm" className="h-8 text-xs rounded-lg" asChild disabled={uploadingPdf}>
-                            <span>
-                              {uploadingPdf ? (
-                                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                              ) : (
-                                <Upload className="w-3.5 h-3.5 mr-1.5" />
-                              )}
-                              {t('inquiries.uploadPdf')}
-                            </span>
-                          </Button>
-                          <input
-                            id="pdf-upload-input"
-                            type="file"
-                            multiple
-                            accept=".pdf"
-                            className="hidden"
-                            onChange={handlePdfUpload}
-                            disabled={uploadingPdf}
+                    {/* AI draft editor */}
+                    <div className="flex flex-col min-h-0">
+                      <div className="flex items-center gap-2 px-5 py-2.5 bg-primary/[0.04]">
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-primary">{t('inquiries.aiDraft')}</span>
+                      </div>
+                      <div className="px-5 py-4 space-y-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="subject" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t('inquiries.emailSubject')}</Label>
+                          <Input
+                            id="subject"
+                            value={editSubject}
+                            onChange={(e) => setEditSubject(e.target.value)}
+                            placeholder={t('inquiries.emailSubject')}
+                            className="h-9 rounded-lg bg-muted/20 border-border/60 focus:bg-card text-sm"
                           />
-                        </label>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="px-5 pb-4">
-                      {emailAttachments.length === 0 ? (
-                        <div
-                          className={`text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
-                            isDragging ? 'border-primary bg-primary/5' : 'border-border/60 hover:border-primary/40'
-                          }`}
-                          onDragOver={handleDragOver}
-                          onDragLeave={handleDragLeave}
-                          onDrop={handleDrop}
-                          onClick={() => document.getElementById('pdf-upload-input')?.click()}
-                        >
-                          <FileText className={`w-6 h-6 mx-auto mb-2 ${isDragging ? 'text-primary' : 'opacity-40'}`} />
-                          <p className="text-xs">{isDragging ? t('inquiries.dropToAdd') : t('inquiries.noPdfsYet')}</p>
-                          <p className="text-xs mt-0.5 text-muted-foreground/60">{isDragging ? '' : t('inquiries.dropPdfs')}</p>
                         </div>
-                      ) : (
-                        <div
-                          className={`rounded-lg transition-colors ${isDragging ? 'border-2 border-dashed border-primary bg-primary/5 p-2' : ''}`}
-                          onDragOver={handleDragOver}
-                          onDragLeave={handleDragLeave}
-                          onDrop={handleDrop}
-                        >
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {emailAttachments.map((attachment) => {
-                              const kind = getAttachmentKind(attachment.file_name);
-                              const iconClass =
-                                kind === 'pdf' ? 'text-red-500' :
-                                kind === 'excel' ? 'text-emerald-600' :
-                                kind === 'word' ? 'text-blue-600' :
-                                kind === 'csv' ? 'text-amber-600' :
-                                'text-muted-foreground';
-                              const actionLabel = kind === 'pdf' || kind === 'text' ? t('inquiries.preview') : t('inquiries.download');
-                              return (
-                              <div key={attachment.id} className="flex items-center justify-between p-2.5 bg-black/[0.02] rounded-xl border border-border/40">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <FileText className={`w-4 h-4 shrink-0 ${iconClass}`} />
-                                  <span className="text-sm truncate">{attachment.file_name}</span>
-                                </div>
-                                <div className="flex items-center gap-0.5 shrink-0">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md" onClick={() => handlePreviewAttachment(attachment)} title={actionLabel}>
-                                    <Eye className="w-3.5 h-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-destructive" onClick={() => handleDeleteAttachment(attachment)}>
-                                    <X className="w-3.5 h-3.5" />
-                                  </Button>
-                                </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="body" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t('inquiries.emailBody')}</Label>
+                          <Textarea
+                            id="body"
+                            value={editBody}
+                            onChange={(e) => setEditBody(e.target.value)}
+                            placeholder={t('inquiries.emailBody')}
+                            className="h-[240px] text-sm rounded-lg bg-muted/20 border-border/60 focus:bg-card leading-relaxed resize-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── Attachments ── */}
+                  <div className="px-5 py-3 border-t border-border/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('inquiries.documents')}</span>
+                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">{emailAttachments.length}</span>
+                      </div>
+                      <label className="cursor-pointer">
+                        <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg" asChild disabled={uploadingPdf}>
+                          <span>
+                            {uploadingPdf ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Upload className="w-3 h-3 mr-1.5" />}
+                            {t('inquiries.uploadPdf')}
+                          </span>
+                        </Button>
+                        <input id="pdf-upload-input" type="file" multiple accept=".pdf" className="hidden" onChange={handlePdfUpload} disabled={uploadingPdf} />
+                      </label>
+                    </div>
+                    {emailAttachments.length === 0 ? (
+                      <div
+                        className={`text-center py-4 text-muted-foreground border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
+                          isDragging ? 'border-primary bg-primary/5' : 'border-border/60 hover:border-primary/40'
+                        }`}
+                        onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
+                        onClick={() => document.getElementById('pdf-upload-input')?.click()}
+                      >
+                        <p className="text-xs">{isDragging ? t('inquiries.dropToAdd') : t('inquiries.dropPdfs')}</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                        {emailAttachments.map((attachment) => {
+                          const kind = getAttachmentKind(attachment.file_name);
+                          const iconClass =
+                            kind === 'pdf' ? 'text-red-500' :
+                            kind === 'excel' ? 'text-emerald-600' :
+                            kind === 'word' ? 'text-blue-600' :
+                            kind === 'csv' ? 'text-amber-600' : 'text-muted-foreground';
+                          return (
+                            <div key={attachment.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg border border-border/40">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <FileText className={`w-4 h-4 shrink-0 ${iconClass}`} />
+                                <span className="text-xs truncate">{attachment.file_name}</span>
                               </div>
-                              );
-                            })}
-                          </div>
-                          {isDragging && (
-                            <div className="text-center py-2 text-xs text-primary mt-2">{t('inquiries.dropToAdd')}</div>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* PDF Preview */}
-                  {previewPdfUrl && (
-                    <Card className="card-premium overflow-hidden">
-                      <CardHeader className="pb-2 pt-3 px-5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold">{t('inquiries.pdfPreview')}</span>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md" onClick={() => setPreviewPdfUrl(null)}>
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="px-5 pb-4">
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md" onClick={() => handlePreviewAttachment(attachment)}>
+                                  <Eye className="w-3 h-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md text-destructive" onClick={() => handleDeleteAttachment(attachment)}>
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {previewPdfUrl && (
+                      <div className="mt-3 relative">
+                        <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-7 w-7 rounded-md bg-card/80 z-10" onClick={() => setPreviewPdfUrl(null)}>
+                          <X className="w-4 h-4" />
+                        </Button>
                         <iframe src={previewPdfUrl} className="w-full h-[400px] rounded-lg border border-border/60" />
-                      </CardContent>
-                    </Card>
-                  )}
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Response Editor */}
-                  <Card className="card-premium overflow-hidden">
-                    <CardHeader className="pb-3 pt-4 px-5">
-                      <span className="text-sm font-semibold">{t('inquiries.editResponse')}</span>
-                    </CardHeader>
-                    <CardContent className="space-y-4 px-5 pb-5">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="subject" className="text-xs font-medium text-muted-foreground">{t('inquiries.emailSubject')}</Label>
-                        <Input
-                          id="subject"
-                          value={editSubject}
-                          onChange={(e) => setEditSubject(e.target.value)}
-                          placeholder={t('inquiries.emailSubject')}
-                          className="h-10 rounded-lg bg-muted/20 border-border/60 focus:bg-card"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="body" className="text-xs font-medium text-muted-foreground">{t('inquiries.emailBody')}</Label>
-                        <Textarea
-                          id="body"
-                          value={editBody}
-                          onChange={(e) => setEditBody(e.target.value)}
-                          placeholder={t('inquiries.emailBody')}
-                          className="min-h-[180px] text-sm rounded-lg bg-muted/20 border-border/60 focus:bg-card leading-relaxed"
-                        />
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                        <Button
-                          className="flex-1 h-11 text-sm font-semibold rounded-lg shadow-sm bg-primary hover:bg-primary/90"
-                          onClick={() => handleUpdateStatus('approved')}
-                          disabled={sending}
-                        >
-                          {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
-                          {t('inquiries.approveAndSend')}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="h-11 text-sm font-semibold rounded-lg sm:w-auto border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                          onClick={() => handleUpdateStatus('rejected')}
-                          disabled={sending}
-                        >
-                          <XCircle className="w-4 h-4 mr-2" />
-                          {t('common.reject')}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
+                  {/* ── Sticky action footer ── */}
+                  <div className="px-5 py-3 border-t border-border/50 bg-muted/20 flex flex-col sm:flex-row items-center gap-3">
+                    <p className="text-[11px] text-muted-foreground hidden sm:block flex-1">{t('inquiries.reviewHint')}</p>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <Button
+                        variant="outline"
+                        className="h-10 text-sm font-semibold rounded-lg border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-500/30 dark:hover:bg-red-500/10"
+                        onClick={() => handleUpdateStatus('rejected')}
+                        disabled={sending}
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        {t('common.reject')}
+                      </Button>
+                      <Button
+                        className="flex-1 sm:flex-initial h-10 px-6 text-sm font-semibold rounded-lg shadow-sm bg-primary hover:bg-primary/90"
+                        onClick={() => handleUpdateStatus('approved')}
+                        disabled={sending}
+                      >
+                        {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                        {t('inquiries.approveAndSend')}
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
               ) : (
                 <Card className="card-premium h-[calc(100vh-280px)] flex items-center justify-center">
                   <CardContent className="text-center text-muted-foreground">
@@ -995,7 +878,7 @@ export default function AIInquiries() {
                       <Mail className="w-7 h-7 opacity-30" />
                     </div>
                     <p className="text-sm font-medium">{t('inquiries.selectEmail')}</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">Kies een email uit de lijst om te bekijken</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">{t('inquiries.reviewHint')}</p>
                   </CardContent>
                 </Card>
               )}
@@ -1004,5 +887,42 @@ export default function AIInquiries() {
         </TabsContent>
       </Tabs>
     </DashboardLayout>
+  );
+}
+
+/** Map a raw "Email Type" value to one of the three canonical category keys. */
+function categoryKey(raw: string | null): string | null {
+  if (!raw) return null;
+  const t = raw.toUpperCase().replace(/[\s-]+/g, '_');
+  if (['CARGO_AGENT', 'CARGO_AGENT_2', 'LOADING_DISCHARGE_AGENT'].includes(t)) return 'LOADING_DISCHARGE_AGENT';
+  if (t === 'OWNERS_AGENT') return 'OWNERS_AGENT';
+  if (['OUT_OF_SCOPE', 'REFERRAL'].includes(t)) return 'OUT_OF_SCOPE';
+  return raw;
+}
+
+function categoryLabel(key: string): string {
+  switch (key) {
+    case 'LOADING_DISCHARGE_AGENT': return 'Cargo Agent';
+    case 'OWNERS_AGENT': return 'Owners Agent';
+    case 'OUT_OF_SCOPE': return 'Out of Scope';
+    default: return key;
+  }
+}
+
+function MetaItem({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-foreground/80">
+      <span className="text-muted-foreground/60">{icon}</span>
+      <span className="min-w-0 truncate max-w-[260px]">{children}</span>
+    </span>
+  );
+}
+
+function DocLink({ href, icon, className, children }: { href: string; icon: React.ReactNode; className?: string; children: React.ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer"
+       className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${className}`}>
+      {icon} {children}
+    </a>
   );
 }
