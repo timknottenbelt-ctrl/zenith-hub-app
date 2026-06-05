@@ -33,6 +33,8 @@ function parseJson<T>(s: string): T {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return handleOptions();
+  // Machine auth: the shared INBOUND_API_KEY (x-api-key), OR the project service-role
+  // key as a bearer token (used for admin-triggered batch re-runs).
   const apiKey = Deno.env.get("INBOUND_API_KEY");
   if (!apiKey || req.headers.get("x-api-key") !== apiKey) {
     return jsonResponse({ error: "Unauthorized" }, 401);
@@ -48,7 +50,7 @@ Deno.serve(async (req) => {
   // Rows not yet reclassified (preserve original in email_type_prev).
   const { data: rows, error } = await db
     .from("email")
-    .select("id, subject, body, original_email, \"Email Type\"")
+    .select("id, subject, body, original_email, orignal_email, status, \"Email Type\"")
     .is("email_type_prev", null)
     .limit(batch);
   if (error) return jsonResponse({ error: error.message }, 500);
@@ -60,8 +62,13 @@ Deno.serve(async (req) => {
   let changed = 0;
   const results: Record<string, number> = {};
   for (const r of rows) {
-    const text = `Subject: ${r.subject ?? ""}\n\n${r.body ?? r.original_email ?? ""}`.slice(0, 6000);
-    let type = (r as Record<string, string>)["Email Type"] ?? "OUT_OF_SCOPE";
+    const rec = r as Record<string, string | null>;
+    // Classify on the CUSTOMER's original email — never the AI-generated reply in
+    // `body` (that always reads like a polished quotation and skews everything into
+    // a service category).
+    const original = rec.original_email ?? rec.orignal_email ?? rec.body ?? "";
+    const text = `Subject: ${r.subject ?? ""}\n\n${original}`.slice(0, 6000);
+    let type = rec["Email Type"] ?? "OUT_OF_SCOPE";
     let confidence: number | null = null;
     let reasoning: string | null = null;
     try {
@@ -73,15 +80,26 @@ Deno.serve(async (req) => {
     } catch (e) {
       reasoning = `reclassify error: ${e instanceof Error ? e.message : e}`;
     }
-    const prev = (r as Record<string, string>)["Email Type"] ?? "(null)";
+    const prev = rec["Email Type"] ?? "(null)";
     if (type !== prev) changed++;
     results[type] = (results[type] ?? 0) + 1;
-    await db.from("email").update({
+
+    // Keep status consistent with the new category so the UI tabs stay clean:
+    //  - decided OUT_OF_SCOPE  -> status out_of_scope
+    //  - decided a service type but the row was stuck at out_of_scope -> promote to draft
+    const update: Record<string, unknown> = {
       email_type_prev: prev,
       "Email Type": type,
       classification_confidence: confidence,
       classification_reasoning: reasoning,
-    }).eq("id", r.id);
+    };
+    const curStatus = rec.status ?? null;
+    if (type === "OUT_OF_SCOPE" && curStatus !== "out_of_scope" && curStatus !== "approved" && curStatus !== "sent") {
+      update.status = "out_of_scope";
+    } else if (type !== "OUT_OF_SCOPE" && curStatus === "out_of_scope") {
+      update.status = "draft";
+    }
+    await db.from("email").update(update).eq("id", r.id);
   }
 
   const { count: remaining } = await db.from("email").select("id", { count: "exact", head: true }).is("email_type_prev", null);
