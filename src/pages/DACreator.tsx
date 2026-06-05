@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Calculator, FileText, FileSpreadsheet, Plus, Trash2, Loader2, Ship } from "lucide-react";
@@ -55,11 +56,12 @@ export default function DACreator() {
     setBusy(null);
     const url = data?.pdf_url || data?.excel_url;
     if (error || !url) { toast({ title: "Genereren mislukt", description: error?.message || data?.error, variant: "destructive" }); return; }
+    toast({ title: kind === "pdf" ? "PDF gegenereerd" : "Excel gegenereerd", description: "Bestand wordt geopend in een nieuw tabblad." });
     window.open(url, "_blank");
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="DA / PDA Creator">
       <div className="space-y-6 max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><Ship className="w-5 h-5 text-primary" /></div>
@@ -82,15 +84,25 @@ export default function DACreator() {
             ))}
             <div className="space-y-1.5">
               <Label className="text-xs">Facility</Label>
-              <select className="w-full h-10 rounded-md border bg-background px-3 text-sm" value={v.facility} onChange={(e) => set("facility", e.target.value)}>
-                <option>Bouy</option><option>Quay</option>
-              </select>
+              <Select value={v.facility} onValueChange={(val) => set("facility", val)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Bouy">Bouy</SelectItem>
+                  <SelectItem value="Quay">Quay</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Operation</Label>
-              <select className="w-full h-10 rounded-md border bg-background px-3 text-sm" value={v.operation_type} onChange={(e) => set("operation_type", e.target.value)}>
-                <option>discharge</option><option>loading</option><option>bunkering</option><option>sts</option>
-              </select>
+              <Select value={v.operation_type} onValueChange={(val) => set("operation_type", val)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="discharge">discharge</SelectItem>
+                  <SelectItem value="loading">loading</SelectItem>
+                  <SelectItem value="bunkering">bunkering</SelectItem>
+                  <SelectItem value="sts">sts</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -114,12 +126,12 @@ export default function DACreator() {
 
         <div className="flex gap-3">
           <Button onClick={calculate} disabled={busy === "calc"}>{busy === "calc" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calculator className="w-4 h-4 mr-2" />}Bereken DA</Button>
-          <Button variant="outline" onClick={() => makeFile("pdf")} disabled={!daId || busy === "pdf"}><FileText className="w-4 h-4 mr-2" />Maak PDF</Button>
-          <Button variant="outline" onClick={() => makeFile("excel")} disabled={!daId || busy === "excel"}><FileSpreadsheet className="w-4 h-4 mr-2" />Maak Excel</Button>
+          <Button variant="outline" onClick={() => makeFile("pdf")} disabled={!daId || busy === "pdf"}>{busy === "pdf" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}Maak PDF</Button>
+          <Button variant="outline" onClick={() => makeFile("excel")} disabled={!daId || busy === "excel"}>{busy === "excel" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 mr-2" />}Maak Excel</Button>
         </div>
 
         {lines.length > 0 && (
-          <Card className="card-premium">
+          <Card className="card-premium animate-in fade-in-50 duration-300">
             <CardHeader><CardTitle className="text-sm font-medium">Disbursement Account</CardTitle></CardHeader>
             <CardContent>
               <Table>
@@ -128,7 +140,7 @@ export default function DACreator() {
                   {[...lines, ...extra].map((l, i) => (
                     <TableRow key={i}><TableCell>{l.label}</TableCell><TableCell className="text-right tabular-nums">{Number(l.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}</TableCell></TableRow>
                   ))}
-                  <TableRow className="font-semibold border-t-2"><TableCell>TOTAL</TableCell><TableCell className="text-right tabular-nums text-primary">{Number(total).toLocaleString("en-US", { minimumFractionDigits: 2 })}</TableCell></TableRow>
+                  <TableRow className="font-semibold border-t-2 bg-primary/5 hover:bg-primary/10"><TableCell>TOTAL</TableCell><TableCell className="text-right tabular-nums text-primary">{Number(total).toLocaleString("en-US", { minimumFractionDigits: 2 })}</TableCell></TableRow>
                 </TableBody>
               </Table>
             </CardContent>
