@@ -73,9 +73,10 @@ If all gates pass, classify:
    (bitumen, HFO, wheat, corn, coal, etc.) measured in MT; PDA/EDA for CARGO. Keywords: loading, discharge, STS, cargo, MT.
 
 2. "OWNERS_AGENT" — vessel/owner SERVICES in Curacao: crew change, spares, medical, cash to master, garbage,
-   fresh water, provisions, BUNKERING, launch boat, hotel, airport/transport. PDA/EDA for SERVICES (not cargo).
-   Keywords: crew change, spares, medical, bunkering, provisions, services.
-   IMPORTANT: bunkering / fuel delivered to a vessel for its OWN consumption is a SERVICE -> OWNERS_AGENT, NOT cargo.
+   sludge / slops / bilge / waste disposal, fresh water, provisions, stores, BUNKERING, launch boat, hotel, airport/transport.
+   PDA/EDA for SERVICES (not cargo). Keywords: crew change, spares, sludge, garbage, bunkering, provisions, services.
+   IMPORTANT: bunkering/fuel for the vessel's OWN consumption, AND sludge / slops / bilge / garbage / waste removal,
+   are SERVICES -> OWNERS_AGENT, NEVER cargo (even when a quantity in MT or m3 is given).
    Only fuel/oil being LOADED or DISCHARGED as cargo (quantity in MT) is LOADING_DISCHARGE_AGENT.
 
 3. "OUT_OF_SCOPE" — wrong location, reports/SOF/completed ops, existing case, marketing/newsletters/sales/admin/spam,
@@ -96,6 +97,7 @@ Output ONLY valid JSON:
   "service_asks":[string],
   "questions":[string] }
 "service_asks": every concrete service the sender wants quoted/arranged, phrased as a short retrievable query INCLUDING numbers when given (e.g. "crew change cost for 5 crew", "fresh water 200 MT cost", "sludge disposal 12 m3 cost", "bunker call agency fee").
+cargo_type / cargo_quantity / operation_type "loading"|"discharge" are ONLY for actual transported commercial cargo (bitumen, crude, fuel, cement, limestone, grain, breakbulk, …). Sludge, slops, bilge, garbage, waste, fresh/drinking water, provisions, stores, spares and bunker fuel are owner's SERVICES — leave cargo_type and cargo_quantity null for these and set operation_type to null (use service_asks instead).
 Numbers without units. null when unknown. Do not invent a year for ETA if none is given.`;
 
 const EMAIL_PROMPT = `You are the senior agency correspondent for LBH Curacao, a full-service maritime shipping agency in Willemstad, Curacao. You write the reply a prospective principal (owner, charterer, operator or master) receives. It must read as polished, warm, confident and genuinely helpful — the kind of email that makes the reader want to appoint LBH. Never robotic, never a bare list.
