@@ -96,195 +96,153 @@ export function ManualEmailCreateForm({
     }
   }
 
+  const AgentCard = ({
+    type, icon: Icon, title, subtitle,
+  }: { type: "CARGO_AGENT" | "OWNERS_AGENT"; icon: typeof Ship; title: string; subtitle: string }) => (
+    <button
+      type="button"
+      onClick={() => setAgentType(type)}
+      className={cn(
+        "card-premium flex items-center gap-3 p-3.5 text-left transition-all duration-200 rounded-xl",
+        agentType === type ? "ring-2 ring-primary ring-offset-2" : "hover:shadow-lg"
+      )}
+    >
+      <div
+        className={cn(
+          "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+          agentType === type ? "bg-primary" : "bg-primary/8"
+        )}
+        style={agentType === type ? { boxShadow: "0 4px 12px -2px rgba(0,128,255,0.35)" } : undefined}
+      >
+        <Icon className={cn("w-[18px] h-[18px]", agentType === type ? "text-white" : "text-primary")} />
+      </div>
+      <div className="min-w-0">
+        <p className="font-semibold text-sm text-foreground leading-tight">{title}</p>
+        <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">{subtitle}</p>
+      </div>
+    </button>
+  );
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-      {/* Form */}
-      <div className="lg:col-span-3 space-y-5">
-        {/* Agent Type Cards */}
-        <div>
-          <Label className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-3 block">
-            Agent Type
-          </Label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setAgentType("CARGO_AGENT")}
-              className={cn(
-                "card-premium p-5 text-left transition-all duration-200 rounded-2xl",
-                agentType === "CARGO_AGENT"
-                  ? "ring-2 ring-primary ring-offset-2"
-                  : "hover:shadow-lg"
-              )}
-            >
-              <div className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center mb-3",
-                agentType === "CARGO_AGENT" ? "bg-primary" : "bg-primary/8"
-              )}
-                style={agentType === "CARGO_AGENT" ? { boxShadow: '0 4px 12px -2px rgba(0,128,255,0.35)' } : undefined}>
-                <Ship className={cn("w-5 h-5", agentType === "CARGO_AGENT" ? "text-white" : "text-primary")} />
-              </div>
-              <p className="font-semibold text-sm text-foreground">Cargo Agent</p>
-              <p className="text-xs text-muted-foreground/60 mt-0.5">Loading & discharge inquiries</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAgentType("OWNERS_AGENT")}
-              className={cn(
-                "card-premium p-5 text-left transition-all duration-200 rounded-2xl",
-                agentType === "OWNERS_AGENT"
-                  ? "ring-2 ring-primary ring-offset-2"
-                  : "hover:shadow-lg"
-              )}
-            >
-              <div className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center mb-3",
-                agentType === "OWNERS_AGENT" ? "bg-primary" : "bg-primary/8"
-              )}
-                style={agentType === "OWNERS_AGENT" ? { boxShadow: '0 4px 12px -2px rgba(0,128,255,0.35)' } : undefined}>
-                <Anchor className={cn("w-5 h-5", agentType === "OWNERS_AGENT" ? "text-white" : "text-primary")} />
-              </div>
-              <p className="font-semibold text-sm text-foreground">Owners Agent</p>
-              <p className="text-xs text-muted-foreground/60 mt-0.5">Vessel owner representations</p>
-            </button>
-          </div>
+    <div className="space-y-4">
+      {/* Agent Type — full width, compact horizontal cards */}
+      <div>
+        <Label className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-2 block">
+          Agent Type
+        </Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <AgentCard type="CARGO_AGENT" icon={Ship} title="Cargo Agent" subtitle="Loading & discharge inquiries" />
+          <AgentCard type="OWNERS_AGENT" icon={Anchor} title="Owners Agent" subtitle="Vessel owner representations" />
         </div>
-
-        {/* Subject */}
-        <div className="card-premium p-5 rounded-2xl space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email-subject" className="text-sm font-medium">Onderwerp <span className="text-muted-foreground/40">(optioneel)</span></Label>
-            <input
-              id="email-subject"
-              type="text"
-              placeholder="Voer onderwerp in..."
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="flex h-10 w-full rounded-xl border border-border/60 bg-transparent px-4 py-2 text-sm ring-offset-background placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30 transition-all"
-            />
-          </div>
-
-          {/* Email Content */}
-          <div className="space-y-2">
-            <Label htmlFor="email-content" className="text-sm font-medium">E-mail Inhoud</Label>
-            <Textarea
-              id="email-content"
-              placeholder="Plak hier de e-mail inhoud..."
-              value={emailContent}
-              onChange={(e) => setEmailContent(e.target.value)}
-              className="min-h-[280px] font-sans text-sm leading-relaxed rounded-xl border-border/60 bg-transparent placeholder:text-muted-foreground/40 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30 resize-none"
-            />
-          </div>
-
-          {/* PDF Upload */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">PDF Bijlage <span className="text-muted-foreground/40">(optioneel)</span></Label>
-            <div className="flex items-center gap-2">
-              <label className="cursor-pointer flex-1">
-                <div className={cn(
-                  "flex items-center justify-center gap-2.5 p-4 border-2 border-dashed rounded-xl transition-all",
-                  pdfFile ? "border-primary/30 bg-primary/5" : "border-border/40 hover:border-primary/30 hover:bg-primary/[0.02]"
-                )}>
-                  {pdfFile ? (
-                    <FileText className="w-5 h-5 text-primary" />
-                  ) : (
-                    <Upload className="w-5 h-5 text-muted-foreground/40" />
-                  )}
-                  <span className={cn("text-sm", pdfFile ? "text-foreground font-medium" : "text-muted-foreground/50")}>
-                    {pdfFile ? pdfFile.name : "Klik om PDF te uploaden"}
-                  </span>
-                </div>
-                <input
-                  id="manual-pdf-input"
-                  type="file"
-                  accept=".pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file && file.type === "application/pdf") {
-                      setPdfFile(file);
-                    } else if (file) {
-                      toast({ title: "Error", description: "Alleen PDF bestanden zijn toegestaan", variant: "destructive" });
-                    }
-                  }}
-                />
-              </label>
-              {pdfFile && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-xl shrink-0"
-                  onClick={() => {
-                    setPdfFile(null);
-                    const fileInput = document.getElementById("manual-pdf-input") as HTMLInputElement;
-                    if (fileInput) fileInput.value = "";
-                  }}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Submit */}
-        <Button
-          className="w-full h-12 rounded-xl text-sm font-semibold"
-          onClick={handleSubmit}
-          disabled={sending || !emailContent.trim() || !agentType}
-          style={{ boxShadow: !sending && emailContent.trim() && agentType ? '0 4px 14px -3px rgba(0,128,255,0.4)' : undefined }}
-        >
-          {sending ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Verwerken...
-            </>
-          ) : (
-            <>
-              <Send className="w-4 h-4 mr-2" />
-              Verstuur naar AI
-            </>
-          )}
-        </Button>
       </div>
 
-      {/* Instructions Panel */}
-      <div className="lg:col-span-2 space-y-5">
-        <div className="card-premium p-6 rounded-2xl">
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
-              <Lightbulb className="w-4 h-4 text-amber-500" />
+      {/* Main working row: meta (left) + email body (right) side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+        {/* Left: subject + pdf + how-it-works + submit */}
+        <div className="lg:col-span-5 flex flex-col gap-4">
+          <div className="card-premium p-4 rounded-2xl space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email-subject" className="text-sm font-medium">
+                Onderwerp <span className="text-muted-foreground/40">(optioneel)</span>
+              </Label>
+              <input
+                id="email-subject"
+                type="text"
+                placeholder="Voer onderwerp in..."
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="flex h-10 w-full rounded-xl border border-border/60 bg-transparent px-4 py-2 text-sm ring-offset-background placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30 transition-all"
+              />
             </div>
-            <h3 className="font-semibold text-sm">Hoe het werkt</h3>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                PDF Bijlage <span className="text-muted-foreground/40">(optioneel)</span>
+              </Label>
+              <div className="flex items-center gap-2">
+                <label className="cursor-pointer flex-1">
+                  <div className={cn(
+                    "flex items-center justify-center gap-2.5 p-3 border-2 border-dashed rounded-xl transition-all",
+                    pdfFile ? "border-primary/30 bg-primary/5" : "border-border/40 hover:border-primary/30 hover:bg-primary/[0.02]"
+                  )}>
+                    {pdfFile ? <FileText className="w-5 h-5 text-primary" /> : <Upload className="w-5 h-5 text-muted-foreground/40" />}
+                    <span className={cn("text-sm truncate", pdfFile ? "text-foreground font-medium" : "text-muted-foreground/50")}>
+                      {pdfFile ? pdfFile.name : "Klik om PDF te uploaden"}
+                    </span>
+                  </div>
+                  <input
+                    id="manual-pdf-input"
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file && file.type === "application/pdf") {
+                        setPdfFile(file);
+                      } else if (file) {
+                        toast({ title: "Error", description: "Alleen PDF bestanden zijn toegestaan", variant: "destructive" });
+                      }
+                    }}
+                  />
+                </label>
+                {pdfFile && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-xl shrink-0"
+                    onClick={() => {
+                      setPdfFile(null);
+                      const fileInput = document.getElementById("manual-pdf-input") as HTMLInputElement;
+                      if (fileInput) fileInput.value = "";
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-500/5 p-3">
+              <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Selecteer een agent type, plak de e-mail rechts, voeg eventueel een PDF toe en klik
+                <span className="font-medium text-foreground"> Verstuur naar AI</span>.
+              </p>
+            </div>
           </div>
-          <ol className="space-y-3">
-            {[
-              { step: '1', text: 'Selecteer het agent type hierboven' },
-              { step: '2', text: 'Kopieer en plak de e-mailinhoud' },
-              { step: '3', text: 'Voeg optioneel een PDF toe' },
-              { step: '4', text: 'Klik "Verstuur naar AI" om te verwerken' },
-            ].map((item) => (
-              <li key={item.step} className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-lg bg-primary/8 flex items-center justify-center shrink-0 text-[11px] font-bold text-primary">
-                  {item.step}
-                </span>
-                <span className="text-sm text-muted-foreground leading-relaxed pt-0.5">{item.text}</span>
-              </li>
-            ))}
-          </ol>
+
+          <Button
+            className="w-full h-12 rounded-xl text-sm font-semibold mt-auto"
+            onClick={handleSubmit}
+            disabled={sending || !emailContent.trim() || !agentType}
+            style={{ boxShadow: !sending && emailContent.trim() && agentType ? "0 4px 14px -3px rgba(0,128,255,0.4)" : undefined }}
+          >
+            {sending ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Verwerken...</>
+            ) : (
+              <><Send className="w-4 h-4 mr-2" />Verstuur naar AI</>
+            )}
+          </Button>
         </div>
 
-        {/* Live Preview */}
-        {emailContent && (
-          <div className="card-premium p-5 rounded-2xl">
-            <Label className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-3 block">
-              Voorbeeld
-            </Label>
-            <div className="p-4 bg-black/[0.02] rounded-xl max-h-[300px] overflow-auto">
-              <p className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground/80">{emailContent}</p>
-            </div>
-          </div>
-        )}
+        {/* Right: the email body — the main wide area */}
+        <div className="lg:col-span-7 card-premium p-4 rounded-2xl flex flex-col">
+          <Label htmlFor="email-content" className="text-sm font-medium mb-2 flex items-center justify-between">
+            <span>E-mail Inhoud</span>
+            {emailContent && (
+              <span className="text-[11px] font-normal text-muted-foreground/50 tabular-nums">
+                {emailContent.length.toLocaleString()} tekens
+              </span>
+            )}
+          </Label>
+          <Textarea
+            id="email-content"
+            placeholder="Plak hier de volledige e-mail inhoud..."
+            value={emailContent}
+            onChange={(e) => setEmailContent(e.target.value)}
+            className="flex-1 min-h-[300px] lg:min-h-[360px] font-sans text-sm leading-relaxed rounded-xl border-border/60 bg-transparent placeholder:text-muted-foreground/40 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30 resize-none"
+          />
+        </div>
       </div>
     </div>
   );

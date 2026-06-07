@@ -46,7 +46,39 @@ interface EmailAttachment {
 }
 
 type DateFilter = 'all' | 'thisWeek' | 'thisMonth' | 'older';
-type ViewMode = 'list' | 'table';
+
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-amber-500',
+  'bg-rose-500', 'bg-cyan-600', 'bg-indigo-500', 'bg-teal-500',
+];
+
+function initials(name?: string | null) {
+  if (!name) return '–';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '–';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function avatarColor(name?: string | null) {
+  const s = name || '?';
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function dateBucket(dateStr: string | null): 'Vandaag' | 'Deze week' | 'Ouder' {
+  if (!dateStr) return 'Ouder';
+  const d = new Date(dateStr);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return 'Vandaag';
+  const weekAgo = new Date(now);
+  weekAgo.setDate(now.getDate() - 7);
+  if (d >= weekAgo) return 'Deze week';
+  return 'Ouder';
+}
+
+const BUCKET_ORDER = ['Vandaag', 'Deze week', 'Ouder'] as const;
 
 export default function SentPDAs() {
   const { t } = useLanguage();
@@ -61,7 +93,6 @@ export default function SentPDAs() {
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   useEffect(() => {
     fetchSentEmails();
@@ -117,12 +148,36 @@ export default function SentPDAs() {
     return filtered;
   }, [sentEmails, searchQuery, dateFilter]);
 
+  const stats = useMemo(() => {
+    const now = new Date();
+    const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    let week = 0, month = 0, withDocs = 0;
+    for (const e of sentEmails) {
+      const d = e.sent_at ? new Date(e.sent_at) : null;
+      if (d && d >= weekAgo) week++;
+      if (d && d >= monthStart) month++;
+      if (e.pdf_url || e.doc_link || e['Google sheet url']) withDocs++;
+    }
+    return { total: sentEmails.length, week, month, withDocs };
+  }, [sentEmails]);
+
+  const grouped = useMemo(() => {
+    const map: Record<string, Email[]> = {};
+    for (const e of filteredEmails) {
+      const b = dateBucket(e.sent_at);
+      (map[b] ??= []).push(e);
+    }
+    return BUCKET_ORDER.map((b) => [b, map[b] || []] as const).filter(([, arr]) => arr.length > 0);
+  }, [filteredEmails]);
+
   async function fetchSentEmails() {
     setLoading(true);
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase
       .from('email')
-      .select('*')
+      .select('*') as any)
+      .eq('archived', false)
       .in('status', ['approved', 'sent'])
       .order('sent_at', { ascending: false });
 
@@ -211,6 +266,28 @@ export default function SentPDAs() {
   return (
     <DashboardLayout title={t('sentPdas.title')}>
       <div className="space-y-5">
+        {/* Stats strip */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: t('sentPdas.total'), value: stats.total, icon: CheckCircle, tint: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+            { label: t('sentPdas.thisWeek'), value: stats.week, icon: Calendar, tint: 'text-primary', bg: 'bg-primary/8' },
+            { label: t('sentPdas.thisMonth'), value: stats.month, icon: Mail, tint: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-500/10' },
+            { label: t('sentPdas.withDocs'), value: stats.withDocs, icon: FileText, tint: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+          ].map((s) => (
+            <Card key={s.label} className="card-premium">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${s.bg}`}>
+                  <s.icon className={`w-5 h-5 ${s.tint}`} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-2xl font-bold tabular-nums leading-none">{loading ? '–' : s.value}</p>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium mt-1 truncate">{s.label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
         {/* Search and Filter Bar */}
         <Card className="card-premium overflow-hidden">
           <CardContent className="p-4">
@@ -236,24 +313,6 @@ export default function SentPDAs() {
                     <SelectItem value="older">{t('sentPdas.older')}</SelectItem>
                   </SelectContent>
                 </Select>
-                <div className="flex border border-border/60 rounded-lg overflow-hidden">
-                  <Button
-                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className="h-9 px-2.5 rounded-none"
-                    onClick={() => setViewMode('list')}
-                  >
-                    <List className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === 'table' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className="h-9 px-2.5 rounded-none"
-                    onClick={() => setViewMode('table')}
-                  >
-                    <LayoutGrid className="w-4 h-4" />
-                  </Button>
-                </div>
                 <Button variant="ghost" size="sm" className="h-9 w-9 p-0 rounded-lg hover:bg-muted/60" onClick={fetchSentEmails}>
                   <RefreshCw className="w-4 h-4" />
                 </Button>
@@ -262,173 +321,116 @@ export default function SentPDAs() {
           </CardContent>
         </Card>
 
-        {/* Main Content */}
-        {viewMode === 'table' ? (
-          <Card className="card-premium overflow-hidden">
-            <CardContent className="p-0">
-              <ScrollArea className="h-[calc(100dvh-260px)]">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="text-xs font-semibold">{t('inquiries.subject')}</TableHead>
-                      <TableHead className="text-xs font-semibold">{t('inquiries.vessel')}</TableHead>
-                      <TableHead className="text-xs font-semibold">{t('inquiries.port')}</TableHead>
-                      <TableHead className="text-xs font-semibold">{t('inquiries.toEmail')}</TableHead>
-                      <TableHead className="text-xs font-semibold">{t('sentPdas.sentOn')}</TableHead>
-                      <TableHead className="w-[80px] text-xs font-semibold">{t('common.actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-12">
-                          <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredEmails.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                          <Mail className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                          <p className="text-sm">{t('sentPdas.noSentPdas')}</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredEmails.map((email) => (
-                        <TableRow
-                          key={email.id}
-                          className="cursor-pointer hover:bg-muted/30 transition-colors"
-                          onClick={() => setSelectedEmail(email)}
-                        >
-                          <TableCell className="font-medium max-w-[250px] truncate text-sm">
-                            {email.subject || t('inquiries.noSubject')}
-                          </TableCell>
-                          <TableCell>
-                            {email.vessel_name && (
-                              <span className="flex items-center gap-1.5 text-sm">
-                                <Ship className="w-3.5 h-3.5 text-primary/60" />
-                                {email.vessel_name}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-sm">{email.port || '-'}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{email.email_to_person}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{formatDate(email.sent_at)}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 rounded-lg"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedEmail(email);
-                              }}
+        {/* Main Content — grouped list + detail */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+          {/* Sent Email List */}
+          <Card className="card-premium lg:col-span-4 flex flex-col min-h-0 overflow-hidden">
+            <CardHeader className="pb-3 pt-4 px-4 shrink-0">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                <span className="text-sm font-semibold text-foreground">{t('sentPdas.title')}</span>
+                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md tabular-nums">{filteredEmails.length}</span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+              <ScrollArea className="h-[calc(100dvh-360px)] lg:h-[calc(100dvh-320px)]">
+                {loading ? (
+                  <div className="space-y-2 p-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 p-2 animate-pulse">
+                        <div className="w-9 h-9 rounded-full bg-muted shrink-0" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="h-3 bg-muted rounded w-2/3" />
+                          <div className="h-2.5 bg-muted/60 rounded w-1/2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredEmails.length === 0 ? (
+                  <div className="text-center p-12 text-muted-foreground">
+                    <Mail className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">{t('sentPdas.noSentPdas')}</p>
+                  </div>
+                ) : (
+                  <div className="pb-2">
+                    {grouped.map(([bucket, items]) => (
+                      <div key={bucket}>
+                        <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm px-4 py-1.5 border-b border-border/40">
+                          <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-[0.12em]">
+                            {bucket} · {items.length}
+                          </span>
+                        </div>
+                        {items.map((email) => {
+                          const name = email.company_name || email.contact_name || email.vessel_name || '—';
+                          const active = selectedEmail?.id === email.id;
+                          return (
+                            <button
+                              key={email.id}
+                              onClick={() => setSelectedEmail(email)}
+                              className={`w-full text-left px-4 py-3 cursor-pointer transition-all duration-75 border-b border-border/40 hover:bg-muted/40 flex gap-3 ${
+                                active ? 'bg-emerald-50/50 dark:bg-emerald-500/10 border-l-[3px] border-l-emerald-500' : 'border-l-[3px] border-l-transparent'
+                              }`}
                             >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                              <div className={`w-9 h-9 rounded-full ${avatarColor(name)} flex items-center justify-center shrink-0 text-white text-[11px] font-bold`}>
+                                {initials(name)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-semibold text-foreground leading-snug truncate">{name}</p>
+                                  <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                                    {email.sent_at ? formatTime(email.sent_at) : ''}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{email.subject || t('inquiries.noSubject')}</p>
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  {email.vessel_name && (
+                                    <span className="text-[10px] font-medium text-foreground/70 bg-muted px-1.5 py-0.5 rounded flex items-center gap-1">
+                                      <Ship className="w-2.5 h-2.5 text-primary/60" />
+                                      {email.vessel_name}
+                                    </span>
+                                  )}
+                                  {email.port && (
+                                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                      <MapPin className="w-2.5 h-2.5" />
+                                      {email.port}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </ScrollArea>
             </CardContent>
           </Card>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-            {/* Sent Email List */}
-            <Card className="card-premium lg:col-span-4 flex flex-col min-h-0 overflow-hidden">
-              <CardHeader className="pb-3 pt-4 px-4 shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                    <span className="text-sm font-semibold text-foreground">{t('sentPdas.title')}</span>
-                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">{filteredEmails.length}</span>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
-                <ScrollArea className="h-full">
-                  {loading ? (
-                    <div className="flex items-center justify-center p-12">
-                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : filteredEmails.length === 0 ? (
-                    <div className="text-center p-12 text-muted-foreground">
-                      <Mail className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                      <p className="text-sm">{t('sentPdas.noSentPdas')}</p>
-                    </div>
-                  ) : (
-                    <div>
-                      {filteredEmails.map((email) => (
-                        <div
-                          key={email.id}
-                          onClick={() => setSelectedEmail(email)}
-                          className={`px-4 py-3 cursor-pointer transition-all duration-75 border-b border-border/40 hover:bg-muted/40 ${
-                            selectedEmail?.id === email.id
-                              ? 'bg-emerald-50/50 border-l-[3px] border-l-emerald-500'
-                              : 'border-l-[3px] border-l-transparent'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="text-sm font-semibold text-foreground leading-snug line-clamp-1">
-                              {email.company_name || email.contact_name || t('inquiries.noSubject')}
-                            </p>
-                            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                              {email.sent_at ? formatTime(email.sent_at) : ''}
-                            </span>
-                          </div>
-                          {email.vessel_name && (
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <Ship className="w-3 h-3 text-primary/60" />
-                              <span className="text-xs font-medium text-foreground/80">{email.vessel_name}</span>
-                            </div>
-                          )}
-                          <p className="text-xs text-muted-foreground line-clamp-1">{email.subject || t('inquiries.noSubject')}</p>
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] px-1.5 py-0 h-5 border" variant="secondary">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              {t('overview.sent')}
-                            </Badge>
-                            {email.port && (
-                              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                <MapPin className="w-2.5 h-2.5" />
-                                {email.port}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
 
-            {/* Selected Email Detail */}
-            <div className="lg:col-span-8 space-y-4 min-w-0">
-              {selectedEmail ? (
-                <EmailDetailView
-                  email={selectedEmail}
-                  attachments={emailAttachments}
-                  onViewPdf={handleViewPdf}
-                  onDownloadPdf={handleDownloadPdf}
-                  t={t}
-                />
-              ) : (
-                <Card className="card-premium h-[calc(100vh-340px)] flex items-center justify-center">
-                  <CardContent className="text-center text-muted-foreground">
-                    <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
-                      <Mail className="w-7 h-7 opacity-30" />
-                    </div>
-                    <p className="text-sm font-medium">{t('sentPdas.selectToView')}</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">Kies een email uit de lijst</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+          {/* Selected Email Detail */}
+          <div className="lg:col-span-8 space-y-4 min-w-0">
+            {selectedEmail ? (
+              <EmailDetailView
+                email={selectedEmail}
+                attachments={emailAttachments}
+                onViewPdf={handleViewPdf}
+                onDownloadPdf={handleDownloadPdf}
+                t={t}
+              />
+            ) : (
+              <Card className="card-premium h-[calc(100vh-340px)] flex items-center justify-center">
+                <CardContent className="text-center text-muted-foreground">
+                  <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                    <Mail className="w-7 h-7 opacity-30" />
+                  </div>
+                  <p className="text-sm font-medium">{t('sentPdas.selectToView')}</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">{t('sentPdas.pickFromList')}</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* PDF Preview Dialog */}
@@ -459,24 +461,6 @@ export default function SentPDAs() {
         </DialogContent>
       </Dialog>
 
-      {/* Email Detail Dialog for Table View */}
-      {viewMode === 'table' && selectedEmail && (
-        <Dialog open={!!selectedEmail} onOpenChange={(open) => !open && setSelectedEmail(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl">
-            <DialogHeader>
-              <DialogTitle>{selectedEmail.subject || t('inquiries.noSubject')}</DialogTitle>
-              <DialogDescription>{selectedEmail.email_to_person}</DialogDescription>
-            </DialogHeader>
-            <EmailDialogContent
-              email={selectedEmail}
-              attachments={emailAttachments}
-              onViewPdf={handleViewPdf}
-              onDownloadPdf={handleDownloadPdf}
-              t={t}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
     </DashboardLayout>
   );
 }

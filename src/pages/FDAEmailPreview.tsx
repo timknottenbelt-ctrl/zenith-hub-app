@@ -406,7 +406,7 @@ export default function FDAEmailPreview() {
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/fda-front-page/${projectId}`)}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/fda?project=${projectId}&step=frontpage`)}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
@@ -453,7 +453,7 @@ export default function FDAEmailPreview() {
       <div className="space-y-6 pb-24">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/fda-front-page/${projectId}`)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/fda?project=${projectId}&step=frontpage`)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
@@ -594,7 +594,7 @@ export default function FDAEmailPreview() {
         {/* Action Buttons - Sticky Bottom */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t z-50">
           <div className="max-w-4xl mx-auto flex justify-end gap-4">
-            <Button variant="outline" onClick={() => navigate(`/fda-front-page/${projectId}`)} disabled={sending}>
+            <Button variant="outline" onClick={() => navigate(`/fda?project=${projectId}&step=frontpage`)} disabled={sending}>
               Cancel
             </Button>
             <Button onClick={handleSendEmail} disabled={sending || toEmails.length === 0} className="min-w-[140px]">

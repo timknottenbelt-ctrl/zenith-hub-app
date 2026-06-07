@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { TransitionLink } from '@/components/TransitionLink';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useOpenInquiriesCount } from '@/hooks/useOpenInquiriesCount';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,8 +39,10 @@ const adminItems = [
 
 const FLAGCDN_BASE = 'https://flagcdn.com';
 
+// Request a high-res flag (w160) — it's displayed small, so a larger source
+// keeps it crisp on retina screens instead of blurry.
 const getOfficeFlagUrl = (officeCode: string) =>
-  `${FLAGCDN_BASE}/w80/${officeCode.toLowerCase()}.png`;
+  `${FLAGCDN_BASE}/w160/${officeCode.toLowerCase()}.png`;
 
 const groupLabels: Record<string, string> = {
   main: '',
@@ -52,6 +55,7 @@ export const Sidebar = memo(function Sidebar() {
   const { t, office } = useLanguage();
   const { user, signOut, isAdmin } = useAuth();
   const officeFlagUrl = office ? getOfficeFlagUrl(office) : null;
+  const openInquiries = useOpenInquiriesCount();
 
   const groups = navItems.reduce<Record<string, typeof navItems>>((acc, item) => {
     (acc[item.group] ??= []).push(item);
@@ -77,9 +81,9 @@ export const Sidebar = memo(function Sidebar() {
           {officeFlagUrl && (
             <img
               src={officeFlagUrl}
+              srcSet={`${officeFlagUrl} 1x, ${officeFlagUrl.replace('/w160/', '/w320/')} 2x`}
               alt={`${office?.toUpperCase() || ''} flag`}
-              className="ml-auto h-4 w-6 rounded-[2px] object-cover opacity-70"
-              style={{ imageRendering: 'auto' }}
+              className="ml-auto h-5 w-[30px] rounded-[3px] object-cover ring-1 ring-black/10 shadow-sm"
               loading="lazy"
               referrerPolicy="no-referrer"
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
@@ -119,8 +123,24 @@ export const Sidebar = memo(function Sidebar() {
                     }
                     style={({ isActive }) => isActive ? { boxShadow: '0 2px 8px -2px rgba(0,128,255,0.4)' } : undefined}
                   >
-                    <Icon className="w-[17px] h-[17px] flex-shrink-0" />
-                    <span className="truncate">{t(`nav.${item.key}`)}</span>
+                    {({ isActive }) => (
+                      <>
+                        <Icon className="w-[17px] h-[17px] flex-shrink-0" />
+                        <span className="truncate">{t(`nav.${item.key}`)}</span>
+                        {item.key === 'aiInquiries' && openInquiries > 0 && (
+                          <span
+                            className={cn(
+                              'ml-auto min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full text-[10px] font-bold tabular-nums shrink-0',
+                              isActive
+                                ? 'bg-white text-primary'
+                                : 'bg-red-500 text-white shadow-[0_1px_4px_-1px_rgba(239,68,68,0.6)]'
+                            )}
+                          >
+                            {openInquiries > 99 ? '99+' : openInquiries}
+                          </span>
+                        )}
+                      </>
+                    )}
                   </TransitionLink>
                 );
               })}

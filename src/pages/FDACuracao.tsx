@@ -284,8 +284,8 @@ export default function FDACuracao() {
     if (!selectedProject) return;
     try {
       await supabase.from("fda_curacao_processed_invoices").delete().eq("project_id", selectedProject.project_id);
-      await supabase.from("fda_curacao_agency_costs").delete().eq("project_id", selectedProject.id);
-      await supabase.from("fda_email_drafts").delete().eq("project_id", selectedProject.id);
+      await supabase.from("fda_curacao_agency_costs").delete().eq("project_id", selectedProject.project_id);
+      await supabase.from("fda_email_drafts").delete().eq("project_id", selectedProject.project_id);
       await supabase.from("fda_curacao_projects").delete().eq("project_id", selectedProject.project_id);
       toast({ title: "Verwijderd", description: "Project is verwijderd" });
       clearProjectInUrl();

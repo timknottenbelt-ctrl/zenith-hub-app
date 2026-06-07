@@ -57,11 +57,15 @@ export function FDACuracaoProcessingStatus({
   const [isComplete, setIsComplete] = useState(initiallyComplete);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const triesRef = useRef(0);
+  // Keep latest onComplete in a ref so the polling effect doesn't tear down and
+  // restart its interval every time the parent passes a fresh inline callback.
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
     // If already complete on mount, notify parent and skip polling
     if (initiallyComplete) {
-      onComplete();
+      onCompleteRef.current();
       return;
     }
 
@@ -118,7 +122,7 @@ export function FDACuracaoProcessingStatus({
       // Check if all complete
       if (hasDraft || data.status === "ready_to_send" || data.status === "sent") {
         setIsComplete(true);
-        onComplete();
+        onCompleteRef.current();
         if (pollingRef.current) clearInterval(pollingRef.current);
       }
 
@@ -134,7 +138,8 @@ export function FDACuracaoProcessingStatus({
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [projectId, onComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, initiallyComplete]);
 
   const completedSteps = steps.filter((s) => s.status === "complete").length;
   const progressPercent = (completedSteps / steps.length) * 100;
