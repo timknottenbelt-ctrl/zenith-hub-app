@@ -96,7 +96,7 @@ export const Sidebar = memo(function Sidebar() {
       <div className="mx-4 h-px bg-gradient-to-r from-transparent via-border/60 to-transparent" />
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 pt-5 pb-3 overflow-hidden">
+      <nav className="flex-1 px-3 pt-5 pb-3 overflow-y-auto overflow-x-hidden min-h-0 sidebar-scroll">
         {Object.entries(groups).map(([group, items]) => (
           <div key={group} className={group !== 'main' ? 'mt-4' : ''}>
             {groupLabels[group] && (
