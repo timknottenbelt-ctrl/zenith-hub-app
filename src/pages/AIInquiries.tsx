@@ -121,6 +121,7 @@ export default function AIInquiries() {
   const [editBody, setEditBody] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [detailTab, setDetailTab] = useState<'ai' | 'original'>('ai');
 
   async function copyDraft() {
     const text = [editSubject ? `Subject: ${editSubject}` : '', editBody].filter(Boolean).join('\n\n');
@@ -863,71 +864,59 @@ export default function AIInquiries() {
                     )}
                   </div>
 
-                  {/* ── Side-by-side compare: Original request | AI draft ── */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border/50">
-                    {/* Original */}
-                    <div className="flex flex-col min-h-0">
-                      <div className="flex items-center gap-2 px-5 py-2.5 bg-muted/30">
-                        <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('inquiries.originalRequest')}</span>
+                  {/* ── Original ⇄ AI concept (toggle, one big view at a time) ── */}
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2 px-5 py-2.5 border-b border-border/50 bg-muted/20">
+                      <div className="inline-flex bg-muted rounded-lg p-0.5">
+                        <button
+                          onClick={() => setDetailTab('ai')}
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${detailTab === 'ai' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                          <Sparkles className="w-3.5 h-3.5" /> {t('inquiries.aiDraft')}
+                          {hasAiReply
+                            ? <Check className="w-3 h-3 text-emerald-600" />
+                            : <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                        </button>
+                        <button
+                          onClick={() => setDetailTab('original')}
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${detailTab === 'original' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                          <Mail className="w-3.5 h-3.5" /> {t('inquiries.originalRequest')}
+                        </button>
                       </div>
-                      <ScrollArea className="h-[340px]">
-                        <div className="px-5 py-4">
+                      {detailTab === 'ai' && (
+                        <div className="ml-auto flex items-center gap-1.5">
+                          <Button variant="ghost" size="sm" className="h-7 text-xs rounded-lg gap-1.5 px-2" onClick={copyDraft} disabled={!editBody} title={t('inquiries.copyDraft')}>
+                            {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                            <span className="hidden sm:inline">{copied ? t('inquiries.copied') : t('inquiries.copyDraft')}</span>
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg gap-1.5" onClick={handleCompose} disabled={composing}>
+                            {composing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                            {hasAiReply ? t('inquiries.regenerate') : t('inquiries.generateReply')}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {detailTab === 'original' ? (
+                      <ScrollArea className="h-[460px]">
+                        <div className="px-6 py-5">
                           {originalText ? (
-                            <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground/80">{originalText}</pre>
+                            <pre className="whitespace-pre-wrap text-[13.5px] font-sans leading-relaxed text-foreground/85">{originalText}</pre>
                           ) : (
                             <p className="text-sm text-muted-foreground/60 italic">{t('inquiries.noOriginal')}</p>
                           )}
                         </div>
                       </ScrollArea>
-                    </div>
-
-                    {/* AI draft editor */}
-                    <div className="flex flex-col min-h-0">
-                      <div className="flex items-center justify-between gap-2 px-5 py-2 bg-primary/[0.04]">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-                          <span className="text-xs font-semibold uppercase tracking-wide text-primary">{t('inquiries.aiDraft')}</span>
-                          {hasAiReply ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">
-                              <Check className="w-2.5 h-2.5" />{t('inquiries.draftReady')}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 px-1.5 py-0.5 rounded-full">
-                              {t('inquiries.draftPending')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Button
-                            variant="ghost" size="sm"
-                            className="h-7 text-xs rounded-lg gap-1.5 px-2"
-                            onClick={copyDraft}
-                            disabled={!editBody}
-                            title={t('inquiries.copyDraft')}
-                          >
-                            {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                            <span className="hidden sm:inline">{copied ? t('inquiries.copied') : t('inquiries.copyDraft')}</span>
-                          </Button>
-                          <Button
-                            variant="outline" size="sm"
-                            className="h-7 text-xs rounded-lg gap-1.5"
-                            onClick={handleCompose}
-                            disabled={composing}
-                          >
-                            {composing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                            {hasAiReply ? t('inquiries.regenerate') : t('inquiries.generateReply')}
-                          </Button>
-                        </div>
-                      </div>
-                      {selectedEmail.email_to_person && (
-                        <div className="flex items-center gap-1.5 px-5 py-1.5 border-b border-border/40 bg-card">
-                          <Send className="w-3 h-3 text-muted-foreground/60 shrink-0" />
-                          <span className="text-[11px] text-muted-foreground">{t('inquiries.toEmail')}:</span>
-                          <span className="text-[11px] font-medium text-foreground/80 truncate">{selectedEmail.email_to_person}</span>
-                        </div>
-                      )}
+                    ) : (
                       <div className="px-5 py-4 space-y-3">
+                        {selectedEmail.email_to_person && (
+                          <div className="flex items-center gap-1.5">
+                            <Send className="w-3 h-3 text-muted-foreground/60 shrink-0" />
+                            <span className="text-[11px] text-muted-foreground">{t('inquiries.toEmail')}:</span>
+                            <span className="text-[11px] font-medium text-foreground/80 truncate">{selectedEmail.email_to_person}</span>
+                          </div>
+                        )}
                         {!hasAiReply && !editBody && (
                           <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 text-xs">
                             <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0" />
@@ -941,7 +930,7 @@ export default function AIInquiries() {
                             value={editSubject}
                             onChange={(e) => setEditSubject(e.target.value)}
                             placeholder={t('inquiries.emailSubject')}
-                            className="h-9 rounded-lg bg-muted/20 border-border/60 focus:bg-card text-sm"
+                            className="h-10 rounded-lg bg-muted/20 border-border/60 focus:bg-card text-sm"
                           />
                         </div>
                         <div className="space-y-1.5">
@@ -956,11 +945,11 @@ export default function AIInquiries() {
                             value={editBody}
                             onChange={(e) => setEditBody(e.target.value)}
                             placeholder={composing ? t('inquiries.generating') : t('inquiries.emailBody')}
-                            className="h-[240px] text-sm rounded-lg bg-muted/20 border-border/60 focus:bg-card leading-relaxed resize-none"
+                            className="h-[400px] text-sm rounded-lg bg-muted/20 border-border/60 focus:bg-card leading-relaxed resize-none"
                           />
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* ── Disbursement Account (generate + attach) ── */}

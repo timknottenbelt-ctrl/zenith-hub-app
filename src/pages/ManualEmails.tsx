@@ -113,27 +113,27 @@ export default function ManualEmails() {
 
   return (
     <DashboardLayout title="Handmatige E-mails">
-      <div className="mb-5">
-        <TransitionLink to="/inquiries">
-          <Button variant="ghost" size="sm" className="gap-2 rounded-lg text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="w-4 h-4" />
-            Terug naar AI Aanvragen
-          </Button>
-        </TransitionLink>
-      </div>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
-        <TabsList className="bg-card/60 backdrop-blur-sm p-1 rounded-xl h-auto inline-flex gap-1"
-          style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          <TabsTrigger value="create" className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm">
-            <PlusCircle className="w-3.5 h-3.5" />
-            Nieuw
-          </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm">
-            <Mail className="w-3.5 h-3.5" />
-            Geschiedenis
-          </TabsTrigger>
-        </TabsList>
+        {/* Header: back link left, Nieuw/Geschiedenis tabs right (same row) */}
+        <div className="flex items-center justify-between gap-3">
+          <TransitionLink to="/inquiries">
+            <Button variant="ghost" size="sm" className="gap-2 rounded-lg text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="w-4 h-4" />
+              Terug naar AI Aanvragen
+            </Button>
+          </TransitionLink>
+          <TabsList className="bg-card/60 backdrop-blur-sm p-1 rounded-xl h-auto inline-flex gap-1"
+            style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <TabsTrigger value="create" className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm">
+              <PlusCircle className="w-3.5 h-3.5" />
+              Nieuw
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm">
+              <Mail className="w-3.5 h-3.5" />
+              Geschiedenis
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="create" className="mt-5">
           <ManualEmailCreateForm
@@ -161,26 +161,42 @@ export default function ManualEmails() {
             />
             {waitingForAI && !selectedEmail ? (
               <Card className="card-premium lg:col-span-2 overflow-hidden">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">E-mail Details</CardTitle>
+                <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <CardTitle className="text-sm font-medium">AI verwerkt je aanvraag…</CardTitle>
+                  </div>
+                  <Button variant="ghost" size="sm" className="rounded-lg text-xs" onClick={() => setWaitingForAI(false)}>
+                    Annuleren
+                  </Button>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col items-center justify-center h-[400px] space-y-4">
-                    <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center">
-                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  {/* Skeleton that mimics the email detail while the AI runs */}
+                  <div className="space-y-5 animate-pulse">
+                    <div className="space-y-2">
+                      <div className="h-5 bg-muted rounded w-2/3" />
+                      <div className="flex gap-2">
+                        <div className="h-4 bg-muted/70 rounded w-24" />
+                        <div className="h-4 bg-muted/70 rounded w-28" />
+                      </div>
                     </div>
-                    <p className="text-lg font-semibold text-foreground">AI is verwerking uw aanvraag...</p>
-                    <p className="text-sm text-muted-foreground/60">
-                      Dit kan enkele seconden duren. De email verschijnt automatisch.
-                    </p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-4 rounded-lg"
-                      onClick={() => setWaitingForAI(false)}
-                    >
-                      Annuleren
-                    </Button>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="h-3 bg-muted/60 rounded w-24" />
+                        <div className="h-3 bg-muted rounded w-full" />
+                        <div className="h-3 bg-muted rounded w-5/6" />
+                        <div className="h-3 bg-muted rounded w-4/6" />
+                        <div className="h-3 bg-muted rounded w-3/4" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-3 bg-primary/15 rounded w-28" />
+                        <div className="h-3 bg-muted rounded w-full" />
+                        <div className="h-3 bg-muted rounded w-11/12" />
+                        <div className="h-3 bg-muted rounded w-3/4" />
+                        <div className="h-3 bg-muted rounded w-5/6" />
+                      </div>
+                    </div>
+                    <div className="h-9 bg-muted rounded-lg w-40" />
                   </div>
                 </CardContent>
               </Card>

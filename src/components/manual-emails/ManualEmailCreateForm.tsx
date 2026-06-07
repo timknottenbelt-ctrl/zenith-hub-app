@@ -65,32 +65,47 @@ export function ManualEmailCreateForm({
         });
       }
 
-      const { data, error } = await supabase.functions.invoke("manual-email-create", {
-        body: {
-          email_content: emailContent,
-          agent_type: originalAgentType,
-          subject: originalSubject || undefined,
-          pdf_base64,
-        },
-      });
-      if (error) throw new Error(error.message || "Verwerking mislukt");
-      if (!data?.success) throw new Error(data?.error || "Verwerking mislukt");
+      const payload = {
+        email_content: emailContent,
+        agent_type: originalAgentType,
+        subject: originalSubject || undefined,
+        pdf_base64,
+      };
 
+      // Clear the form and switch to history IMMEDIATELY — don't block ~20s on the
+      // AI. The History view shows a skeleton; the email's polling reveals the
+      // processed result as soon as it's ready.
       setEmailContent("");
       setSubject("");
       setPdfFile(null);
       const fileInput = document.getElementById("manual-pdf-input") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
-
+      submitLockRef.current = false;
+      setSending(false);
       onSubmitted();
       onSwitchToHistory();
+
+      // Fire-and-forget: process in the background.
+      void supabase.functions
+        .invoke("manual-email-create", { body: payload })
+        .then(({ data, error }) => {
+          if (error || !data?.success) {
+            toast({
+              title: "Verwerking mislukt",
+              description: error?.message || data?.error || "Probeer het opnieuw",
+              variant: "destructive",
+            });
+          }
+        })
+        .catch((err) => {
+          toast({ title: "Verwerking mislukt", description: err instanceof Error ? err.message : "Onbekende fout", variant: "destructive" });
+        });
     } catch (error) {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Verwerking mislukt",
         variant: "destructive",
       });
-    } finally {
       submitLockRef.current = false;
       setSending(false);
     }
@@ -240,7 +255,7 @@ export function ManualEmailCreateForm({
             placeholder="Plak hier de volledige e-mail inhoud..."
             value={emailContent}
             onChange={(e) => setEmailContent(e.target.value)}
-            className="flex-1 min-h-[300px] lg:min-h-[360px] font-sans text-sm leading-relaxed rounded-xl border-border/60 bg-transparent placeholder:text-muted-foreground/40 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30 resize-none"
+            className="flex-1 min-h-[240px] lg:min-h-[280px] font-sans text-sm leading-relaxed rounded-xl border-border/60 bg-transparent placeholder:text-muted-foreground/40 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30 resize-none"
           />
         </div>
       </div>
