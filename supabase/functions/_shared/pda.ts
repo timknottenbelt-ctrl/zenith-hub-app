@@ -136,10 +136,13 @@ export function tugCount(loa: number, portCode: string, operationType: string, t
   if (matchingRules.length > 0) {
     tugs = Math.max(...matchingRules.map((r) => r.tug_count));
   } else {
-    if (portCode.includes("OFFSHORE") || portCode.includes("ST_MICHIELS")) {
-      if (operation.includes("sts") || operation.includes("ship-to-ship")) tugs = loa > 200 ? 2 : 1;
-      else tugs = 0;
-    } else if (portCode.includes("OUTER_BAYS")) {
+    // Cargo agent in Curacao ALWAYS berths to load/discharge — so a loading or
+    // discharging call always takes tugs (LOA-based), never 0, even if the port
+    // code looks offshore/anchorage. Only true offshore/anchorage SERVICES take 0.
+    const isCargo = operation.includes("load") || operation.includes("discharg");
+    if (!isCargo && (portCode.includes("OFFSHORE") || portCode.includes("ST_MICHIELS"))) {
+      tugs = (operation.includes("sts") || operation.includes("ship-to-ship")) ? (loa > 200 ? 2 : 1) : 0;
+    } else if (!isCargo && portCode.includes("OUTER_BAYS")) {
       tugs = 0;
     } else if (loa >= 169) {
       tugs = 2;
@@ -192,7 +195,8 @@ export function portStay(
   } else {
     port_stay = 1;
   }
-  if (port_stay && port_stay < 0.5) port_stay = 0.5;
+  // Never let a real call round down to 0 days (that zeroed wharfage/harbour/customs).
+  if (port_stay !== null && port_stay < 0.5) port_stay = 0.5;
   return { port_stay, loading_rate };
 }
 

@@ -60,7 +60,8 @@ Output ONLY valid JSON (no markdown) in this exact shape:
   "service_asks": [string],
   "questions": [string]
 }
-Rules: numbers as numbers (no units). Use null when unknown. "questions" = explicit client questions. "service_asks" = every concrete service the sender wants quoted/arranged, as a short retrievable query with numbers when given (e.g. "crew change cost for 5 crew", "fresh water 200 MT cost", "bunker call agency fee"); [] if none.`;
+Rules: numbers as numbers (no units). Use null when unknown. "questions" = explicit client questions. "service_asks" = every concrete service the sender wants quoted/arranged, as a short retrievable query with numbers when given (e.g. "crew change cost for 5 crew", "fresh water 200 MT cost", "bunker call agency fee"); [] if none.
+cargo_type / cargo_quantity / operation_type "loading"|"discharge" are ONLY for actual transported commercial cargo. Sludge, slops, bilge, garbage, waste, fresh/drinking water, provisions, stores, spares and bunker fuel are owner's SERVICES — leave cargo_type and cargo_quantity null and operation_type null for these.`;
 
 const EMAIL_PROMPT = `You are the senior agency correspondent for LBH Curacao, a full-service maritime shipping agency in Willemstad, Curacao. You write the reply a prospective principal (owner, charterer, operator or master) receives. It must read as polished, warm, confident and genuinely helpful — the kind of email that makes the reader want to appoint LBH. Never robotic, never a bare list.
 

@@ -35,9 +35,10 @@ If all gates pass, classify:
    (bitumen, HFO, wheat, corn, coal, etc.) measured in MT; PDA/EDA for CARGO. Keywords: loading, discharge, STS, cargo, MT.
 
 2. "OWNERS_AGENT" — vessel/owner SERVICES in Curacao: crew change, spares, medical, cash to master, garbage,
-   fresh water, provisions, BUNKERING, launch boat, hotel, airport/transport. PDA/EDA for SERVICES (not cargo).
-   Keywords: crew change, spares, medical, bunkering, provisions, services.
-   IMPORTANT: bunkering / fuel delivered to a vessel for its OWN consumption is a SERVICE -> OWNERS_AGENT, NOT cargo.
+   sludge / slops / bilge / waste disposal, fresh water, provisions, stores, BUNKERING, launch boat, hotel, airport/transport.
+   PDA/EDA for SERVICES (not cargo). Keywords: crew change, spares, sludge, garbage, bunkering, provisions, services.
+   IMPORTANT: bunkering/fuel for the vessel's OWN consumption, AND sludge / slops / bilge / garbage / waste removal,
+   are SERVICES -> OWNERS_AGENT, NEVER cargo (even when a quantity in MT or m3 is given).
    Only fuel/oil being LOADED or DISCHARGED as cargo (quantity in MT) is LOADING_DISCHARGE_AGENT.
 
 3. "OUT_OF_SCOPE" — wrong location, reports/SOF/completed ops, existing case, marketing/newsletters/sales/admin/spam,

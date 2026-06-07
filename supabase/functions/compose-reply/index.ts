@@ -69,6 +69,7 @@ Output ONLY valid JSON:
   "questions":[string] }
 "service_asks": every concrete service the sender wants LBH to quote/arrange, phrased as a short retrievable query INCLUDING numbers when given — e.g. "crew change cost for 5 crew", "fresh water supply 200 MT cost", "garbage disposal cost", "launch boat hire", "sludge disposal 12 m3 cost", "provisions delivery gate access", "bunker call agency fee". If the email is a bunker stem / formal appointment, include "bunker call agency fee and port costs".
 "questions": any explicit questions asked.
+cargo_type / cargo_quantity / operation_type "loading"|"discharge" are ONLY for actual transported commercial cargo (bitumen, crude, fuel, cement, limestone, grain, breakbulk, …). Sludge, slops, bilge, garbage, waste, fresh/drinking water, provisions, stores, spares and bunker fuel are owner's SERVICES — leave cargo_type and cargo_quantity null for these and set operation_type to null (use service_asks instead).
 Numbers without units. null when unknown. Do not invent a year for ETA if none is given.`;
 
 const EMAIL_PROMPT = `You are the senior agency correspondent for LBH Curacao, a full-service ship's agency in Willemstad, Curacao. You write the reply a principal (owner, charterer, operator, master or supplier) receives. It must read as polished, warm, confident and — above all — ACTUALLY ANSWER what they asked, using the concrete prices and facts provided. Never a generic template, never a bare vessel list.
