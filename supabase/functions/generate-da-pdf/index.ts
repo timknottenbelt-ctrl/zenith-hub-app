@@ -12,10 +12,12 @@ import { LBH_LOGO_B64 } from "./logo.ts";
 interface Line { label: string; currency?: string; amount: number }
 
 const NAVY = rgb(0.07, 0.13, 0.30);   // LBH brand navy
+const NAVY2 = rgb(0.05, 0.10, 0.24);  // deeper navy for the total row
 const DARK = rgb(0.12, 0.12, 0.14);
 const GREY = rgb(0.42, 0.45, 0.50);
-const HAIR = rgb(0.78, 0.80, 0.83);   // hairline borders
-const HEAD = rgb(0.93, 0.94, 0.96);   // table header / total fill
+const WHITE = rgb(1, 1, 1);
+const HAIR = rgb(0.80, 0.82, 0.85);   // hairline borders
+const ZEBRA = rgb(0.972, 0.978, 0.988); // subtle alternating row tint
 
 const CONTACT =
   "LBH Curaçao N.V.  |  Johan van Walbeeckplein 12  |  Willemstad  |  Curaçao  |  Phone +599 9 8432424  |  agency@LBHCuracao.com";
@@ -94,6 +96,8 @@ Deno.serve(async (req) => {
     // Title + logo
     let y = H - 95;
     draw(page, `${docWord} disbursement account`, M, y, 16, bold, DARK);
+    // brand accent rule under the title
+    page.drawRectangle({ x: M, y: y - 9, width: 54, height: 2.4, color: NAVY });
     const lw = 132, lh = lw * (173 / 260);
     page.drawImage(logo, { x: RIGHT - lw, y: y - 28, width: lw, height: lh });
 
@@ -130,14 +134,15 @@ Deno.serve(async (req) => {
 
     const tableTop = y + 4;
     const drawTableHeader = (top: number) => {
-      page.drawRectangle({ x: M, y: top - rowH, width: RIGHT - M, height: rowH, color: HEAD });
-      draw(page, "Items", M + 8, top - rowH + 5, 9.5, bold, DARK);
-      drawRight(page, "Amount", RIGHT - 8, top - rowH + 5, 9.5, bold, DARK);
+      page.drawRectangle({ x: M, y: top - rowH, width: RIGHT - M, height: rowH, color: NAVY });
+      draw(page, "Items", M + 8, top - rowH + 5, 9.5, bold, WHITE);
+      drawRight(page, "Amount (USD)", RIGHT - 8, top - rowH + 5, 9.5, bold, WHITE);
       return top - rowH;
     };
     y = drawTableHeader(tableTop);
 
     const lines: Line[] = [...(da.lines ?? []), ...(da.extra_lines ?? [])];
+    let zebra = false;
     for (const l of lines) {
       if (y - rowH < 90) {
         // overflow: close current table border, new page, repeat header
@@ -147,19 +152,22 @@ Deno.serve(async (req) => {
         y = drawTableHeader(H - 80);
       }
       const top = y;
+      if (zebra) page.drawRectangle({ x: M, y: top - rowH, width: RIGHT - M, height: rowH, color: ZEBRA });
+      zebra = !zebra;
       draw(page, String(l.label), M + 8, top - rowH + 5, 9.5);
       draw(page, "USD", xUSD, top - rowH + 5, 9.5, font, GREY);
-      drawRight(page, `(${eu(l.amount)})`, RIGHT - 8, top - rowH + 5, 9.5);
-      page.drawLine({ start: { x: M, y: top - rowH }, end: { x: RIGHT, y: top - rowH }, thickness: 0.5, color: HAIR });
+      drawRight(page, eu(l.amount), RIGHT - 8, top - rowH + 5, 9.5);
+      page.drawLine({ start: { x: M, y: top - rowH }, end: { x: RIGHT, y: top - rowH }, thickness: 0.4, color: HAIR });
       y -= rowH;
     }
 
     // Total row
-    page.drawRectangle({ x: M, y: y - rowH, width: RIGHT - M, height: rowH, color: HEAD });
-    draw(page, "Total", M + 8, y - rowH + 5, 10, bold, NAVY);
-    draw(page, "USD", xUSD, y - rowH + 5, 10, bold, NAVY);
-    drawRight(page, `(${eu(da.total)})`, RIGHT - 8, y - rowH + 5, 10, bold, NAVY);
-    y -= rowH;
+    const totalH = rowH + 3;
+    page.drawRectangle({ x: M, y: y - totalH, width: RIGHT - M, height: totalH, color: NAVY2 });
+    draw(page, "Total", M + 8, y - totalH + 6, 10.5, bold, WHITE);
+    draw(page, "USD", xUSD, y - totalH + 6, 10, bold, rgb(0.7, 0.78, 0.95));
+    drawRight(page, eu(da.total), RIGHT - 8, y - totalH + 6, 10.5, bold, WHITE);
+    y -= totalH;
 
     // Outer + vertical divider borders for the whole table
     page.drawRectangle({ x: M, y, width: RIGHT - M, height: tableTop - y, borderColor: HAIR, borderWidth: 0.8 });
