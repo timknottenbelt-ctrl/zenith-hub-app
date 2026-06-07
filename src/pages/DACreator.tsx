@@ -1,16 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Calculator, FileText, FileSpreadsheet, Plus, Trash2, Loader2, Ship } from "lucide-react";
+import { Calculator, FileText, FileSpreadsheet, Plus, Trash2, Loader2, Ship, History, Download, Clock } from "lucide-react";
 
 interface Line { label: string; currency: string; amount: number }
+interface RecentDA {
+  id: number; doc_type: string | null; vessel_name: string | null; client_name: string | null;
+  total: number | null; pdf_url: string | null; excel_url: string | null; created_at: string;
+}
 
 const num = (v: string) => (v === "" ? null : Number(v));
 
@@ -24,8 +30,21 @@ export default function DACreator() {
   const [total, setTotal] = useState<number | null>(null);
   const [daId, setDaId] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [recent, setRecent] = useState<RecentDA[]>([]);
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
 
   const set = (k: string, val: string) => setV((p) => ({ ...p, [k]: val }));
+
+  const fetchRecent = useCallback(async () => {
+    const { data } = await supabase
+      .from("da_outputs")
+      .select("id, doc_type, vessel_name, client_name, total, pdf_url, excel_url, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setRecent(data as RecentDA[]);
+  }, []);
+
+  useEffect(() => { fetchRecent(); }, [fetchRecent]);
 
   async function calculate() {
     if (!v.gt) { toast({ title: "GT verplicht", variant: "destructive" }); return; }
@@ -46,6 +65,7 @@ export default function DACreator() {
     if (error || !data?.success) { toast({ title: "Berekening mislukt", description: error?.message || data?.error, variant: "destructive" }); return; }
     setLines(data.lines); setTotal(data.total); setDaId(data.da_output_id);
     toast({ title: "DA berekend", description: `Totaal USD ${data.total}` });
+    fetchRecent();
   }
 
   async function makeFile(kind: "pdf" | "excel") {
@@ -58,6 +78,21 @@ export default function DACreator() {
     if (error || !url) { toast({ title: "Genereren mislukt", description: error?.message || data?.error, variant: "destructive" }); return; }
     toast({ title: kind === "pdf" ? "PDF gegenereerd" : "Excel gegenereerd", description: "Bestand wordt geopend in een nieuw tabblad." });
     window.open(url, "_blank");
+    fetchRecent();
+  }
+
+  // Open (or regenerate) a document for any historic DA row.
+  async function openExisting(row: RecentDA, kind: "pdf" | "excel") {
+    if (kind === "pdf" && row.pdf_url) { window.open(row.pdf_url, "_blank"); return; }
+    if (kind === "excel" && row.excel_url) { window.open(row.excel_url, "_blank"); return; }
+    setRowBusy(`${row.id}:${kind}`);
+    const fn = kind === "pdf" ? "generate-da-pdf" : "generate-da-excel";
+    const { data, error } = await supabase.functions.invoke(fn, { body: { da_output_id: row.id } });
+    setRowBusy(null);
+    const url = data?.pdf_url || data?.excel_url;
+    if (error || !url) { toast({ title: "Genereren mislukt", description: error?.message || data?.error, variant: "destructive" }); return; }
+    window.open(url, "_blank");
+    fetchRecent();
   }
 
   return (
@@ -146,6 +181,58 @@ export default function DACreator() {
             </CardContent>
           </Card>
         )}
+
+        {/* ── Recente DA's — eerder gemaakte disbursement accounts terugvinden ── */}
+        <Card className="card-premium">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"><History className="w-4 h-4 text-primary" /></div>
+              <div>
+                <CardTitle className="text-sm font-medium">Recente DA's</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Eerder gemaakte disbursement accounts — open de PDF of Excel opnieuw</p>
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-md tabular-nums">{recent.length}</span>
+          </CardHeader>
+          <CardContent className="p-0">
+            {recent.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Nog geen DA's gemaakt.</p>
+            ) : (
+              <ScrollArea className="max-h-[420px]">
+                <div className="divide-y divide-border/50">
+                  {recent.map((r) => (
+                    <div key={r.id} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/30 transition-colors">
+                      <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
+                        <Ship className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-foreground truncate">{r.vessel_name || "—"}</p>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 shrink-0">{r.doc_type || "DA"}</Badge>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {r.client_name && <span className="truncate">{r.client_name}</span>}
+                          <span className="flex items-center gap-1 shrink-0"><Clock className="w-3 h-3" />{new Date(r.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <span className="text-sm font-semibold tabular-nums text-foreground shrink-0 mr-1">
+                        {r.total != null ? `USD ${Number(r.total).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "—"}
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg text-xs" onClick={() => openExisting(r, "pdf")} disabled={rowBusy === `${r.id}:pdf`}>
+                          {rowBusy === `${r.id}:pdf` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5 text-red-500" />} PDF
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg text-xs" onClick={() => openExisting(r, "excel")} disabled={rowBusy === `${r.id}:excel`}>
+                          {rowBusy === `${r.id}:excel` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5 text-emerald-500" />} Excel
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
