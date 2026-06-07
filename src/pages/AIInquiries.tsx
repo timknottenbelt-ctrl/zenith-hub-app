@@ -964,7 +964,7 @@ export default function AIInquiries() {
                   </div>
 
                   {/* ── Disbursement Account (generate + attach) ── */}
-                  <InquiryDAPanel email={selectedEmail} onAttached={() => selectEmail(selectedEmail.id)} />
+                  <InquiryDAPanel key={selectedEmail.id} email={selectedEmail} onAttached={() => selectEmail(selectedEmail.id)} />
 
                   {/* ── Attachments ── */}
                   <div className="px-5 py-3 border-t border-border/50">
