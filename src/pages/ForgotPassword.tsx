@@ -53,79 +53,75 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <div className="w-full max-w-md">
-        {/* Logo / Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
-            <Ship className="w-8 h-8 text-primary" />
+    <div className="min-h-screen flex items-center justify-center bg-[#070b16] text-white p-6">
+      <div className="absolute top-0 right-0 w-[26rem] h-[26rem] rounded-full bg-[#1e63d4]/12 blur-[120px] pointer-events-none" />
+      <div className="relative w-full max-w-[420px]">
+        {/* logo */}
+        <div className="flex items-center gap-3 mb-10">
+          <div className="w-11 h-11 rounded-xl bg-[#1e63d4] flex items-center justify-center"
+            style={{ boxShadow: '0 8px 24px -6px rgba(30,99,212,0.6)' }}>
+            <Ship className="w-[22px] h-[22px] text-white" />
           </div>
-          <h1 className="text-2xl font-bold">LBH Curaçao</h1>
-          <p className="text-muted-foreground">Maritime Services Dashboard</p>
+          <div className="leading-tight">
+            <p className="font-bold text-[15px]">LBH Curaçao</p>
+            <p className="text-[11px] text-white/45">Maritime Services</p>
+          </div>
         </div>
 
-        <Card className="card-premium">
-          <CardHeader>
-            <CardTitle className="text-center">Wachtwoord vergeten</CardTitle>
-            <CardDescription className="text-center">
-              Voer je email in om een reset link te ontvangen
-            </CardDescription>
-          </CardHeader>
-          
-          <CardContent>
-            {sent ? (
-              <div className="text-center space-y-4">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mx-auto">
-                  <CheckCircle className="w-8 h-8 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">Email verzonden!</h3>
-                  <p className="text-muted-foreground text-sm mt-1">
-                    We hebben een reset link naar <strong>{email}</strong> gestuurd. 
-                    Controleer ook je spam folder.
-                  </p>
-                </div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setSent(false)}
-                  className="w-full"
-                >
-                  Andere email proberen
-                </Button>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8" style={{ boxShadow: '0 24px 64px -24px rgba(0,0,0,0.7)' }}>
+          {sent ? (
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#5fa8ff]/15 ring-1 ring-[#5fa8ff]/30 mx-auto">
+                <CheckCircle className="w-7 h-7 text-[#7cbcff]" />
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg">E-mail verzonden</h3>
+                <p className="text-white/50 text-sm mt-1.5 leading-relaxed">
+                  We hebben een reset link naar <strong className="text-white/80">{email}</strong> gestuurd.
+                  Controleer ook je spam folder.
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => setSent(false)}
+                className="w-full h-11 rounded-xl bg-transparent border-white/15 text-white hover:bg-white/5 hover:text-white">
+                Andere e-mail proberen
+              </Button>
+            </div>
+          ) : (
+            <>
+              <p className="text-[11px] font-semibold tracking-[0.25em] text-[#5fa8ff]/80 uppercase mb-3">Herstel</p>
+              <h1 className="text-[1.6rem] font-bold tracking-tight">Wachtwoord vergeten</h1>
+              <p className="text-white/45 text-[14px] mt-2 mb-7">Voer je e-mail in om een reset link te ontvangen.</p>
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="flex items-center gap-2">
-                    <Mail className="w-4 h-4" /> Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="naam@bedrijf.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
+                  <Label htmlFor="email" className="text-[13px] font-medium text-white/70">E-mail</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="naam@lbhcuracao.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="h-12 pl-11 rounded-xl bg-white/[0.04] border-white/10 text-white placeholder:text-white/25 focus-visible:ring-[#5fa8ff]/40 focus-visible:border-[#5fa8ff]/40"
+                    />
+                  </div>
                 </div>
-                <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Reset link versturen
+                <Button type="submit" disabled={loading}
+                  className="w-full h-12 rounded-xl bg-white text-[#070b16] font-semibold text-[15px] hover:bg-white/90">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Reset link versturen'}
                 </Button>
               </form>
-            )}
-            
-            <div className="mt-6 text-center">
-              <Link 
-                to="/auth" 
-                className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4 mr-1" />
-                Terug naar inloggen
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+            </>
+          )}
+
+          <div className="mt-7 text-center">
+            <Link to="/auth" className="inline-flex items-center text-[13px] text-white/40 hover:text-white/80 transition-colors">
+              <ArrowLeft className="w-4 h-4 mr-1.5" />
+              Terug naar inloggen
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
