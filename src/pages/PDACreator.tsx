@@ -23,7 +23,7 @@ import {
 
 const CARGO_TYPE_OPTIONS = [
   'crude oil', 'bitumen', 'fuel oil', 'gasoline', 'cement',
-  'limestone', 'coal', 'breakbulk', 'heavy equipment', 'fuel', 'hfo',
+  'limestone', 'breakbulk', 'heavy equipment', 'fuel', 'hfo',
 ];
 
 const OPERATION_OPTIONS = ['loading', 'discharge', 'both'];
