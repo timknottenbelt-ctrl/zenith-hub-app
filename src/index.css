@@ -66,33 +66,34 @@
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-    --card: 224 71% 6%;
-    --card-foreground: 213 31% 91%;
-    --popover: 224 71% 6%;
-    --popover-foreground: 213 31% 91%;
-    --primary: 211 100% 50%;
+    /* Premium ocean-navy palette, tuned to match the login screen */
+    --background: 222 52% 6%;
+    --foreground: 213 33% 93%;
+    --card: 221 44% 9%;
+    --card-foreground: 213 33% 93%;
+    --popover: 221 46% 10%;
+    --popover-foreground: 213 33% 93%;
+    --primary: 211 100% 56%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 222 47% 11%;
+    --secondary: 220 40% 13%;
     --secondary-foreground: 213 31% 91%;
-    --muted: 223 47% 11%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 222 47% 11%;
+    --muted: 220 38% 12%;
+    --muted-foreground: 215 22% 64%;
+    --accent: 220 40% 15%;
     --accent-foreground: 213 31% 91%;
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 42%;
     --destructive-foreground: 0 0% 100%;
-    --border: 222 47% 14%;
-    --input: 222 47% 14%;
-    --ring: 211 100% 50%;
-    --sidebar-background: 224 71% 6%;
-    --sidebar-foreground: 215 20% 65%;
-    --sidebar-primary: 211 100% 50%;
+    --border: 218 34% 17%;
+    --input: 218 34% 18%;
+    --ring: 211 100% 56%;
+    --sidebar-background: 222 48% 7%;
+    --sidebar-foreground: 215 22% 64%;
+    --sidebar-primary: 211 100% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 11%;
+    --sidebar-accent: 220 40% 13%;
     --sidebar-accent-foreground: 213 31% 91%;
-    --sidebar-border: 222 47% 14%;
-    --sidebar-ring: 211 100% 50%;
+    --sidebar-border: 218 34% 16%;
+    --sidebar-ring: 211 100% 56%;
     --success: 142 71% 35%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 40%;
@@ -120,7 +121,10 @@
   }
 
   .dark body {
-    background: linear-gradient(135deg, hsl(224 71% 4%) 0%, hsl(225 60% 6%) 50%, hsl(226 55% 8%) 100%);
+    background:
+      radial-gradient(900px 520px at 8% -10%, hsl(218 70% 16% / 0.55), transparent 60%),
+      radial-gradient(760px 600px at 102% 108%, hsl(190 80% 22% / 0.16), transparent 55%),
+      linear-gradient(160deg, hsl(222 52% 6%) 0%, hsl(223 52% 5%) 62%, hsl(224 56% 4%) 100%);
     background-attachment: fixed;
   }
 
@@ -195,6 +199,22 @@
 
   .card-premium:hover {
     box-shadow: 0 8px 32px -6px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.02);
+  }
+
+  /* Premium glass cards in dark mode — subtle gradient surface + hairline
+     border that glows brand-blue on hover. */
+  .dark .card-premium {
+    background:
+      linear-gradient(180deg, hsl(221 44% 12% / 0.92), hsl(221 47% 9% / 0.92));
+    border: 1px solid hsl(216 38% 24% / 0.5);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.03), 0 18px 44px -18px rgb(0 0 0 / 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .dark .card-premium:hover {
+    border-color: hsl(211 90% 56% / 0.38);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 22px 52px -18px rgb(0 0 0 / 0.75);
   }
 
   /* Glass effect */
