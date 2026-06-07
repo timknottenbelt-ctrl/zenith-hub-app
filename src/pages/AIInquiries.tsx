@@ -64,6 +64,7 @@ import {
 import { TransitionLink } from '@/components/TransitionLink';
 import { WEBHOOKS, webhookPostJSON } from '@/lib/webhooks';
 import { preloadGet } from '@/lib/preload';
+import { InquiryDAPanel } from '@/components/inquiries/InquiryDAPanel';
 
 type DateFilter = 'all' | 'today' | 'thisWeek' | 'older';
 
@@ -954,6 +955,9 @@ export default function AIInquiries() {
                       </div>
                     </div>
                   </div>
+
+                  {/* ── Disbursement Account (generate + attach) ── */}
+                  <InquiryDAPanel email={selectedEmail} onAttached={() => selectEmail(selectedEmail.id)} />
 
                   {/* ── Attachments ── */}
                   <div className="px-5 py-3 border-t border-border/50">
