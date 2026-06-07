@@ -46,6 +46,8 @@ import {
   Search,
   Sparkles,
   ArrowLeftRight,
+  Copy,
+  Check,
   Send,
 } from 'lucide-react';
 import {
@@ -115,6 +117,18 @@ export default function AIInquiries() {
   const [editSubject, setEditSubject] = useState('');
   const [editBody, setEditBody] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function copyDraft() {
+    const text = [editSubject ? `Subject: ${editSubject}` : '', editBody].filter(Boolean).join('\n\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -241,6 +255,9 @@ export default function AIInquiries() {
 
     let query = supabase.from('email').select(LIST_COLS);
 
+    // Never show archived rows (out-of-scope + non-inquiry thread noise).
+    query = (query as any).eq('archived', false);
+
     // Exclude sent/approved emails from all tabs - they belong in Sent PDAs
     query = query.not('status', 'in', '("approved","sent")');
 
@@ -279,17 +296,18 @@ export default function AIInquiries() {
   // Per-tab counts for the tab badges (kept in sync after every fetch/action).
   async function fetchCounts() {
     const base = () =>
-      supabase.from('email').select('*', { count: 'exact', head: true }).not('status', 'in', '("approved","sent")');
-    const [cargo, owners, oos, incomplete] = await Promise.all([
+      (supabase.from('email').select('*', { count: 'exact', head: true }) as any)
+        .eq('archived', false)
+        .not('status', 'in', '("approved","sent")');
+    const [cargo, owners, incomplete] = await Promise.all([
       base().in('Email Type', EMAIL_TYPE_MAP['CARGO_AGENT']).neq('status', 'out_of_scope'),
       base().in('Email Type', EMAIL_TYPE_MAP['OWNERS_AGENT']).neq('status', 'out_of_scope'),
-      base().or('status.eq.out_of_scope,"Email Type".in.("OUT_OF_SCOPE","Out of Scope","REFERRAL","OUT OF SCOPE")'),
       base().not('missing_information', 'is', null),
     ]);
     setCounts({
       CARGO_AGENT: cargo.count ?? 0,
       OWNERS_AGENT: owners.count ?? 0,
-      OUT_OF_SCOPE: oos.count ?? 0,
+      OUT_OF_SCOPE: 0,
       INCOMPLETE: incomplete.count ?? 0,
     });
   }
@@ -568,7 +586,6 @@ export default function AIInquiries() {
           {([
             ['CARGO_AGENT', t('inquiries.cargoAgent')],
             ['OWNERS_AGENT', t('inquiries.ownersAgent')],
-            ['OUT_OF_SCOPE', t('inquiries.outOfScope')],
             ['INCOMPLETE', t('inquiries.incomplete')],
           ] as const).map(([key, label]) => (
             <TabsTrigger
@@ -858,20 +875,48 @@ export default function AIInquiries() {
                     {/* AI draft editor */}
                     <div className="flex flex-col min-h-0">
                       <div className="flex items-center justify-between gap-2 px-5 py-2 bg-primary/[0.04]">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
                           <span className="text-xs font-semibold uppercase tracking-wide text-primary">{t('inquiries.aiDraft')}</span>
+                          {hasAiReply ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">
+                              <Check className="w-2.5 h-2.5" />{t('inquiries.draftReady')}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 px-1.5 py-0.5 rounded-full">
+                              {t('inquiries.draftPending')}
+                            </span>
+                          )}
                         </div>
-                        <Button
-                          variant="outline" size="sm"
-                          className="h-7 text-xs rounded-lg gap-1.5"
-                          onClick={handleCompose}
-                          disabled={composing}
-                        >
-                          {composing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                          {hasAiReply ? t('inquiries.regenerate') : t('inquiries.generateReply')}
-                        </Button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            variant="ghost" size="sm"
+                            className="h-7 text-xs rounded-lg gap-1.5 px-2"
+                            onClick={copyDraft}
+                            disabled={!editBody}
+                            title={t('inquiries.copyDraft')}
+                          >
+                            {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                            <span className="hidden sm:inline">{copied ? t('inquiries.copied') : t('inquiries.copyDraft')}</span>
+                          </Button>
+                          <Button
+                            variant="outline" size="sm"
+                            className="h-7 text-xs rounded-lg gap-1.5"
+                            onClick={handleCompose}
+                            disabled={composing}
+                          >
+                            {composing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                            {hasAiReply ? t('inquiries.regenerate') : t('inquiries.generateReply')}
+                          </Button>
+                        </div>
                       </div>
+                      {selectedEmail.email_to_person && (
+                        <div className="flex items-center gap-1.5 px-5 py-1.5 border-b border-border/40 bg-card">
+                          <Send className="w-3 h-3 text-muted-foreground/60 shrink-0" />
+                          <span className="text-[11px] text-muted-foreground">{t('inquiries.toEmail')}:</span>
+                          <span className="text-[11px] font-medium text-foreground/80 truncate">{selectedEmail.email_to_person}</span>
+                        </div>
+                      )}
                       <div className="px-5 py-4 space-y-3">
                         {!hasAiReply && !editBody && (
                           <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 text-xs">
@@ -890,7 +935,12 @@ export default function AIInquiries() {
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label htmlFor="body" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t('inquiries.emailBody')}</Label>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="body" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t('inquiries.emailBody')}</Label>
+                            {editBody && (
+                              <span className="text-[10px] text-muted-foreground/50 tabular-nums">{editBody.length.toLocaleString()} tekens</span>
+                            )}
+                          </div>
                           <Textarea
                             id="body"
                             value={editBody}

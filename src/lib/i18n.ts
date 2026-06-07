@@ -84,6 +84,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.onlyPdf': 'Only PDF files are allowed',
     'inquiries.originalRequest': 'Original Request',
     'inquiries.aiDraft': 'AI Draft Reply',
+    'inquiries.draftReady': 'Ready',
+    'inquiries.draftPending': 'No draft',
+    'inquiries.copyDraft': 'Copy',
+    'inquiries.copied': 'Copied',
     'inquiries.moveTo': 'Move to',
     'inquiries.moved': 'Moved to',
     'inquiries.aiClassification': 'AI Classification',
@@ -99,6 +103,9 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Sent PDAs
     'sentPdas.title': 'Sent PDAs',
+    'sentPdas.total': 'Total sent',
+    'sentPdas.withDocs': 'With documents',
+    'sentPdas.pickFromList': 'Pick an email from the list',
     'sentPdas.noSentPdas': 'No sent PDAs found',
     'sentPdas.selectToView': 'Select a sent PDA to view details',
     'sentPdas.sentOn': 'Sent on',
@@ -352,6 +359,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.onlyPdf': 'Alleen PDF bestanden zijn toegestaan',
     'inquiries.originalRequest': 'Originele aanvraag',
     'inquiries.aiDraft': 'AI Concept-antwoord',
+    'inquiries.draftReady': 'Klaar',
+    'inquiries.draftPending': 'Geen concept',
+    'inquiries.copyDraft': 'Kopieer',
+    'inquiries.copied': 'Gekopieerd',
     'inquiries.moveTo': 'Verplaats naar',
     'inquiries.moved': 'Verplaatst naar',
     'inquiries.aiClassification': 'AI Classificatie',
@@ -367,6 +378,9 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Sent PDAs
     'sentPdas.title': 'Verzonden PDAs',
+    'sentPdas.total': 'Totaal verzonden',
+    'sentPdas.withDocs': 'Met documenten',
+    'sentPdas.pickFromList': 'Kies een email uit de lijst',
     'sentPdas.noSentPdas': 'Geen verzonden PDAs gevonden',
     'sentPdas.selectToView': 'Selecteer een verzonden PDA om details te bekijken',
     'sentPdas.sentOn': 'Verzonden op',
@@ -619,6 +633,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'inquiries.onlyPdf': 'Solo se permiten archivos PDF',
     'inquiries.originalRequest': 'Solicitud Original',
     'inquiries.aiDraft': 'Borrador de IA',
+    'inquiries.draftReady': 'Listo',
+    'inquiries.draftPending': 'Sin borrador',
+    'inquiries.copyDraft': 'Copiar',
+    'inquiries.copied': 'Copiado',
     'inquiries.moveTo': 'Mover a',
     'inquiries.moved': 'Movido a',
     'inquiries.aiClassification': 'Clasificación IA',
@@ -634,6 +652,9 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Sent PDAs
     'sentPdas.title': 'PDAs Enviados',
+    'sentPdas.total': 'Total enviados',
+    'sentPdas.withDocs': 'Con documentos',
+    'sentPdas.pickFromList': 'Elige un correo de la lista',
     'sentPdas.noSentPdas': 'No se encontraron PDAs enviados',
     'sentPdas.selectToView': 'Seleccione un PDA enviado para ver detalles',
     'sentPdas.sentOn': 'Enviado el',
