@@ -14,13 +14,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('theme') as Theme | null;
-      // Premium dark is the default look of the portal; users can switch in Settings.
-      return stored || 'dark';
+      // Light is the default look (clean & overzichtelijk); users can switch in Settings.
+      return stored || 'light';
     }
-    return 'dark';
+    return 'light';
   });
 
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark');
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     const root = window.document.documentElement;
