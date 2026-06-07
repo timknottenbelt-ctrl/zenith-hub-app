@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Calculator, FileText, FileSpreadsheet, Plus, Trash2, Loader2, Ship, History, Download, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Calculator, FileText, FileSpreadsheet, Plus, Trash2, Loader2, Ship, History, Download, Clock, Anchor, Ruler } from "lucide-react";
 
 interface Line { label: string; currency: string; amount: number }
 interface RecentDA {
@@ -32,8 +33,12 @@ export default function DACreator() {
   const [busy, setBusy] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentDA[]>([]);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
 
-  const set = (k: string, val: string) => setV((p) => ({ ...p, [k]: val }));
+  const set = (k: string, val: string) => {
+    setV((p) => ({ ...p, [k]: val }));
+    if (errors[k]) setErrors((e) => ({ ...e, [k]: false }));
+  };
 
   const fetchRecent = useCallback(async () => {
     const { data } = await supabase
@@ -47,7 +52,18 @@ export default function DACreator() {
   useEffect(() => { fetchRecent(); }, [fetchRecent]);
 
   async function calculate() {
-    if (!v.gt) { toast({ title: "GT verplicht", variant: "destructive" }); return; }
+    // Required before a calculation can run.
+    const required: [string, string][] = [
+      ["vessel_name", "Vessel name"], ["client_name", "Client"], ["terminal", "Terminal"],
+      ["gt", "GT"], ["operation_type", "Operation"],
+    ];
+    const missing = required.filter(([k]) => !String((v as Record<string, string>)[k] ?? "").trim());
+    if (missing.length) {
+      setErrors(Object.fromEntries(missing.map(([k]) => [k, true])));
+      toast({ title: "Vul de verplichte velden in", description: missing.map(([, l]) => l).join(", "), variant: "destructive" });
+      return;
+    }
+    setErrors({});
     setBusy("calc");
     const { data, error } = await supabase.functions.invoke("calculate-da", {
       body: {
@@ -95,6 +111,18 @@ export default function DACreator() {
     fetchRecent();
   }
 
+  const tf = (k: string, label: string, type = "text", required = false) => (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+      <Input
+        type={type}
+        value={(v as Record<string, string>)[k]}
+        onChange={(e) => set(k, e.target.value)}
+        className={cn(errors[k] && "border-destructive focus-visible:ring-destructive/30")}
+      />
+    </div>
+  );
+
   return (
     <DashboardLayout title="DA / PDA Creator">
       <div className="space-y-6 max-w-5xl mx-auto">
@@ -104,40 +132,64 @@ export default function DACreator() {
         </div>
 
         <Card className="card-premium">
-          <CardHeader><CardTitle className="text-sm font-medium">Scheepsgegevens</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {[
-              ["vessel_name", "Vessel name", "text"], ["client_name", "Client", "text"], ["terminal", "Terminal", "text"],
-              ["gt", "GT *", "number"], ["loa", "LOA (m)", "number"], ["dwt", "DWT", "number"],
-              ["port_stay", "Port stay (days)", "number"], ["tugs", "Tugs", "number"], ["linesmen_hours", "Linesmen hours", "number"],
-              ["cargo_type", "Cargo type", "text"],
-            ].map(([k, label, type]) => (
-              <div key={k} className="space-y-1.5">
-                <Label className="text-xs">{label}</Label>
-                <Input type={type} value={(v as Record<string, string>)[k]} onChange={(e) => set(k, e.target.value)} />
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Ship className="w-4 h-4 text-primary" /> Scheepsgegevens
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">Velden met <span className="text-destructive font-medium">*</span> zijn verplicht voordat je kunt berekenen.</p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Schip & klant */}
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-widest flex items-center gap-1.5"><Anchor className="w-3 h-3" /> Schip & klant</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {tf("vessel_name", "Vessel name", "text", true)}
+                {tf("client_name", "Client", "text", true)}
+                {tf("terminal", "Terminal", "text", true)}
               </div>
-            ))}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Facility</Label>
-              <Select value={v.facility} onValueChange={(val) => set("facility", val)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Bouy">Bouy</SelectItem>
-                  <SelectItem value="Quay">Quay</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Operation</Label>
-              <Select value={v.operation_type} onValueChange={(val) => set("operation_type", val)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="discharge">discharge</SelectItem>
-                  <SelectItem value="loading">loading</SelectItem>
-                  <SelectItem value="bunkering">bunkering</SelectItem>
-                  <SelectItem value="sts">sts</SelectItem>
-                </SelectContent>
-              </Select>
+
+            {/* Afmetingen */}
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-widest flex items-center gap-1.5"><Ruler className="w-3 h-3" /> Afmetingen</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {tf("gt", "GT", "number", true)}
+                {tf("loa", "LOA (m)", "number")}
+                {tf("dwt", "DWT", "number")}
+              </div>
+            </div>
+
+            {/* Operatie */}
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-widest flex items-center gap-1.5"><Calculator className="w-3 h-3" /> Operatie & call</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Operation <span className="text-destructive ml-0.5">*</span></Label>
+                  <Select value={v.operation_type} onValueChange={(val) => set("operation_type", val)}>
+                    <SelectTrigger className={cn(errors.operation_type && "border-destructive ring-1 ring-destructive/30")}><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="discharge">discharge</SelectItem>
+                      <SelectItem value="loading">loading</SelectItem>
+                      <SelectItem value="bunkering">bunkering</SelectItem>
+                      <SelectItem value="sts">sts</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Facility</Label>
+                  <Select value={v.facility} onValueChange={(val) => set("facility", val)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Bouy">Bouy</SelectItem>
+                      <SelectItem value="Quay">Quay</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {tf("cargo_type", "Cargo type", "text")}
+                {tf("port_stay", "Port stay (days)", "number")}
+                {tf("tugs", "Tugs", "number")}
+                {tf("linesmen_hours", "Linesmen hours", "number")}
+              </div>
             </div>
           </CardContent>
         </Card>
