@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { warmDashboard } from '@/lib/preload';
 
 type UserRole = 'admin' | 'user' | 'pending';
 
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           setTimeout(() => {
             fetchUserRole(session.user.id);
+            void warmDashboard();
           }, 0);
         } else {
           setRole(null);
@@ -77,8 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         fetchUserRole(session.user.id);
+        void warmDashboard();
       }
-      
+
       setLoading(false);
     });
 

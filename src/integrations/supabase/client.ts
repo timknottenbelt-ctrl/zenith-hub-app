@@ -15,5 +15,11 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    // Implicit flow: password-recovery / magic links return the session directly
+    // in the URL hash, so a reset link works on ANY device/browser. PKCE (the v2
+    // default) would require the code_verifier from the originating browser's
+    // localStorage, which breaks cross-device password resets.
+    flowType: 'implicit',
+    detectSessionInUrl: true,
   }
 });
