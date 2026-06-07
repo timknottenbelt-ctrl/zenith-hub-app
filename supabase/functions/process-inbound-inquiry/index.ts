@@ -14,6 +14,7 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { reportError } from "../_shared/tados.ts";
 import { chat } from "../_shared/openai.ts";
 import { semanticSearch } from "../_shared/rag.ts";
+import { buildKbBlock, normalizeBody, REPLY_EMAIL_PROMPT } from "../_shared/compose-helpers.ts";
 import { calculatePda, type PdaConfig, type VesselInput } from "../_shared/pda.ts";
 import { extractText, getDocumentProxy } from "npm:unpdf";
 
@@ -36,6 +37,8 @@ interface Extracted {
   eta?: string;
   services_requested?: string;
   questions?: string[];
+  service_asks?: string[];
+  inquiry_kind?: string;
 }
 
 function parseJson<T>(s: string): T {
@@ -87,7 +90,12 @@ Output ONLY valid JSON:
 { "vessels":[{"name":string|null,"loa":number|null,"grt":number|null,"dwt":number|null,"imo":string|null,"flag":string|null,"eta":string|null,"operation_type":"loading"|"discharge"|"bunkering"|"sts"|"crew_change"|"repair"|null,"cargo_type":string|null,"cargo_quantity":number|null}],
   "location":{"country":string|null,"area":string|null,"port":string|null},
   "contact":{"name":string|null,"company":string|null},
-  "eta":string|null, "services_requested":string|null, "questions":[string] }
+  "eta":string|null,
+  "inquiry_kind":"appointment"|"service_request"|"quote_request"|"question"|"status_followup"|null,
+  "services_requested":string|null,
+  "service_asks":[string],
+  "questions":[string] }
+"service_asks": every concrete service the sender wants quoted/arranged, phrased as a short retrievable query INCLUDING numbers when given (e.g. "crew change cost for 5 crew", "fresh water 200 MT cost", "sludge disposal 12 m3 cost", "bunker call agency fee").
 Numbers without units. null when unknown. Do not invent a year for ETA if none is given.`;
 
 const EMAIL_PROMPT = `You are the senior agency correspondent for LBH Curacao, a full-service maritime shipping agency in Willemstad, Curacao. You write the reply a prospective principal (owner, charterer, operator or master) receives. It must read as polished, warm, confident and genuinely helpful — the kind of email that makes the reader want to appoint LBH. Never robotic, never a bare list.
@@ -176,31 +184,24 @@ Deno.serve(async (req) => {
     const vessels = (extracted.vessels ?? []).slice(0, 2);
     const pdas = vessels.map((v) => calculatePda(v, config));
 
-    let kbBlock = "";
-    const questions = (extracted.questions ?? []).filter(Boolean).slice(0, 5);
-    if (questions.length > 0) {
-      const answers: string[] = [];
-      for (const q of questions) {
-        const docs = await semanticSearch(db, q, 3).catch(() => []);
-        const context = docs.map((d) => d.content).join("\n").slice(0, 2000);
-        answers.push((await chat(
-          [{ role: "system", content: "Answer in ONE concise line using only the context; if unknown, say it must be confirmed." },
-           { role: "user", content: `CONTEXT:\n${context}\n\nQUESTION: ${q}` }],
-          { model: "gpt-4o-mini", temperature: 0 },
-        )).trim());
-      }
-      kbBlock = `\n\nKB ANSWERS:\n${answers.map((a) => `- ${a}`).join("\n")}`;
-    }
+    const kbBlock = await buildKbBlock(db, [...(extracted.service_asks ?? []), ...(extracted.questions ?? [])]);
 
     let composed = { subject: input.subject ?? "LBH Curacao - Rate Quotation", body: "" };
     if (vessels.length > 0) {
       composed = parseJson(
         await chat(
-          [{ role: "system", content: EMAIL_PROMPT },
-           { role: "user", content: JSON.stringify({ contact: extracted.contact ?? {}, location: extracted.location ?? {}, vessels: vessels.map((v, i) => ({ ...v, ...pdas[i] })) }) + kbBlock }],
-          { model: "gpt-4o", temperature: 0.3 },
+          [{ role: "system", content: REPLY_EMAIL_PROMPT },
+           { role: "user", content: JSON.stringify({
+              inquiry_kind: extracted.inquiry_kind ?? null,
+              services_requested: extracted.services_requested ?? null,
+              contact: extracted.contact ?? {},
+              location: extracted.location ?? {},
+              vessels: vessels.map((v, i) => ({ ...v, ...pdas[i] })),
+            }) + kbBlock }],
+          { model: "gpt-4o", temperature: 0.4 },
         ),
       );
+      composed.body = normalizeBody(composed.body);
     }
 
     const v0 = vessels[0] ?? {};
