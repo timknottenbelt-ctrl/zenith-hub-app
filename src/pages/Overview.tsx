@@ -1,5 +1,6 @@
 import { useMemo, useCallback, memo, startTransition } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/hooks/useAuth';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -129,7 +130,7 @@ async function fetchDashboardData() {
     fdaDraftsResult,
     curacaoProjectsResult,
   ] = await Promise.all([
-    supabase.from('email').select('id, subject, email_to_person, created_at, status, "Email Type", vessel_name, missing_information'),
+    (supabase.from('email').select('id, subject, email_to_person, created_at, status, "Email Type", vessel_name, missing_information') as any).eq('archived', false),
     supabase.from('vessels').select('*', { count: 'exact', head: true }),
     supabase.from('contacts').select('*', { count: 'exact', head: true }),
     supabase.from('fda_projects').select('*', { count: 'exact', head: true }),
@@ -229,7 +230,11 @@ async function fetchDashboardData() {
 
 export default function Overview() {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Goedemorgen' : hour < 18 ? 'Goedemiddag' : 'Goedenavond';
+  const firstName = (user?.user_metadata?.name || user?.email || '').split(/[ @]/)[0];
   
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard-overview'],
@@ -288,6 +293,50 @@ export default function Overview() {
   return (
     <DashboardLayout title={t('overview.title')}>
       <div className="space-y-8">
+        {/* ── Command-center hero ── */}
+        <div className="relative overflow-hidden rounded-2xl border border-border/50 text-white"
+          style={{ background: 'linear-gradient(135deg, #0c2b63 0%, #0a1c45 48%, #070f24 100%)' }}>
+          <div className="absolute -top-20 -left-10 w-[28rem] h-[28rem] rounded-full bg-[#1e63d4]/25 blur-[110px] pointer-events-none" />
+          <div className="absolute bottom-[-8rem] right-[-4rem] w-[24rem] h-[24rem] rounded-full bg-[#0bb6c9]/12 blur-[120px] pointer-events-none" />
+          <div className="absolute inset-0 opacity-[0.05] pointer-events-none"
+            style={{ backgroundImage: 'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)', backgroundSize: '44px 44px' }} />
+          <div className="relative p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-7">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold tracking-[0.25em] text-[#5fa8ff]/80 uppercase mb-2">LBH Command Center</p>
+              <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight">
+                {greeting}{firstName ? `, ${firstName}` : ''}.
+              </h1>
+              <p className="text-white/60 text-[14.5px] mt-2 leading-relaxed max-w-xl">
+                <span className="text-white font-semibold">{stats.totalReady}</span> aanvragen wachten op review ·{' '}
+                <span className="text-white font-semibold">{trend.last7}</span> binnen deze week ·{' '}
+                <span className="text-white font-semibold">{stats.pdaSent}</span> PDA's verzonden.
+              </p>
+              <div className="flex flex-wrap items-center gap-2.5 mt-5">
+                <Button onClick={navigateTo('/inquiries')} className="h-10 rounded-xl bg-white text-[#0a1c45] font-semibold hover:bg-white/90 gap-2">
+                  AI Aanvragen <ArrowRight className="w-4 h-4" />
+                </Button>
+                <Button onClick={navigateTo('/da-creator')} variant="outline" className="h-10 rounded-xl bg-white/[0.06] border-white/15 text-white hover:bg-white/[0.12] hover:text-white gap-2">
+                  <FileText className="w-4 h-4" /> DA / PDA maken
+                </Button>
+                <Button onClick={navigateTo('/fda')} variant="outline" className="h-10 rounded-xl bg-white/[0.06] border-white/15 text-white hover:bg-white/[0.12] hover:text-white gap-2">
+                  <FileText className="w-4 h-4" /> Nieuwe FDA
+                </Button>
+              </div>
+            </div>
+            {/* big focus number */}
+            <div className="shrink-0 self-stretch lg:self-center">
+              <div className="rounded-2xl bg-white/[0.06] ring-1 ring-white/10 px-7 py-5 text-center min-w-[180px]">
+                <p className="text-5xl font-bold tabular-nums leading-none">{stats.totalReady}</p>
+                <p className="text-[11px] uppercase tracking-widest text-white/55 mt-2">Wachten op review</p>
+                <div className={`mt-3 inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${trend.trendPct >= 0 ? 'bg-emerald-400/15 text-emerald-300' : 'bg-rose-400/15 text-rose-300'}`}>
+                  <TrendingUp className={`w-3 h-3 ${trend.trendPct < 0 ? 'rotate-180' : ''}`} />
+                  {trend.trendPct >= 0 ? '+' : ''}{trend.trendPct}% vs vorige week
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* KPI Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiTile

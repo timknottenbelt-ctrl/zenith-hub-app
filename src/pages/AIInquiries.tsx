@@ -450,6 +450,13 @@ export default function AIInquiries() {
             }
           }
 
+          // Attach the generated DA/EDA PDF (public da-pdfs url) so it rides along
+          // with the outgoing reply, not just shown under Documents.
+          if (selectedEmail.pdf_url) {
+            const vesselSlug = (selectedEmail.vessel_name || 'vessel').replace(/[^a-zA-Z0-9]+/g, '_');
+            attachmentUrls.push({ file_name: `EDA - ${vesselSlug}.pdf`, url: selectedEmail.pdf_url });
+          }
+
           const payload = {
             email_id: selectedEmail.id,
             to: selectedEmail.email_to_person,
