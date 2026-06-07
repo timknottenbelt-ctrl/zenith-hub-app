@@ -12,6 +12,7 @@ import { reportError } from "../_shared/tados.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { chat } from "../_shared/openai.ts";
 import { semanticSearch } from "../_shared/rag.ts";
+import { buildKbBlock, normalizeBody, REPLY_EMAIL_PROMPT } from "../_shared/compose-helpers.ts";
 import { calculatePda, type PdaConfig, type VesselInput } from "../_shared/pda.ts";
 import { extractText, getDocumentProxy } from "npm:unpdf";
 
@@ -54,9 +55,12 @@ Output ONLY valid JSON (no markdown) in this exact shape:
   "location": { "country": string|null, "area": string|null, "port": string|null },
   "contact": { "name": string|null, "company": string|null },
   "eta": string|null,
+  "inquiry_kind": "appointment"|"service_request"|"quote_request"|"question"|"status_followup"|null,
+  "services_requested": string|null,
+  "service_asks": [string],
   "questions": [string]
 }
-Rules: numbers as numbers (no units). Use null when unknown. "questions" = explicit client questions only (berth restrictions, rates, facilities); [] if none.`;
+Rules: numbers as numbers (no units). Use null when unknown. "questions" = explicit client questions. "service_asks" = every concrete service the sender wants quoted/arranged, as a short retrievable query with numbers when given (e.g. "crew change cost for 5 crew", "fresh water 200 MT cost", "bunker call agency fee"); [] if none.`;
 
 const EMAIL_PROMPT = `You are the senior agency correspondent for LBH Curacao, a full-service maritime shipping agency in Willemstad, Curacao. You write the reply a prospective principal (owner, charterer, operator or master) receives. It must read as polished, warm, confident and genuinely helpful — the kind of email that makes the reader want to appoint LBH. Never robotic, never a bare list.
 
@@ -136,28 +140,16 @@ Deno.serve(async (req) => {
     // 3. PDA calculation per vessel (deterministic)
     const pdas = vessels.map((v) => calculatePda(v, config));
 
-    // 4. RAG answers for any explicit questions
-    let kbBlock = "";
-    const questions = (extracted.questions ?? []).filter(Boolean);
-    if (questions.length > 0) {
-      const answers: string[] = [];
-      for (const q of questions.slice(0, 5)) {
-        const docs = await semanticSearch(db, q, 3).catch(() => []);
-        const context = docs.map((d) => d.content).join("\n").slice(0, 2000);
-        const a = await chat(
-          [
-            { role: "system", content: "Answer the question in ONE concise line using only the context. If unknown, say it must be confirmed." },
-            { role: "user", content: `CONTEXT:\n${context}\n\nQUESTION: ${q}` },
-          ],
-          { model: "gpt-4o-mini", temperature: 0 },
-        );
-        answers.push(a.trim());
-      }
-      kbBlock = `\n\nKB ANSWERS:\n${answers.map((a) => `- ${a}`).join("\n")}`;
-    }
+    // 4. KB answers (with real tariff prices) for every service the sender asked about
+    const kbBlock = await buildKbBlock(db, [
+      ...((extracted as { service_asks?: string[] }).service_asks ?? []),
+      ...(extracted.questions ?? []),
+    ]);
 
     // 5. Compose the quotation email (AI), fed with calculated PDA data
     const composeInput = {
+      inquiry_kind: (extracted as { inquiry_kind?: string }).inquiry_kind ?? null,
+      services_requested: extracted.services_requested ?? null,
       contact: extracted.contact ?? {},
       location: extracted.location ?? {},
       vessels: vessels.map((v, i) => ({ ...v, ...pdas[i] })),
@@ -165,12 +157,13 @@ Deno.serve(async (req) => {
     const composed = parseJson<{ subject: string; body: string }>(
       await chat(
         [
-          { role: "system", content: EMAIL_PROMPT },
+          { role: "system", content: REPLY_EMAIL_PROMPT },
           { role: "user", content: JSON.stringify(composeInput) + kbBlock },
         ],
-        { model: "gpt-4o", temperature: 0.3 },
+        { model: "gpt-4o", temperature: 0.4 },
       ),
     );
+    composed.body = normalizeBody(composed.body);
 
     // 6. Build + write the manual_emails row
     const v0 = vessels[0];
