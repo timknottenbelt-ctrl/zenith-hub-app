@@ -63,6 +63,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { TransitionLink } from '@/components/TransitionLink';
 import { WEBHOOKS, webhookPostJSON } from '@/lib/webhooks';
+import { preloadGet } from '@/lib/preload';
 
 type DateFilter = 'all' | 'today' | 'thisWeek' | 'older';
 
@@ -102,7 +103,8 @@ export default function AIInquiries() {
   const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>('CARGO_AGENT');
-  const [emails, setEmails] = useState<Email[]>([]);
+  // Seed from the login preload cache so the default tab paints instantly.
+  const [emails, setEmails] = useState<Email[]>(() => preloadGet<Email[]>('inq:CARGO_AGENT') ?? []);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -643,7 +645,7 @@ export default function AIInquiries() {
               </CardHeader>
               <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
                 <ScrollArea className="h-full">
-                  {loading ? (
+                  {loading && filteredEmails.length === 0 ? (
                     <div className="divide-y divide-border/40">
                       {Array.from({ length: 7 }).map((_, i) => (
                         <div key={i} className="px-3 py-2.5 flex gap-3 animate-pulse">

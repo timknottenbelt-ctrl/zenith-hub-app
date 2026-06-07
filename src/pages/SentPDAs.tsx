@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
+import { preloadGet } from '@/lib/preload';
 import {
   RefreshCw,
   Mail,
@@ -82,7 +83,7 @@ const BUCKET_ORDER = ['Vandaag', 'Deze week', 'Ouder'] as const;
 
 export default function SentPDAs() {
   const { t } = useLanguage();
-  const [sentEmails, setSentEmails] = useState<Email[]>([]);
+  const [sentEmails, setSentEmails] = useState<Email[]>(() => preloadGet<Email[]>('sent:list') ?? []);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [loading, setLoading] = useState(true);
   const [emailAttachments, setEmailAttachments] = useState<EmailAttachment[]>([]);
@@ -334,7 +335,7 @@ export default function SentPDAs() {
             </CardHeader>
             <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
               <ScrollArea className="h-[calc(100dvh-360px)] lg:h-[calc(100dvh-320px)]">
-                {loading ? (
+                {loading && filteredEmails.length === 0 ? (
                   <div className="space-y-2 p-3">
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="flex items-center gap-3 p-2 animate-pulse">
