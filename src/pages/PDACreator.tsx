@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import {
-  Settings2, Plus, Trash2, Download, Upload,
+  Settings2, Plus, Trash2, Download, Upload, RefreshCw,
   AlertTriangle, Loader2, Navigation, BarChart3, Anchor, ChevronDown, ChevronRight, X, Check, Pencil,
 } from 'lucide-react';
 import {
@@ -224,48 +224,76 @@ export default function PDACreator() {
 
   return (
     <DashboardLayout title="PDA Admin">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Settings2 className="w-5 h-5 text-primary" />
+      <div className="space-y-5">
+        {/* Hero header */}
+        <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-primary/[0.08] via-card to-card">
+          <div className="absolute -top-16 -right-10 w-56 h-56 rounded-full bg-primary/[0.06] blur-2xl pointer-events-none" />
+          <div className="relative p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shrink-0"
+                  style={{ boxShadow: '0 8px 20px -6px rgba(0,128,255,0.5)' }}>
+                  <Settings2 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-foreground">PDA Configuratie</h1>
+                  <p className="text-sm text-muted-foreground">Tug rules · loading rates · terminals — voedt de PDA-berekening</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button variant="outline" size="sm" className="h-9 rounded-lg gap-1.5" onClick={() => exportConfig()}>
+                  <Download className="w-4 h-4" /> Export
+                </Button>
+                <label className="cursor-pointer">
+                  <Button variant="outline" size="sm" className="h-9 rounded-lg gap-1.5" asChild>
+                    <span><Upload className="w-4 h-4" /> Import</span>
+                  </Button>
+                  <input type="file" accept=".json" className="hidden" onChange={handleImport} />
+                </label>
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={refetch} title="Herladen">
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
-            <div>
-              <h1 className="heading-primary">PDA Configuration</h1>
-              <p className="text-sm text-muted-foreground">Beheer tug rules, loading rates & terminals</p>
-            </div>
-          </div>
-        </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {configs && (
-            <>
-              <MiniStat label="Tug Rules" value={configs.tugRules.length} />
-              <MiniStat label="Loading Rates" value={configs.loadingRates.length} />
-              <MiniStat label="Terminals" value={configs.terminalAssignments.length} />
-            </>
-          )}
+            {/* KPI tiles */}
+            {configs && (
+              <div className="grid grid-cols-3 gap-3 mt-5">
+                <KpiTile icon={Navigation} label="Tug Rules" value={configs.tugRules.length} tint="text-primary" bg="bg-primary/10" />
+                <KpiTile icon={BarChart3} label="Loading Rates" value={configs.loadingRates.length} tint="text-violet-600" bg="bg-violet-50 dark:bg-violet-500/10" />
+                <KpiTile icon={Anchor} label="Terminals" value={configs.terminalAssignments.length} tint="text-emerald-600" bg="bg-emerald-50 dark:bg-emerald-500/10" />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Config Tables */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full grid grid-cols-3">
-            <TabsTrigger value="tugs" className="gap-1"><Navigation className="w-4 h-4" /> Tugs</TabsTrigger>
-            <TabsTrigger value="rates" className="gap-1"><BarChart3 className="w-4 h-4" /> Rates</TabsTrigger>
-            <TabsTrigger value="terminals" className="gap-1"><Anchor className="w-4 h-4" /> Terminals</TabsTrigger>
+          <TabsList className="bg-card/60 backdrop-blur-sm p-1 h-auto inline-flex gap-1 rounded-xl" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            {([
+              ['tugs', Navigation, 'Tug Rules', configs?.tugRules.length],
+              ['rates', BarChart3, 'Loading Rates', configs?.loadingRates.length],
+              ['terminals', Anchor, 'Terminals', configs?.terminalAssignments.length],
+            ] as const).map(([val, Icon, label, count]) => (
+              <TabsTrigger key={val} value={val} className="rounded-lg px-3.5 py-2 gap-1.5 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Icon className="w-4 h-4" /> {label}
+                <span className={`min-w-[20px] text-center text-[11px] font-semibold px-1.5 py-0 rounded-full ${activeTab === val ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}`}>{count ?? '·'}</span>
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           {/* ── Tug Rules (Grouped by Terminal) ──────── */}
           <TabsContent value="tugs" className="mt-4">
             <Card className="card-premium">
-              <CardHeader className="pb-3 flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Tug Rules</CardTitle>
-                  <CardDescription>Aantal tugs per terminal & LOA range — gegroepeerd per terminal</CardDescription>
+              <CardHeader className="pb-3 flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0"><Navigation className="w-4 h-4 text-primary" /></div>
+                  <div className="min-w-0">
+                    <CardTitle className="text-base">Tug Rules</CardTitle>
+                    <CardDescription>Aantal tugs per terminal & LOA range — gegroepeerd per terminal</CardDescription>
+                  </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => setShowNewTug(true)}>
+                <Button size="sm" variant="outline" className="rounded-lg shrink-0" onClick={() => setShowNewTug(true)}>
                   <Plus className="w-4 h-4 mr-1" /> Nieuw
                 </Button>
               </CardHeader>
@@ -348,12 +376,15 @@ export default function PDACreator() {
           {/* ── Loading Rates ──────────────── */}
           <TabsContent value="rates" className="mt-4">
             <Card className="card-premium">
-              <CardHeader className="pb-3 flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Loading Rates</CardTitle>
-                  <CardDescription>Loading & discharge rates per cargo type — port stay = cargo_quantity / rate</CardDescription>
+              <CardHeader className="pb-3 flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center shrink-0"><BarChart3 className="w-4 h-4 text-violet-600" /></div>
+                  <div className="min-w-0">
+                    <CardTitle className="text-base">Loading Rates</CardTitle>
+                    <CardDescription>Loading & discharge rates per cargo type — port stay = cargo_quantity / rate</CardDescription>
+                  </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => setShowNewRate(true)}>
+                <Button size="sm" variant="outline" className="rounded-lg shrink-0" onClick={() => setShowNewRate(true)}>
                   <Plus className="w-4 h-4 mr-1" /> Nieuw
                 </Button>
               </CardHeader>
@@ -397,12 +428,15 @@ export default function PDACreator() {
           {/* ── Terminals (Grouped by Area) ──────── */}
           <TabsContent value="terminals" className="mt-4">
             <Card className="card-premium">
-              <CardHeader className="pb-3 flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Terminals</CardTitle>
-                  <CardDescription>Terminal configuratie gegroepeerd per area — klik om te bewerken</CardDescription>
+              <CardHeader className="pb-3 flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center shrink-0"><Anchor className="w-4 h-4 text-emerald-600" /></div>
+                  <div className="min-w-0">
+                    <CardTitle className="text-base">Terminals</CardTitle>
+                    <CardDescription>Terminal configuratie gegroepeerd per area — klik om te bewerken</CardDescription>
+                  </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => setShowNewTerminal(true)}>
+                <Button size="sm" variant="outline" className="rounded-lg shrink-0" onClick={() => setShowNewTerminal(true)}>
                   <Plus className="w-4 h-4 mr-1" /> Nieuw
                 </Button>
               </CardHeader>
@@ -671,6 +705,22 @@ function MiniStat({ label, value }: { label: string; value: number }) {
     <div className="card-premium p-3 text-center">
       <p className="text-2xl font-bold text-primary">{value}</p>
       <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{label}</p>
+    </div>
+  );
+}
+
+function KpiTile({ icon: Icon, label, value, tint, bg }: {
+  icon: React.ComponentType<{ className?: string }>; label: string; value: number; tint: string; bg: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border/50 bg-card/70 p-3.5 flex items-center gap-3">
+      <div className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
+        <Icon className={`w-[18px] h-[18px] ${tint}`} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xl font-bold tabular-nums leading-none text-foreground">{value}</p>
+        <p className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium mt-1 truncate">{label}</p>
+      </div>
     </div>
   );
 }
