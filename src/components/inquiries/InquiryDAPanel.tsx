@@ -17,7 +17,7 @@ interface Line { label: string; currency: string; amount: number }
 interface Vals {
   vessel_name: string; client_name: string; gt: string; loa: string; dwt: string;
   terminal: string; facility: string; operation_type: string; cargo_type: string;
-  port_stay: string; tugs: string; linesmen_hours: string;
+  cargo_quantity: string; agency_fee: string;
 }
 
 const num = (s: string) => (s === '' ? null : Number(s));
@@ -53,13 +53,15 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
     dwt: '',
     terminal: (e.terminal as string) || portToTerminal(e.port as string),
     facility: 'Bouy',
-    operation_type: 'discharge',
+    operation_type: (e.operation_type as string) || (/CARGO|LOADING|DISCHARGE/i.test(email['Email Type'] || '') ? 'discharge' : 'discharge'),
     cargo_type: (e.cargo_type as string) || '',
-    port_stay: '', tugs: '', linesmen_hours: '2',
+    cargo_quantity: e.cargo_quantity ? String(e.cargo_quantity) : '',
+    agency_fee: '',
   }));
   const [extra, setExtra] = useState<Line[]>([]);
   const [lines, setLines] = useState<Line[]>([]);
   const [total, setTotal] = useState<number | null>(null);
+  const [computed, setComputed] = useState<{ tugs: number; port_stay: number } | null>(null);
   const [daId, setDaId] = useState<number | null>(null);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -89,11 +91,12 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
     const { data, error } = await supabase.functions.invoke('calculate-da', {
       body: {
         vessel: {
+          // tugs, port stay & linesmen are derived automatically by the engine.
           vessel_name: vals.vessel_name, gt: num(vals.gt), loa: num(vals.loa), dwt: num(vals.dwt),
-          port_stay: num(vals.port_stay), tugs: num(vals.tugs), linesmen_hours: num(vals.linesmen_hours),
           facility: vals.facility, operation_type: vals.operation_type, cargo_type: vals.cargo_type,
-          terminal: vals.terminal, client_name: vals.client_name,
+          cargo_quantity: num(vals.cargo_quantity), terminal: vals.terminal, client_name: vals.client_name,
         },
+        agency_fee: vals.agency_fee.trim() ? num(vals.agency_fee) : undefined,
         extra_lines: extra, store: true, doc_type: 'EDA',
       },
     });
@@ -103,7 +106,16 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
       return false;
     }
     setLines(data.lines); setTotal(data.total); setDaId(data.da_output_id);
-    return true;
+    if (typeof data.tugs === 'number' || typeof data.port_stay === 'number') {
+      setComputed({ tugs: data.tugs ?? 0, port_stay: data.port_stay ?? 0 });
+    }
+    // Pre-fill the agency-fee field with the computed default so the user can
+    // adjust it per client (it always needs a human check).
+    if (!vals.agency_fee.trim()) {
+      const af = (data.lines as Line[]).find((l) => l.label.toLowerCase().startsWith('agency fee'));
+      if (af) setV((p) => (p.agency_fee.trim() ? p : { ...p, agency_fee: String(af.amount) }));
+    }
+    return (data.da_output_id as number) ?? true;
   }
 
   // Auto-fill from the vessels database + auto-calculate once when GT is known.
@@ -141,10 +153,13 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
   }, []);
 
   async function makeAndAttach(kind: 'pdf' | 'excel') {
-    if (!daId) { const ok = await runCalc(v); if (!ok) return; }
+    // Always recalc first so the document reflects the current fields, extra
+    // lines and the per-client agency fee.
+    const id = await runCalc(v);
+    if (!id) return;
     setBusy(kind);
     const fn = kind === 'pdf' ? 'generate-da-pdf' : 'generate-da-excel';
-    const { data, error } = await supabase.functions.invoke(fn, { body: { da_output_id: daId } });
+    const { data, error } = await supabase.functions.invoke(fn, { body: { da_output_id: id } });
     const url = data?.pdf_url || data?.excel_url;
     if (error || !url) { setBusy(null); toast({ title: 'Genereren mislukt', description: error?.message || data?.error, variant: 'destructive' }); return; }
     const patch = kind === 'pdf' ? { pdf_url: url } : { doc_link: url };
@@ -225,11 +240,20 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
                 </SelectContent>
               </Select>
             </div>
-            {tf('port_stay', 'Port stay (days)', 'number')}
-            {tf('tugs', 'Tugs', 'number')}
-            {tf('linesmen_hours', 'Linesmen hours', 'number')}
             {tf('cargo_type', 'Cargo type', 'text')}
+            {tf('cargo_quantity', 'Cargo qty (MT)', 'number')}
+            {tf('agency_fee', 'Agency fee (USD)', 'number')}
           </div>
+
+          {/* Auto-computed values (tugs + port stay) shown for transparency */}
+          {computed && (
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+              <span className="inline-flex items-center gap-1"><Sparkles className="w-3 h-3 text-primary" /> Automatisch berekend:</span>
+              <span>Tugs: <span className="font-semibold text-foreground">{computed.tugs}</span></span>
+              <span>Port stay: <span className="font-semibold text-foreground">{computed.port_stay} dagen</span></span>
+              <span className="text-muted-foreground/70">· Agency fee vul je zelf in (per klant)</span>
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">

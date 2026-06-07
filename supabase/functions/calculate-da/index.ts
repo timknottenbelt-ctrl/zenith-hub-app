@@ -8,6 +8,7 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { reportError } from "../_shared/tados.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { calculateDA, type DaConfig, type DaVessel } from "../_shared/da.ts";
+import { calculatePda } from "../_shared/pda.ts";
 
 interface ExtraLine { label: string; amount: number; currency?: string }
 
@@ -32,6 +33,7 @@ Deno.serve(async (req) => {
     extra_lines?: ExtraLine[];
     source?: string; source_id?: number; doc_type?: string;
     store?: boolean;
+    agency_fee?: number;
   };
   try {
     body = await req.json();
@@ -64,7 +66,40 @@ Deno.serve(async (req) => {
       settings,
     };
 
-    const da = calculateDA(v, config);
+    // Auto-derive tugs + port stay from the rate tables (the n8n logic) unless the
+    // caller passed explicit values — so the EDA fills itself from the inquiry.
+    const [tugRes, rateRes, termRes] = await Promise.all([
+      db.from("tug_rules").select("*"),
+      db.from("loading_rates").select("*"),
+      db.from("terminal_assignments").select("*"),
+    ]);
+    const pda = calculatePda(
+      {
+        name: v.vessel_name, loa: v.loa, grt: v.gt,
+        operation_type: v.operation_type, cargo_type: v.cargo_type, cargo_quantity: v.cargo_quantity,
+        terminal: v.terminal, area: v.area,
+      } as never,
+      { tugRules: tugRes.data ?? [], loadingRates: rateRes.data ?? [], terminalAssignments: termRes.data ?? [] },
+    );
+    const autoTugs = v.tugs ?? pda.tugs ?? 0;
+    const autoStay = v.port_stay ?? pda.port_stay ?? 1;
+    const vesselForDa: DaVessel & Record<string, unknown> = {
+      ...v,
+      tugs: autoTugs,
+      port_stay: autoStay,
+      linesmen_hours: v.linesmen_hours ?? 2,
+      facility: v.facility ?? pda.facility ?? "Bouy",
+    };
+
+    const da = calculateDA(vesselForDa, config);
+
+    // Per-client agency fee override (the agency fee differs per client, so the
+    // dashboard sets it explicitly). Replaces the auto-computed agency fee line.
+    if (body.agency_fee != null && Number.isFinite(Number(body.agency_fee))) {
+      const af = da.lines.find((l) => l.label.toLowerCase().startsWith("agency fee"));
+      if (af) af.amount = Math.round(Number(body.agency_fee) * 100) / 100;
+      da.total = Math.round(da.lines.reduce((a, l) => a + l.amount, 0) * 100) / 100;
+    }
 
     // Merge user-added extra lines (NGO agency fee, bank charges, ...).
     const extra = (body.extra_lines ?? []).map((e) => ({
@@ -78,8 +113,8 @@ Deno.serve(async (req) => {
         source: body.source ?? "manual", source_id: body.source_id ?? null,
         doc_type: body.doc_type ?? "PDA",
         vessel_name: v.vessel_name ?? null, gt: v.gt, loa: v.loa ?? null, dwt: v.dwt ?? null,
-        port_stay: v.port_stay ?? null, tugs: v.tugs ?? null, linesmen_hours: v.linesmen_hours ?? null,
-        facility: v.facility ?? null, area: v.area ?? null, terminal: v.terminal ?? null,
+        port_stay: autoStay, tugs: autoTugs, linesmen_hours: vesselForDa.linesmen_hours ?? null,
+        facility: vesselForDa.facility ?? null, area: v.area ?? null, terminal: v.terminal ?? null,
         operation_type: v.operation_type ?? null, cargo_type: v.cargo_type ?? null, cargo_quantity: v.cargo_quantity ?? null,
         client_name: v.client_name ?? null, client_email: v.client_email ?? null,
         lines: da.lines, extra_lines: extra, total, status: "draft",
@@ -89,7 +124,7 @@ Deno.serve(async (req) => {
       da_output_id = data.id;
     }
 
-    return jsonResponse({ success: true, da_output_id, lines: da.lines, extra_lines: extra, total });
+    return jsonResponse({ success: true, da_output_id, lines: da.lines, extra_lines: extra, total, tugs: autoTugs, port_stay: autoStay });
   } catch (error) {
     console.error("[calculate-da] error:", error);
     await reportError("calculate-da", error);
