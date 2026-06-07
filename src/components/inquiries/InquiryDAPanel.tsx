@@ -42,9 +42,17 @@ function portToTerminal(port?: string | null): string {
  * database (GT/LOA), auto-calculates when GT is known, lets you tweak, and
  * attaches the PDF/Excel onto the inquiry so they ride along with the reply.
  */
+// Owners-service requests (vessel doesn't make a cargo port call) → a full
+// disbursement account with pilotage/towage/linesmen is NOT applicable.
+const SERVICE_RE =
+  /sludge|slop|garbage|bilge|\bwaste\b|fresh\s*water|drinking\s*water|provision|\bstores?\b|\bspares?\b|crew\s*change|cash to master|\bctm\b|diving|hot\s*work|certificate|disposal|launch\s*boat|hotel/i;
+
 export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached: () => void }) {
   const e = email as unknown as Record<string, unknown>;
-  const [open, setOpen] = useState(true);
+  const isService = SERVICE_RE.test(
+    `${email.subject || ''} ${String(e.cargo_type || '')} ${String(e.services_requested || '')}`,
+  );
+  const [open, setOpen] = useState(!isService);
   const [v, setV] = useState<Vals>(() => ({
     vessel_name: email.vessel_name || '',
     client_name: email.company_name || email.contact_name || '',
@@ -122,6 +130,12 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
   useEffect(() => {
     if (autoRef.current) return;
     autoRef.current = true;
+    // Service requests (sludge, garbage, fresh water, crew change, …) are not a
+    // cargo port call — don't auto-build a full DA; the price is in the AI reply.
+    if (isService) {
+      setAutoMsg(null);
+      return;
+    }
     (async () => {
       let next = { ...v };
       if (!next.gt && email.vessel_name) {
@@ -194,6 +208,10 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">
             <Check className="w-2.5 h-2.5" /> gekoppeld
           </span>
+        ) : isService ? (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 px-1.5 py-0.5 rounded-full">
+            service-aanvraag · optioneel
+          </span>
         ) : lines.length > 0 ? (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
             <Sparkles className="w-2.5 h-2.5" /> auto-berekend
@@ -204,6 +222,16 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
 
       {open && (
         <div className="mt-3 space-y-4">
+          {isService && (
+            <div className="flex items-start gap-2 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 rounded-lg px-3 py-2">
+              <Calculator className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>
+                Dit lijkt een <strong>service-aanvraag</strong> (bv. sludge, garbage, water, crew change) — geen
+                havenaanloop. Een volledige EDA met pilotage/towage/linesmen is hier meestal niet van toepassing;
+                de prijs hoort in het AI-antwoord. Wil je tóch een EDA, pas dan de velden aan en klik Bereken.
+              </span>
+            </div>
+          )}
           {autoMsg && (
             <div className="flex items-start gap-2 text-[11px] text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
               <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
