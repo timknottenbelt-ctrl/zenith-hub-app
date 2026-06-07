@@ -35,6 +35,27 @@ export async function semanticSearch(
   return (data ?? []) as MatchedDoc[];
 }
 
+/**
+ * Semantic search against the comprehensive `curacao_knowledge` store (~9.8k rows,
+ * includes the LBH owners/cargo agent tariffs with actual USD prices). This is the
+ * right store for answering owners-agent and pricing questions.
+ */
+export async function curacaoKnowledgeSearch(
+  client: SupabaseClient,
+  query: string,
+  matchCount = 5,
+  filter: Record<string, unknown> = {},
+): Promise<MatchedDoc[]> {
+  const embedding = await embed(query);
+  const { data, error } = await client.rpc("match_curacao_knowledge", {
+    query_embedding: embedding,
+    match_count: matchCount,
+    filter,
+  });
+  if (error) throw new Error(`match_curacao_knowledge failed: ${error.message}`);
+  return (data ?? []) as MatchedDoc[];
+}
+
 type KeywordRpc =
   | "search_curacao_knowledge"
   | "search_cargo_knowledge"

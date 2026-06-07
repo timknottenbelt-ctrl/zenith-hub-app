@@ -174,7 +174,7 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
       <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-2 text-left">
         {open ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
         <Calculator className="w-3.5 h-3.5 text-primary" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Disbursement Account</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">EDA Calculator</span>
         {attached ? (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">
             <Check className="w-2.5 h-2.5" /> gekoppeld
