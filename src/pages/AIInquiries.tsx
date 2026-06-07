@@ -1115,6 +1115,15 @@ function groupByDate(emails: Email[]): { label: string; emails: Email[] }[] {
 }
 
 /** Display-only: make a flattened / HTML email body readable. Never mutates stored data. */
+// Vessel/particulars labels that often arrive glued together in a flattened email.
+const ORIG_LABELS = [
+  'Vessel type', 'Vessel name', 'Name', 'IMO', 'Flag', 'Type', 'LOA', 'Beam',
+  'Summer draft', 'Draft', 'DWT', 'GRT', 'GT', 'NRT', 'Main engine', 'Engine',
+  'Manifold position', 'Manifold', 'Heating system', 'Heating', 'Cargo', 'Commodity',
+  'Grade', 'Quantity', 'Operation', 'Purpose of call', 'Purpose', 'Terminal', 'Berth',
+  'Port of call', 'Port', 'ETA', 'ETB', 'ETC', 'ETS', 'ETD', 'Owner', 'Charterer', 'Agent',
+];
+
 function prettifyOriginal(raw: string): string {
   if (!raw) return '';
   let t = raw;
@@ -1127,10 +1136,23 @@ function prettifyOriginal(raw: string): string {
       .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<')
       .replace(/&gt;/gi, '>').replace(/&#39;/gi, "'").replace(/&quot;/gi, '"');
   }
-  // Wall of text with no breaks: insert breaks before thread headers and sign-offs.
-  if (!t.includes('\n')) {
+
+  // "Wall of text" (long with almost no line breaks): rebuild structure.
+  const newlineCount = (t.match(/\n/g) || []).length;
+  const dense = newlineCount < t.length / 200;
+  if (dense) {
+    const labels = ORIG_LABELS.join('|');
     t = t
-      .replace(/\s+(From:|Van:|Sent:|Verzonden:|To:|Aan:|Subject:|Onderwerp:|Cc:|Date:)\s*/g, '\n$1 ')
+      // break before "Vessel 1", "Vessel 2", "Vessel:" headers
+      .replace(/([^\n])\s*(Vessel\s*\d+\b)/g, '$1\n\n$2')
+      // break before a labelled particular glued to the previous value (e.g. "King IMO:")
+      .replace(new RegExp(`([^\\n])\\s*((?:${labels})\\s*:)`, 'g'), '$1\n$2')
+      // break before numbered list items ("1. ...", "2. ...")
+      .replace(/([^\n])\s+(\d{1,2}[.)]\s+[A-Z])/g, '$1\n$2')
+      // break a run-on sentence boundary ("mtons.Vessel" / "Team,.We")
+      .replace(/([a-z,)0-9])([.!?])\s*(?=[A-Z])/g, '$1$2\n')
+      // thread headers + sign-offs onto their own line
+      .replace(/\s*(From:|Van:|Sent:|Verzonden:|To:|Aan:|Subject:|Onderwerp:|Cc:|Date:)\s*/g, '\n$1 ')
       .replace(/\s+(Best regards|Kind regards|Best Regards|Kind Regards|Regards,|Thanks and regards|Met vriendelijke groet|Good day|Good Day)\b/g, '\n\n$1');
   }
   return t.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
