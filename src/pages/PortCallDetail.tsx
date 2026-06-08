@@ -201,6 +201,7 @@ function buildDraftBodyHtml(
   etb: string | null,
   etd: string | null,
   events: PortCallEvent[],
+  docs: { label: string; url: string }[] = [],
 ): string {
   const facts: [string, string | null][] = [
     ['Vessel', vessel],
@@ -224,6 +225,11 @@ function buildDraftBodyHtml(
     for (const e of events) {
       lines.push(`<li>${esc(fmtDateTime(e.event_time))} — ${esc(eventLabel(e.event_type))}${e.remark ? ` (${esc(e.remark)})` : ''}</li>`);
     }
+    lines.push('</ul>');
+  }
+  if (docs.length) {
+    lines.push('<p><b>Documenten:</b></p><ul>');
+    for (const d of docs) lines.push(`<li><a href="${esc(d.url)}">${esc(d.label)}</a></li>`);
     lines.push('</ul>');
   }
   lines.push('<p>Met vriendelijke groet,<br/>LBH Curaçao</p>');
@@ -512,6 +518,7 @@ export default function PortCallDetail() {
         record?.etb ?? null,
         record?.etd ?? null,
         events,
+        attachments.map((a) => ({ label: a.filename.replace(/\.pdf$/i, ''), url: a.url })),
       ),
       attachments,
     });
