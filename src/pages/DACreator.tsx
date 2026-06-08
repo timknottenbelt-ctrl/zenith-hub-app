@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,25 @@ export default function DACreator() {
   }, []);
 
   useEffect(() => { fetchRecent(); }, [fetchRecent]);
+
+  // Prefill from a port call (DA Creator opened with ?vessel=&gt=&loa=&cargo=…).
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    if (![...searchParams.keys()].length) return;
+    const g = (k: string) => searchParams.get(k) || '';
+    setV((p) => ({
+      ...p,
+      vessel_name: g('vessel') || p.vessel_name,
+      gt: g('gt') || p.gt,
+      loa: g('loa') || p.loa,
+      dwt: g('dwt') || p.dwt,
+      cargo_type: g('cargo') || p.cargo_type,
+      terminal: g('terminal') || p.terminal,
+      client_name: g('client') || p.client_name,
+      operation_type: g('operation') || p.operation_type,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function calculate() {
     // Required before a calculation can run.
