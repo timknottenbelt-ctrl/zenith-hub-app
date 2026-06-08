@@ -46,7 +46,7 @@ export function UpcomingPortCalls() {
     <Card className="card-premium">
       <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-          <Anchor className="h-5 w-5 text-primary" /> Aankomende aanlopen
+          <Anchor className="h-5 w-5 text-primary" /> Aankomende port calls
         </CardTitle>
         <button
           onClick={() => navigate('/port-calls')}
