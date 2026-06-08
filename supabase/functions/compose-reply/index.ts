@@ -202,6 +202,8 @@ Deno.serve(async (req) => {
       vessel_2_imo: v1?.imo ?? null,
       vessel_2_grt: (v1 as { grt?: number } | undefined)?.grt ?? null,
       vessel_2_loa: (v1 as { loa?: number } | undefined)?.loa ?? null,
+      vessel_2_cargo_type: (v1 as { cargo_type?: string } | undefined)?.cargo_type ?? null,
+      vessel_2_cargo_quantity: (v1 as { cargo_quantity?: number } | undefined)?.cargo_quantity ?? null,
       port: pdas[0]?.port_code ?? extracted.location?.port ?? null,
       eta: extracted.eta ?? v0.eta ?? null,
       contact_name: extracted.contact?.name ?? null,

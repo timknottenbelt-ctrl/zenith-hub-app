@@ -54,7 +54,18 @@ export function InquiryDAPanel({ email, onAttached, vesselIndex = 1 }: { email: 
   const vName = (vi === 2 ? (e.vessel_2_name as string) : email.vessel_name) || '';
   const vGrt = vi === 2 ? e.vessel_2_grt : e.vessel_grt;
   const vLoa = vi === 2 ? e.vessel_2_loa : e.vessel_loa;
+  const vCargoType = (vi === 2 ? (e.vessel_2_cargo_type as string) : (e.cargo_type as string)) || '';
+  const vCargoQty = vi === 2 ? e.vessel_2_cargo_quantity : e.cargo_quantity;
   const multiVessel = !!(e.vessel_2_name);
+  // Operation from the subject/extraction (loading/discharge/bunkering) — both vessels share it.
+  const opGuess = (() => {
+    const s = `${email.subject || ''} ${String(e.operation_type || '')} ${String(e.services_requested || '')}`;
+    if (/discharg/i.test(s)) return 'discharge';
+    if (/\bload/i.test(s)) return 'loading';
+    if (/bunker/i.test(s)) return 'bunkering';
+    if (/\bsts\b|ship.to.ship/i.test(s)) return 'sts';
+    return 'discharge';
+  })();
   const isService = SERVICE_RE.test(
     `${email.subject || ''} ${String(e.cargo_type || '')} ${String(e.services_requested || '')}`,
   );
@@ -67,9 +78,9 @@ export function InquiryDAPanel({ email, onAttached, vesselIndex = 1 }: { email: 
     dwt: '',
     terminal: (e.terminal as string) || portToTerminal(e.port as string),
     facility: 'Bouy',
-    operation_type: (e.operation_type as string) || (/CARGO|LOADING|DISCHARGE/i.test(email['Email Type'] || '') ? 'discharge' : 'discharge'),
-    cargo_type: vi === 2 ? '' : ((e.cargo_type as string) || ''),
-    cargo_quantity: vi === 2 ? '' : (e.cargo_quantity ? String(e.cargo_quantity) : ''),
+    operation_type: opGuess,
+    cargo_type: vCargoType,
+    cargo_quantity: vCargoQty ? String(vCargoQty) : '',
     agency_fee: '',
   }));
   const [extra, setExtra] = useState<Line[]>([]);
