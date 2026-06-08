@@ -6,6 +6,7 @@
 // the `email` table client-side — no migration, works on live data — by
 // grouping emails per vessel and splitting them into voyages on a time gap.
 import { supabase } from '@/integrations/supabase/client';
+import { fetchPortCallRecords } from '@/lib/portCallOps';
 
 export interface PCEmail {
   id: number;
@@ -65,6 +66,11 @@ export interface PortCall {
   hasIncomplete: boolean;
   documents: PCDocument[];
   category: PCCategory;
+  // Merged from the persisted port_call record when one exists.
+  nominated?: boolean;
+  recordStatus?: string | null;
+  nominationAmount?: number | null;
+  nominationCurrency?: string | null;
 }
 
 const VOYAGE_GAP_MS = 30 * 24 * 3600 * 1000; // emails >30 days apart = new voyage
@@ -206,13 +212,14 @@ export function getCachedPortCalls(): PortCall[] | null {
 
 /** Fetch emails + FDA docs and derive port-call dossiers (one per voyage). */
 export async function fetchPortCalls(): Promise<PortCall[]> {
-  const [emailsRes, fda] = await Promise.all([
+  const [emailsRes, fda, records] = await Promise.all([
     (supabase.from('email').select(EMAIL_COLS) as any)
       .eq('archived', false)
       .not('vessel_name', 'is', null)
       .order('created_at', { ascending: true })
       .limit(3000),
     fetchFdaDocs(),
+    fetchPortCallRecords().catch(() => new Map()),
   ]);
 
   if (emailsRes.error || !emailsRes.data) return _cache ?? [];
@@ -247,6 +254,18 @@ export async function fetchPortCalls(): Promise<PortCall[]> {
       cluster.push(e);
     }
     flush();
+  }
+
+  // Merge persisted operations data (nomination / status) onto each dossier.
+  for (const c of calls) {
+    const rec = records.get(c.key);
+    if (rec) {
+      c.nominated = rec.nominated;
+      c.recordStatus = rec.status;
+      c.nominationAmount = rec.nomination_amount;
+      c.nominationCurrency = rec.nomination_currency;
+      if (rec.nominated && c.stage === 'inquiry') c.stage = 'quoted';
+    }
   }
 
   calls.sort((a, b) => b.lastAt.localeCompare(a.lastAt));

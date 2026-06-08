@@ -180,6 +180,19 @@ export default function PortCalls() {
                     </span>
                   </div>
 
+                  {c.nominated && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                        {t('portCalls.nominated')}
+                      </span>
+                      {c.nominationAmount != null && (
+                        <span className="text-[12px] font-semibold text-foreground">
+                          {c.nominationCurrency || 'USD'} {c.nominationAmount.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-3 text-[12px] text-muted-foreground">
                     <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1">
