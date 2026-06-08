@@ -188,3 +188,66 @@ export async function seedArrivalDocs(
   const { data, error } = await dc().insert(rows).select();
   return error ? [] : ((data as PortCallDoc[]) ?? []);
 }
+
+// ── Human-in-the-loop tasks ───────────────────────────────────────────────
+export interface PortCallTask {
+  id: string;
+  port_call_id: string;
+  title: string;
+  done: boolean;
+  source: string; // manual | ai
+  created_at: string;
+}
+
+const tk = () => supabase.from('port_call_task') as any;
+
+export async function loadTasks(portCallId: string): Promise<PortCallTask[]> {
+  const { data } = await tk().select('*').eq('port_call_id', portCallId).order('created_at', { ascending: true });
+  return (data as PortCallTask[]) ?? [];
+}
+
+export async function addTask(portCallId: string, title: string, source = 'manual'): Promise<PortCallTask | null> {
+  const { data, error } = await tk().insert({ port_call_id: portCallId, title, source }).select().single();
+  return error ? null : (data as PortCallTask);
+}
+
+/** Bulk-add tasks (AI), skipping titles that already exist for this call. */
+export async function addTasks(
+  portCallId: string,
+  titles: string[],
+  existing: PortCallTask[],
+  source = 'ai',
+): Promise<PortCallTask[]> {
+  const have = new Set(existing.map((t) => t.title.trim().toLowerCase()));
+  const fresh = titles.map((t) => t.trim()).filter((t) => t && !have.has(t.toLowerCase()));
+  if (!fresh.length) return [];
+  const rows = fresh.map((title) => ({ port_call_id: portCallId, title, source }));
+  const { data, error } = await tk().insert(rows).select();
+  return error ? [] : ((data as PortCallTask[]) ?? []);
+}
+
+export async function toggleTask(id: string, done: boolean): Promise<void> {
+  await tk().update({ done }).eq('id', id);
+}
+
+export async function deleteTask(id: string): Promise<void> {
+  await tk().delete().eq('id', id);
+}
+
+export interface AiScanResult {
+  summary: string;
+  updates: string[];
+  todos: string[];
+}
+
+/** Run the port-call AI scan over the given emails (read-only). */
+export async function runPortCallAi(emailIds: number[]): Promise<AiScanResult | null> {
+  const { data, error } = await supabase.functions.invoke('port-call-ai', { body: { emailIds } });
+  if (error || !data) return null;
+  const d = data as Partial<AiScanResult>;
+  return {
+    summary: d.summary ?? '',
+    updates: Array.isArray(d.updates) ? d.updates : [],
+    todos: Array.isArray(d.todos) ? d.todos : [],
+  };
+}
