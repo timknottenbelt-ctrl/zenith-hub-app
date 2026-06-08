@@ -30,6 +30,8 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const PDACreator = lazy(() => import("./pages/PDACreator"));
 const DACreator = lazy(() => import("./pages/DACreator"));
+const PortCalls = lazy(() => import("./pages/PortCalls"));
+const PortCallDetail = lazy(() => import("./pages/PortCallDetail"));
 
 // Warm ALL route chunks shortly after first load so subsequent navigation is
 // instant (no chunk fetch, no Suspense flash). Vite dedupes already-loaded ones.
@@ -42,6 +44,7 @@ function preloadAllRoutes() {
   void import("./pages/KnowledgeBase"); void import("./pages/Contacts");
   void import("./pages/Settings"); void import("./pages/UserManagement");
   void import("./pages/PDACreator"); void import("./pages/DACreator");
+  void import("./pages/PortCalls"); void import("./pages/PortCallDetail");
   void import("./pages/NotFound");
 }
 
@@ -80,6 +83,8 @@ const App = () => {
                   <Route path="/inquiries" element={<ProtectedRoute><AIInquiries /></ProtectedRoute>} />
                   <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
                   <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
+                  <Route path="/port-calls" element={<ProtectedRoute><PortCalls /></ProtectedRoute>} />
+                  <Route path="/port-calls/:key" element={<ProtectedRoute><PortCallDetail /></ProtectedRoute>} />
                   <Route path="/pda-admin" element={<ProtectedRoute><PDACreator /></ProtectedRoute>} />
                   <Route path="/da-creator" element={<ProtectedRoute><DACreator /></ProtectedRoute>} />
                   <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
