@@ -144,7 +144,9 @@ export function InquiryDAPanel({ email, onAttached, vesselIndex = 1 }: { email: 
     }
     (async () => {
       let next = { ...v };
-      if (!next.gt && vName) {
+      // Enrich from the vessels database — fill GT/LOA/DWT whenever any is missing
+      // (DWT isn't used in the DA calc, but it's nice to show when we know it).
+      if (vName && (!next.gt || !next.loa || !next.dwt)) {
         const cleanName = vName.replace(/^M[\/.]?[TV]\s+/i, '').trim();
         const { data } = await supabase
           .from('vessels')
@@ -152,10 +154,10 @@ export function InquiryDAPanel({ email, onAttached, vesselIndex = 1 }: { email: 
           .ilike('name', `%${cleanName}%`)
           .limit(1);
         const row = data?.[0] as { gross_tonnage?: number; loa_m?: number; dwt_mt?: number } | undefined;
-        if (row?.gross_tonnage) {
+        if (row) {
           next = {
             ...next,
-            gt: String(row.gross_tonnage),
+            gt: next.gt || (row.gross_tonnage ? String(row.gross_tonnage) : ''),
             loa: next.loa || (row.loa_m ? String(row.loa_m) : ''),
             dwt: next.dwt || (row.dwt_mt ? String(row.dwt_mt) : ''),
           };
