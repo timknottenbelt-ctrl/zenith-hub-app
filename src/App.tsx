@@ -83,8 +83,8 @@ const App = () => {
                   <Route path="/inquiries" element={<ProtectedRoute><AIInquiries /></ProtectedRoute>} />
                   <Route path="/inquiries/manual" element={<ProtectedRoute><ManualEmails /></ProtectedRoute>} />
                   <Route path="/inquiries/sent" element={<ProtectedRoute><SentPDAs /></ProtectedRoute>} />
-                  <Route path="/port-calls" element={<ProtectedRoute><PortCalls /></ProtectedRoute>} />
-                  <Route path="/port-calls/:key" element={<ProtectedRoute><PortCallDetail /></ProtectedRoute>} />
+                  <Route path="/port-calls" element={<ProtectedRoute><Suspense fallback={<div className="min-h-screen bg-background" />}><PortCalls /></Suspense></ProtectedRoute>} />
+                  <Route path="/port-calls/:key" element={<ProtectedRoute><Suspense fallback={<div className="min-h-screen bg-background" />}><PortCallDetail /></Suspense></ProtectedRoute>} />
                   <Route path="/pda-admin" element={<ProtectedRoute><PDACreator /></ProtectedRoute>} />
                   <Route path="/da-creator" element={<ProtectedRoute><DACreator /></ProtectedRoute>} />
                   <Route path="/fda" element={<ProtectedRoute><FDACreator /></ProtectedRoute>} />
