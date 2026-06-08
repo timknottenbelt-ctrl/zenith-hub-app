@@ -744,6 +744,19 @@ export default function PortCallDetail() {
 
   const actionBtn = 'flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/25';
 
+  // Prefill the DA Creator from this port call.
+  const daQuery = (() => {
+    const q = new URLSearchParams();
+    q.set('vessel', call.vessel);
+    if (call.grt) q.set('gt', String(call.grt));
+    if (call.loa) q.set('loa', String(call.loa));
+    if (call.cargoType) q.set('cargo', call.cargoType);
+    const term = record?.terminal || call.terminal || call.port;
+    if (term) q.set('terminal', term);
+    if (principal || call.company) q.set('client', principal || call.company || '');
+    return q.toString();
+  })();
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -802,7 +815,7 @@ export default function PortCallDetail() {
                   </span>
                 )}
               </button>
-              <button onClick={() => navigate('/da-creator')} className={actionBtn}>
+              <button onClick={() => navigate(`/da-creator?${daQuery}`)} className={actionBtn}>
                 <Calculator className="h-3.5 w-3.5" /> DA Creator
               </button>
               <button onClick={() => navigate('/fda-curacao')} className={actionBtn}>
