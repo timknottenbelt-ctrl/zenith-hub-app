@@ -41,7 +41,9 @@ import {
   type PortCallDoc,
 } from '@/lib/portCallOps';
 import { TERMINALS, resolveTerminal, berthCheck, suggestBerths, cargoToProduct } from '@/lib/terminals';
-import { resolvePortLoc, osmEmbedUrl, marineTrafficUrl } from '@/lib/curacaoPorts';
+import { resolvePortLoc, osmEmbedUrl, marineTrafficUrl, vesselFinderUrl } from '@/lib/curacaoPorts';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { getN8nWebhook, setN8nWebhook, createN8nDraft, type DocType, type DraftResult } from '@/lib/n8n';
 import {
   ArrowLeft,
   Ship,
@@ -176,6 +178,57 @@ function statusMeta(status: string | null): { label: string; cls: string } {
   }
 }
 
+const DOC_TYPE_LABEL: Record<DocType, string> = {
+  arrival_notice: 'Arrival notice',
+  SOF: 'Statement of Facts',
+  NOR: 'Notice of Readiness',
+  PDA: 'Proforma DA (PDA)',
+  FDA: 'Final DA (FDA)',
+};
+
+function esc(s: string | null | undefined): string {
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Build a plain HTML body for the draft from the dossier data. */
+function buildDraftBodyHtml(
+  docType: DocType,
+  vessel: string,
+  imo: string | null,
+  terminal: string | null,
+  eta: string | null,
+  etb: string | null,
+  etd: string | null,
+  events: PortCallEvent[],
+): string {
+  const facts: [string, string | null][] = [
+    ['Vessel', vessel],
+    ['IMO', imo],
+    ['Terminal', terminal],
+    ['ETA', eta ? fmtDateTime(eta) : null],
+    ['ETB', etb ? fmtDateTime(etb) : null],
+    ['ETD', etd ? fmtDateTime(etd) : null],
+  ];
+  const factRows = facts
+    .filter(([, v]) => v)
+    .map(([k, v]) => `<tr><td><b>${esc(k)}</b></td><td>${esc(v)}</td></tr>`)
+    .join('');
+  const lines: string[] = ['<p>Geachte heer/mevrouw,</p>'];
+  if (docType === 'arrival_notice') lines.push(`<p>Hierbij de aankomstgegevens voor <b>${esc(vessel)}</b>.</p>`);
+  else if (docType === 'SOF') lines.push(`<p>Bijgaand de Statement of Facts voor <b>${esc(vessel)}</b>.</p>`);
+  else lines.push(`<p>Betreft <b>${esc(vessel)}</b> — ${esc(DOC_TYPE_LABEL[docType])}.</p>`);
+  lines.push(`<table>${factRows}</table>`);
+  if (docType === 'SOF' && events.length) {
+    lines.push('<p><b>Statement of Facts:</b></p><ul>');
+    for (const e of events) {
+      lines.push(`<li>${esc(fmtDateTime(e.event_time))} — ${esc(eventLabel(e.event_type))}${e.remark ? ` (${esc(e.remark)})` : ''}</li>`);
+    }
+    lines.push('</ul>');
+  }
+  lines.push('<p>Met vriendelijke groet,<br/>LBH Curaçao</p>');
+  return lines.join('\n');
+}
+
 const DOC_STATUS_CYCLE = ['pending', 'sent', 'received'] as const;
 const DOC_STATUS_CLS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
@@ -226,6 +279,16 @@ export default function PortCallDetail() {
   const [bcDraft, setBcDraft] = useState('');
   const [bcDwt, setBcDwt] = useState('');
   const [bcAir, setBcAir] = useState('');
+
+  // n8n draft (concept-only)
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [draftType, setDraftType] = useState<DocType>('arrival_notice');
+  const [draftTo, setDraftTo] = useState('');
+  const [draftCc, setDraftCc] = useState('');
+  const [draftSubject, setDraftSubject] = useState('');
+  const [draftWebhook, setDraftWebhook] = useState(getN8nWebhook());
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftResult, setDraftResult] = useState<DraftResult | null>(null);
 
   // Resolve the call (from cache or a fresh fetch) and materialise its record.
   useEffect(() => {
@@ -401,6 +464,54 @@ export default function PortCallDetail() {
     await reloadDocs(record.id);
   }
 
+  function openDraftDialog() {
+    if (!call) return;
+    const term = record?.terminal || call.terminal || call.port || '';
+    setDraftSubject(`${DOC_TYPE_LABEL[draftType]} – ${call.vessel}${term ? ` – ${term}` : ''}`);
+    setDraftResult(null);
+    setDraftOpen(true);
+  }
+
+  function onDraftTypeChange(tp: DocType) {
+    if (!call) return;
+    setDraftType(tp);
+    const term = record?.terminal || call.terminal || call.port || '';
+    setDraftSubject(`${DOC_TYPE_LABEL[tp]} – ${call.vessel}${term ? ` – ${term}` : ''}`);
+  }
+
+  async function handleCreateDraft() {
+    if (!call) return;
+    setDraftBusy(true);
+    setDraftResult(null);
+    setN8nWebhook(draftWebhook);
+    const attachments = call.documents
+      .filter((d) => d.url)
+      .map((d) => ({ filename: `${d.label}.pdf`, url: d.url }));
+    const res = await createN8nDraft({
+      doc_type: draftType,
+      port_call_id: record?.id ?? null,
+      dossier_key: call.key,
+      vessel: { name: call.vessel, imo: call.imo },
+      to: draftTo.split(/[,;]/).map((s) => s.trim()).filter(Boolean),
+      cc: draftCc.split(/[,;]/).map((s) => s.trim()).filter(Boolean),
+      subject: draftSubject,
+      body_html: buildDraftBodyHtml(
+        draftType,
+        call.vessel,
+        call.imo,
+        record?.terminal || call.terminal || call.port,
+        record?.eta ?? null,
+        record?.etb ?? null,
+        record?.etd ?? null,
+        events,
+      ),
+      attachments,
+    });
+    setDraftResult(res);
+    setDraftBusy(false);
+    if (res.ok) toast({ title: 'Concept aangemaakt' });
+  }
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -572,11 +683,18 @@ export default function PortCallDetail() {
                     <CardTitle className="flex items-center gap-2 text-base">
                       <Navigation className="h-4 w-4 text-primary" /> {portLoc.name}
                     </CardTitle>
-                    <a href={marineTrafficUrl(call.imo, call.vessel)} target="_blank" rel="noreferrer">
-                      <Button size="sm" variant="outline">
-                        Live op MarineTraffic <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-                      </Button>
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <a href={marineTrafficUrl(call.imo, call.vessel)} target="_blank" rel="noreferrer">
+                        <Button size="sm" variant="outline">
+                          MarineTraffic <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                        </Button>
+                      </a>
+                      <a href={vesselFinderUrl(call.imo, call.vessel)} target="_blank" rel="noreferrer">
+                        <Button size="sm" variant="outline">
+                          VesselFinder <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                        </Button>
+                      </a>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <iframe
@@ -944,6 +1062,25 @@ export default function PortCallDetail() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Concept versturen via n8n (DRAFT ONLY) */}
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Mail className="h-4 w-4 text-primary" /> Concept versturen
+                    </CardTitle>
+                    <Button size="sm" onClick={openDraftDialog}>
+                      <Mail className="mr-1.5 h-3.5 w-3.5" /> Concept aanmaken
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-[12px] text-muted-foreground">
+                      Maakt via n8n een <b>Gmail-concept</b> aan (arrival notice, SOF, NOR, PDA of FDA) met de
+                      dossiergegevens. Er wordt <b>nooit automatisch verzonden</b> — je controleert en verstuurt zelf
+                      vanuit Gmail.
+                    </p>
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               {/* COMMUNICATIONS */}
@@ -1126,6 +1263,91 @@ export default function PortCallDetail() {
           </Card>
         </div>
       </div>
+
+      {/* n8n draft dialog (concept-only) */}
+      <Dialog open={draftOpen} onOpenChange={setDraftOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Concept aanmaken</DialogTitle>
+            <DialogDescription>
+              n8n maakt alleen een Gmail-concept aan voor {call.vessel}. Er wordt niets verzonden.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-[12px]">Documenttype</Label>
+              <select
+                value={draftType}
+                onChange={(e) => onDraftTypeChange(e.target.value as DocType)}
+                className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+              >
+                {(['arrival_notice', 'SOF', 'NOR', 'PDA', 'FDA'] as DocType[]).map((tp) => (
+                  <option key={tp} value={tp}>
+                    {DOC_TYPE_LABEL[tp]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">Aan (komma-gescheiden)</Label>
+                <Input value={draftTo} onChange={(e) => setDraftTo(e.target.value)} placeholder="ops@principal.com" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">CC</Label>
+                <Input value={draftCc} onChange={(e) => setDraftCc(e.target.value)} placeholder="agency@lbh.cw" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px]">Onderwerp</Label>
+              <Input value={draftSubject} onChange={(e) => setDraftSubject(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px]">n8n webhook-URL</Label>
+              <Input
+                value={draftWebhook}
+                onChange={(e) => setDraftWebhook(e.target.value)}
+                placeholder="https://…app.n8n.cloud/webhook/…"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Wordt lokaal bewaard. De aanroep stuurt altijd <code>draft:true</code> — n8n moet daarop de
+                Gmail “Create Draft”-actie doen, niet Send.
+              </p>
+            </div>
+
+            {draftResult && (
+              <div
+                className={cn(
+                  'rounded-lg px-3 py-2 text-[12px]',
+                  draftResult.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700',
+                )}
+              >
+                {draftResult.ok ? (
+                  draftResult.draft_url ? (
+                    <a href={draftResult.draft_url} target="_blank" rel="noreferrer" className="font-medium underline">
+                      Concept openen in Gmail →
+                    </a>
+                  ) : (
+                    'Concept aangemaakt in n8n.'
+                  )
+                ) : (
+                  draftResult.error
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDraftOpen(false)}>
+              Sluiten
+            </Button>
+            <Button onClick={handleCreateDraft} disabled={draftBusy || !draftWebhook.trim() || !draftTo.trim()}>
+              <Mail className="mr-1.5 h-4 w-4" /> {draftBusy ? 'Bezig…' : 'Concept aanmaken'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
