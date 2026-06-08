@@ -2,6 +2,7 @@ import { useMemo, useCallback, memo, startTransition } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { UpcomingPortCalls } from '@/components/overview/UpcomingPortCalls';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -377,6 +378,9 @@ export default function Overview() {
             accent="primary"
           />
         </div>
+
+        {/* Upcoming port calls */}
+        <UpcomingPortCalls />
 
         {/* Activity Chart */}
         <Card className="card-premium">
