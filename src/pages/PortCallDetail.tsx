@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { fetchPortCalls, getCachedPortCalls, type PortCall, type PCEmail } from '@/lib/portCalls';
@@ -36,9 +35,17 @@ import {
   updateDoc as apiUpdateDoc,
   deleteDoc as apiDeleteDoc,
   seedArrivalDocs,
+  loadTasks,
+  addTask as apiAddTask,
+  addTasks as apiAddTasks,
+  toggleTask as apiToggleTask,
+  deleteTask as apiDeleteTask,
+  runPortCallAi,
   type PortCallRecord,
   type PortCallEvent,
   type PortCallDoc,
+  type PortCallTask,
+  type AiScanResult,
 } from '@/lib/portCallOps';
 import { TERMINALS, resolveTerminal, berthCheck, suggestBerths, cargoToProduct } from '@/lib/terminals';
 import { LIFECYCLE_ORDER, LIFECYCLE_META } from '@/lib/portCallStatus';
@@ -74,6 +81,13 @@ import {
   AlertTriangle,
   ShipWheel,
   RotateCcw,
+  ChevronDown,
+  ChevronRight,
+  Sparkles,
+  ClipboardList,
+  Calculator,
+  FileSignature,
+  type LucideIcon,
 } from 'lucide-react';
 
 const TONE: Record<OpsStatus['tone'], string> = {
@@ -115,7 +129,6 @@ const QUICK_KEYS = [
   'sof_signed',
 ];
 
-// Logging certain milestones advances the dossier's high-level lifecycle.
 const EVENT_LIFECYCLE: Record<string, string> = {
   nomination_received: 'nominated',
   appointment_confirmed: 'nominated',
@@ -129,6 +142,23 @@ const EVENT_LIFECYCLE: Record<string, string> = {
 };
 
 const CURRENCIES = ['USD', 'EUR', 'ANG'];
+
+// High-level pipeline shown as a phase bar in the header.
+const PIPELINE = ['Pre-arrival', 'Alongside', 'Departure', 'Closing'];
+function derivePipeline(events: PortCallEvent[], status: string | undefined): number {
+  if (status === 'closed') return 3;
+  if (events.length) {
+    const latest = [...events].sort((a, b) => b.event_time.localeCompare(a.event_time))[0];
+    const ph = SOF_BY_KEY[latest.event_type]?.phase;
+    if (ph === 'completion_closing') return 3;
+    if (ph === 'departure') return 2;
+    if (ph === 'berthing' || ph === 'cargo_operations' || ph === 'bunkering_services') return 1;
+    return 0;
+  }
+  if (status === 'sailed') return 2;
+  if (status === 'alongside') return 1;
+  return 0;
+}
 
 function fmtDateTime(iso: string | null): string {
   if (!iso) return '—';
@@ -192,7 +222,6 @@ function esc(s: string | null | undefined): string {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/** Build a plain HTML body for the draft from the dossier data. */
 function buildDraftBodyHtml(
   docType: DocType,
   vessel: string,
@@ -244,6 +273,43 @@ const DOC_STATUS_CLS: Record<string, string> = {
   received: 'bg-emerald-100 text-emerald-700',
 };
 
+/** Collapsible section block for the dossier's left column. */
+function Block({
+  title,
+  icon: Icon,
+  defaultOpen = true,
+  badge,
+  action,
+  children,
+}: {
+  title: string;
+  icon: LucideIcon;
+  defaultOpen?: boolean;
+  badge?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 py-3">
+        <button onClick={() => setOpen((o) => !o)} className="flex min-w-0 items-center gap-2 text-base font-semibold">
+          {open ? (
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          )}
+          <Icon className="h-4 w-4 shrink-0 text-primary" />
+          <span className="truncate">{title}</span>
+          {badge != null && <span className="text-sm font-normal text-muted-foreground">{badge}</span>}
+        </button>
+        {action}
+      </CardHeader>
+      {open && <CardContent className="space-y-4">{children}</CardContent>}
+    </Card>
+  );
+}
+
 export default function PortCallDetail() {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -256,6 +322,7 @@ export default function PortCallDetail() {
   const [record, setRecord] = useState<PortCallRecord | null>(null);
   const [events, setEvents] = useState<PortCallEvent[]>([]);
   const [docs, setDocs] = useState<PortCallDoc[]>([]);
+  const [tasks, setTasks] = useState<PortCallTask[]>([]);
   const [loading, setLoading] = useState(!call);
   const [busy, setBusy] = useState(false);
 
@@ -268,7 +335,13 @@ export default function PortCallDetail() {
   const [editRemark, setEditRemark] = useState('');
   const [showAllEvents, setShowAllEvents] = useState(false);
 
-  // Nomination form
+  // Te doen + AI
+  const [newTask, setNewTask] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiResult, setAiResult] = useState<AiScanResult | null>(null);
+
+  // Nomination form (in a dialog)
+  const [nomOpen, setNomOpen] = useState(false);
   const [nominated, setNominated] = useState(false);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('USD');
@@ -334,10 +407,11 @@ export default function PortCallDetail() {
         if (c.loa) setBcLoa(String(c.loa));
         const rt = resolveTerminal(rec.terminal, c.terminal, c.port);
         if (rt) setBcTerminal(rt.name);
-        const [evs, dcs] = await Promise.all([loadEvents(rec.id), loadDocs(rec.id)]);
+        const [evs, dcs, tks] = await Promise.all([loadEvents(rec.id), loadDocs(rec.id), loadTasks(rec.id)]);
         if (!active) return;
         setEvents(evs);
         setDocs(dcs);
+        setTasks(tks);
       }
       setLoading(false);
     })();
@@ -348,6 +422,7 @@ export default function PortCallDetail() {
   }, [decodedKey]);
 
   const opsStatus = useMemo(() => deriveOpsStatus(events), [events]);
+  const phaseIdx = useMemo(() => derivePipeline(events, record?.status), [events, record?.status]);
   const portLoc = useMemo(() => {
     const tt = resolveTerminal(record?.terminal, call?.terminal, call?.port);
     if (tt) return { name: tt.name, lat: tt.lat, lon: tt.lon };
@@ -356,12 +431,16 @@ export default function PortCallDetail() {
   const comms = useMemo(() => (call ? [...call.emails].reverse() : []), [call]);
   const arrivalDocs = docs.filter((d) => d.doc_kind === 'arrival');
   const arrivalDone = arrivalDocs.filter((d) => d.status !== 'pending').length;
+  const openTasks = tasks.filter((tk) => !tk.done).length;
 
   async function reloadEvents(id: string) {
     setEvents(await loadEvents(id));
   }
   async function reloadDocs(id: string) {
     setDocs(await loadDocs(id));
+  }
+  async function reloadTasks(id: string) {
+    setTasks(await loadTasks(id));
   }
 
   async function bumpLifecycle(typeKey: string) {
@@ -392,7 +471,6 @@ export default function PortCallDetail() {
 
   async function quickAdd(typeKey: string) {
     if (!record) return;
-    // Events that need a reason can't be one-click logged — open the form instead.
     if (SOF_BY_KEY[typeKey]?.requiresReason) {
       setNewType(typeKey);
       setNewTime(nowLocal());
@@ -449,7 +527,44 @@ export default function PortCallDetail() {
     await updatePortCall(record.id, patch);
     setRecord({ ...record, ...patch } as PortCallRecord);
     setBusy(false);
+    setNomOpen(false);
     toast({ title: 'Opgeslagen' });
+  }
+
+  // Te doen
+  async function handleAddTask() {
+    if (!record || !newTask.trim()) return;
+    const tk = await apiAddTask(record.id, newTask.trim());
+    if (tk) {
+      setNewTask('');
+      await reloadTasks(record.id);
+    }
+  }
+  async function toggleTaskDone(tk: PortCallTask) {
+    await apiToggleTask(tk.id, !tk.done);
+    setTasks((ts) => ts.map((x) => (x.id === tk.id ? { ...x, done: !x.done } : x)));
+  }
+  async function removeTask(id: string) {
+    if (!record) return;
+    await apiDeleteTask(id);
+    setTasks((ts) => ts.filter((x) => x.id !== id));
+  }
+
+  async function runAiScan() {
+    if (!call || !record) return;
+    setAiBusy(true);
+    const res = await runPortCallAi(call.emails.map((e) => e.id));
+    if (res) {
+      setAiResult(res);
+      if (res.todos.length) {
+        await apiAddTasks(record.id, res.todos, tasks, 'ai');
+        await reloadTasks(record.id);
+      }
+      toast({ title: `AI-scan klaar — ${res.todos.length} taak/taken` });
+    } else {
+      toast({ title: 'AI-scan mislukt', variant: 'destructive' });
+    }
+    setAiBusy(false);
   }
 
   async function handleSeedArrivalDocs() {
@@ -486,14 +601,12 @@ export default function PortCallDetail() {
     setDraftResult(null);
     setDraftOpen(true);
   }
-
   function onDraftTypeChange(tp: DocType) {
     if (!call) return;
     setDraftType(tp);
     const term = record?.terminal || call.terminal || call.port || '';
     setDraftSubject(`${DOC_TYPE_LABEL[tp]} – ${call.vessel}${term ? ` – ${term}` : ''}`);
   }
-
   async function handleCreateDraft() {
     if (!call) return;
     setDraftBusy(true);
@@ -577,7 +690,6 @@ export default function PortCallDetail() {
     { label: 'ETD', value: record?.etd },
   ];
 
-  // Call type drives which SOF events / arrival docs are relevant.
   const callType: AppliesTo | null =
     call.category === 'cargo' ? 'cargo_agent' : call.category === 'owners' ? 'owners_agent' : null;
   const filterType = showAllEvents ? null : callType;
@@ -585,27 +697,20 @@ export default function PortCallDetail() {
   const newDef = newType ? SOF_BY_KEY[newType] : null;
   const reasonNeeded = !!newDef?.requiresReason && !newRemark.trim();
 
-  // Berth feasibility check against the Curaçao terminal database.
   const num = (s: string) => (s.trim() ? Number(s) : null);
   const selectedTerminal =
-    (bcTerminal ? TERMINALS.find((t) => t.name === bcTerminal) : null) ||
+    (bcTerminal ? TERMINALS.find((tm) => tm.name === bcTerminal) : null) ||
     resolveTerminal(record?.terminal, call?.terminal, call?.port);
   const check = selectedTerminal
-    ? berthCheck(
-        { loa: num(bcLoa) ?? call.loa, draft: num(bcDraft), dwt: num(bcDwt), airDraft: num(bcAir) },
-        selectedTerminal,
-      )
+    ? berthCheck({ loa: num(bcLoa) ?? call.loa, draft: num(bcDraft), dwt: num(bcDwt), airDraft: num(bcAir) }, selectedTerminal)
     : null;
   const BC_TONE = { fits: TONE.emerald, exceeds: TONE.rose, unknown: TONE.slate } as const;
   const BC_LABEL = { fits: 'Past', exceeds: 'Past niet', unknown: 'Onbekend' } as const;
 
-  // Terminal suggestion based on cargo type + entered/derived vessel dims.
   const cargoProduct = cargoToProduct(call.cargoType);
-  const suggestions = suggestBerths(call.cargoType, {
-    loa: num(bcLoa) ?? call.loa,
-    draft: num(bcDraft),
-    dwt: num(bcDwt),
-  }).slice(0, 5);
+  const suggestions = suggestBerths(call.cargoType, { loa: num(bcLoa) ?? call.loa, draft: num(bcDraft), dwt: num(bcDwt) }).slice(0, 5);
+
+  const actionBtn = 'flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/25';
 
   return (
     <DashboardLayout>
@@ -614,54 +719,92 @@ export default function PortCallDetail() {
           <ArrowLeft className="mr-2 h-4 w-4" /> {t('portCalls.back')}
         </Button>
 
-        {/* Vessel header */}
+        {/* Header */}
         <div className="overflow-hidden rounded-2xl border border-border/60 bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-br from-primary to-blue-700 px-6 py-5 text-white">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15">
-                <Ship className="h-6 w-6" />
+          <div className="bg-gradient-to-br from-primary to-blue-700 px-6 py-5 text-white">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15">
+                  <Ship className="h-6 w-6" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight">{call.vessel}</h1>
+                  <p className="text-[12px] text-white/75">
+                    {call.imo ? `IMO ${call.imo}` : t('portCalls.noImo')} ·{' '}
+                    {call.category === 'cargo'
+                      ? t('portCalls.cargoAgent')
+                      : call.category === 'owners'
+                        ? t('portCalls.ownersAgent')
+                        : t('portCalls.general')}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight">{call.vessel}</h1>
-                <p className="text-[12px] text-white/75">
-                  {call.imo ? `IMO ${call.imo}` : t('portCalls.noImo')} ·{' '}
-                  {call.category === 'cargo'
-                    ? t('portCalls.cargoAgent')
-                    : call.category === 'owners'
-                      ? t('portCalls.ownersAgent')
-                      : t('portCalls.general')}
-                </p>
+              <div className="flex items-center gap-2">
+                <Badge className={cn('border', TONE[opsStatus.tone])}>
+                  <CircleDot className="mr-1 h-3 w-3" />
+                  {opsStatus.label}
+                </Badge>
+                {record?.nominated && (
+                  <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-700">Nominated</Badge>
+                )}
+                {record &&
+                  (record.status === 'closed' ? (
+                    <button onClick={() => handleStatusChange('sailed')} className={actionBtn}>
+                      <RotateCcw className="h-3.5 w-3.5" /> Heropenen
+                    </button>
+                  ) : (
+                    <button onClick={() => handleStatusChange('closed')} className={actionBtn}>
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Sluiten
+                    </button>
+                  ))}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge className={cn('border', TONE[opsStatus.tone])}>
-                <CircleDot className="mr-1 h-3 w-3" />
-                {opsStatus.label}
-              </Badge>
-              {record?.nominated && (
-                <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-700">Nominated</Badge>
-              )}
-              {record &&
-                (record.status === 'closed' ? (
-                  <button
-                    onClick={() => handleStatusChange('sailed')}
-                    className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/25"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" /> Heropenen
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleStatusChange('closed')}
-                    className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/25"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Sluiten
-                  </button>
-                ))}
+
+            {/* Action buttons */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button onClick={() => setNomOpen(true)} className={actionBtn}>
+                <DollarSign className="h-3.5 w-3.5" /> Nominatie &amp; opbrengst
+                {record?.nomination_amount != null && (
+                  <span className="ml-1 font-bold">
+                    {record.nomination_currency || 'USD'} {record.nomination_amount.toLocaleString()}
+                  </span>
+                )}
+              </button>
+              <button onClick={() => navigate('/da-creator')} className={actionBtn}>
+                <Calculator className="h-3.5 w-3.5" /> DA Creator
+              </button>
+              <button onClick={() => navigate('/fda-curacao')} className={actionBtn}>
+                <FileSignature className="h-3.5 w-3.5" /> FDA Creator
+              </button>
+              <button onClick={runAiScan} disabled={aiBusy} className={cn(actionBtn, 'disabled:opacity-60')}>
+                <Sparkles className="h-3.5 w-3.5" /> {aiBusy ? 'AI bezig…' : 'AI-scan'}
+              </button>
+              <button onClick={openDraftDialog} className={cn(actionBtn, 'bg-white text-primary hover:bg-white/90')}>
+                <Mail className="h-3.5 w-3.5" /> Concept
+              </button>
             </div>
           </div>
 
+          {/* Phase pipeline */}
+          <div className="flex items-center gap-1 border-b border-border/50 px-6 py-3">
+            {PIPELINE.map((p, i) => (
+              <Fragment key={p}>
+                <div className={cn('flex items-center gap-1.5 text-[12px] font-medium', i <= phaseIdx ? 'text-primary' : 'text-muted-foreground')}>
+                  <span
+                    className={cn(
+                      'h-2.5 w-2.5 rounded-full',
+                      i < phaseIdx ? 'bg-primary' : i === phaseIdx ? 'bg-primary ring-4 ring-primary/20' : 'bg-muted-foreground/30',
+                    )}
+                  />
+                  {p}
+                </div>
+                {i < PIPELINE.length - 1 && <div className={cn('h-px flex-1', i < phaseIdx ? 'bg-primary/40' : 'bg-border')} />}
+              </Fragment>
+            ))}
+          </div>
+
           {/* ETA / ETB / ETD strip */}
-          <div className="grid grid-cols-3 divide-x divide-border/50 border-b border-border/50">
+          <div className="grid grid-cols-3 divide-x divide-border/50">
             {etaRow.map((r) => (
               <div key={r.label} className="px-6 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{r.label}</div>
@@ -669,535 +812,370 @@ export default function PortCallDetail() {
               </div>
             ))}
           </div>
-
-          {/* Particulars */}
-          {particulars.length > 0 && (
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3 px-6 py-4 sm:grid-cols-3 lg:grid-cols-6">
-              {particulars.map((p) => {
-                const Icon = p.icon;
-                return (
-                  <div key={p.label} className="flex items-start gap-2">
-                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{p.label}</div>
-                      <div className="truncate text-[13px] font-medium text-foreground">{p.value}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* LEFT: tabs */}
-          <div className="lg:col-span-2">
-            <Tabs defaultValue="overview">
-              <TabsList className="mb-4">
-                <TabsTrigger value="overview">Overzicht</TabsTrigger>
-                <TabsTrigger value="documents">
-                  Documenten
-                  {(arrivalDocs.length > 0 || call.documents.length > 0) && (
-                    <span className="ml-1.5 text-[11px] text-muted-foreground">
-                      {arrivalDocs.length + call.documents.length}
-                    </span>
+          {/* LEFT: blocks */}
+          <div className="space-y-4 lg:col-span-2">
+            {/* Te doen */}
+            <Block
+              title="Te doen"
+              icon={ClipboardList}
+              badge={openTasks || undefined}
+              action={
+                <Button size="sm" variant="outline" onClick={runAiScan} disabled={aiBusy}>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" /> {aiBusy ? 'Bezig…' : 'AI-scan'}
+                </Button>
+              }
+            >
+              {aiResult?.summary && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-[12px]">
+                  <p className="flex items-center gap-1.5 font-semibold text-primary">
+                    <Sparkles className="h-3.5 w-3.5" /> AI-samenvatting
+                  </p>
+                  <p className="mt-1 text-foreground">{aiResult.summary}</p>
+                  {aiResult.updates.length > 0 && (
+                    <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-muted-foreground">
+                      {aiResult.updates.map((u, i) => (
+                        <li key={i}>{u}</li>
+                      ))}
+                    </ul>
                   )}
-                </TabsTrigger>
-                <TabsTrigger value="comms">
-                  Communicatie <span className="ml-1.5 text-[11px] text-muted-foreground">{comms.length}</span>
-                </TabsTrigger>
-              </TabsList>
-
-              {/* OVERVIEW: map + nomination/revenue */}
-              <TabsContent value="overview" className="space-y-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Navigation className="h-4 w-4 text-primary" /> {portLoc.name}
-                    </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <a href={marineTrafficUrl(call.imo, call.vessel)} target="_blank" rel="noreferrer">
-                        <Button size="sm" variant="outline">
-                          MarineTraffic <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-                        </Button>
-                      </a>
-                      <a href={vesselFinderUrl(call.imo, call.vessel)} target="_blank" rel="noreferrer">
-                        <Button size="sm" variant="outline">
-                          VesselFinder <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-                        </Button>
-                      </a>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <iframe
-                      title="port-map"
-                      className="h-[280px] w-full rounded-xl border border-border/60"
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      src={osmEmbedUrl(portLoc)}
-                    />
-                    <p className="mt-2 text-[11px] text-muted-foreground">
-                      Kaart toont de terminal/ligplaats. Live AIS-positie via de MarineTraffic-knop.
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Berth check */}
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <ShipWheel className="h-4 w-4 text-primary" /> Berth-check
-                    </CardTitle>
-                    {check && (
-                      <Badge className={cn('border', BC_TONE[check.verdict])}>{BC_LABEL[check.verdict]}</Badge>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[12px]">Terminal</Label>
-                      <select
-                        value={selectedTerminal?.name ?? ''}
-                        onChange={(e) => setBcTerminal(e.target.value)}
-                        className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+                </div>
+              )}
+              {tasks.length === 0 ? (
+                <p className="py-2 text-center text-sm text-muted-foreground">
+                  Nog geen taken. Voeg toe of laat de AI de mails scannen.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {tasks.map((tk) => (
+                    <div key={tk.id} className="flex items-center gap-2.5 rounded-lg border border-border/50 px-3 py-2">
+                      <button
+                        onClick={() => toggleTaskDone(tk)}
+                        className={cn(
+                          'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                          tk.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-muted-foreground/40',
+                        )}
                       >
-                        <option value="">Kies terminal…</option>
-                        {TERMINALS.map((tm) => (
-                          <option key={tm.name} value={tm.name}>
-                            {tm.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">LOA (m)</Label>
-                        <Input type="number" value={bcLoa} onChange={(e) => setBcLoa(e.target.value)} placeholder="—" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Draft (m)</Label>
-                        <Input type="number" value={bcDraft} onChange={(e) => setBcDraft(e.target.value)} placeholder="—" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">DWT</Label>
-                        <Input type="number" value={bcDwt} onChange={(e) => setBcDwt(e.target.value)} placeholder="—" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Air draft (m)</Label>
-                        <Input type="number" value={bcAir} onChange={(e) => setBcAir(e.target.value)} placeholder="—" />
-                      </div>
-                    </div>
-
-                    {check && selectedTerminal && (
-                      <div className="space-y-1.5">
-                        {check.rows.map((r) => {
-                          const meta =
-                            r.status === 'ok'
-                              ? { Icon: CheckCircle2, cls: 'text-emerald-600', txt: 'past' }
-                              : r.status === 'nolimit'
-                                ? { Icon: CheckCircle2, cls: 'text-emerald-600', txt: 'geen limiet' }
-                                : r.status === 'exceed'
-                                  ? { Icon: XCircle, cls: 'text-rose-600', txt: 'overschrijdt' }
-                                  : { Icon: MinusCircle, cls: 'text-muted-foreground', txt: 'onbekend' };
-                          const Icon = meta.Icon;
-                          return (
-                            <div key={r.label} className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2 text-[12px]">
-                              <span className="flex items-center gap-2 font-medium text-foreground">
-                                <Icon className={cn('h-4 w-4', meta.cls)} /> {r.label}
-                              </span>
-                              <span className="text-muted-foreground">
-                                {r.vesselVal != null ? `${r.vesselVal} ${r.unit}` : '—'}
-                                <span className="mx-1.5 opacity-50">/</span>
-                                {r.noteNoLimit
-                                  ? 'geen limiet'
-                                  : r.limitVal != null
-                                    ? `${r.limitVal} ${r.unit}`
-                                    : 'n.b.'}
-                                <span className={cn('ml-2 font-semibold', meta.cls)}>{meta.txt}</span>
-                              </span>
-                            </div>
-                          );
-                        })}
-                        {selectedTerminal.outOfService && (
-                          <p className="flex items-start gap-1.5 rounded-lg bg-rose-50 px-2 py-1.5 pt-1 text-[11px] font-medium text-rose-700">
-                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                            Deze terminal is momenteel in onderhoud / niet in gebruik.
-                          </p>
-                        )}
-                        {selectedTerminal.airDraftM != null && (
-                          <p className="flex items-start gap-1.5 pt-1 text-[11px] text-amber-600">
-                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                            Julianabrug-doorvaarthoogte {selectedTerminal.airDraftM} m geldt voor het Schottegat.
-                          </p>
-                        )}
-                        {selectedTerminal.notes && (
-                          <p className="pt-1 text-[11px] text-muted-foreground">{selectedTerminal.notes}</p>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Terminal suggestion */}
-                {(call.cargoType || num(bcDraft) != null) && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        <Navigation className="h-4 w-4 text-primary" /> Terminal-suggestie
-                        {call.cargoType && (
-                          <span className="text-sm font-normal text-muted-foreground">
-                            {call.cargoType}
-                            {cargoProduct ? ` → ${cargoProduct}` : ''}
-                          </span>
-                        )}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {suggestions.length === 0 ? (
-                        <p className="py-2 text-center text-sm text-muted-foreground">
-                          Geen passende berth gevonden voor deze lading/maten.
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {suggestions.map((s, i) => (
-                            <button
-                              key={s.terminal.name}
-                              onClick={() => setBcTerminal(s.terminal.name)}
-                              className={cn(
-                                'flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/40',
-                                i === 0 ? 'border-primary/40 bg-primary/5' : 'border-border/60',
-                              )}
-                            >
-                              <div className="min-w-0">
-                                <p className="truncate text-[13px] font-medium text-foreground">
-                                  {i === 0 && '★ '}
-                                  {s.terminal.name}
-                                </p>
-                                <p className="text-[11px] text-muted-foreground">
-                                  max draft {s.terminal.maxDraftM != null ? `${s.terminal.maxDraftM} m` : 'n.b.'} ·
-                                  {s.terminal.noLoaLimit
-                                    ? ' geen LOA-limiet'
-                                    : s.terminal.maxLoaM != null
-                                      ? ` LOA ${s.terminal.maxLoaM} m`
-                                      : ' LOA n.b.'}
-                                </p>
-                              </div>
-                              <span
-                                className={cn(
-                                  'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                                  s.productMatch === 'confirmed'
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : 'bg-amber-100 text-amber-700',
-                                )}
-                              >
-                                {s.productMatch === 'confirmed' ? 'lading ✓' : 'ongec.'}
-                              </span>
-                            </button>
-                          ))}
-                          <p className="pt-1 text-[11px] text-muted-foreground">
-                            Gerangschikt op ladingmatch + ondiepste passende berth. "ongec." = productlijst niet publiek.
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <DollarSign className="h-4 w-4 text-primary" /> Nominatie &amp; opbrengst
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between rounded-xl border border-border/60 px-4 py-3">
-                      <div>
-                        <p className="text-[13px] font-medium text-foreground">Genomineerd</p>
-                        <p className="text-[11px] text-muted-foreground">Schip is aan ons toegewezen voor deze aanloop.</p>
-                      </div>
-                      <Switch checked={nominated} onCheckedChange={setNominated} />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-[12px]">Status</Label>
-                      <select
-                        value={record?.status ?? 'expected'}
-                        onChange={(e) => handleStatusChange(e.target.value)}
-                        className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
-                      >
-                        {LIFECYCLE_ORDER.map((s) => (
-                          <option key={s} value={s}>
-                            {LIFECYCLE_META[s].label}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[11px] text-muted-foreground">
-                        Handmatige fase. De live-status bovenin volgt automatisch uit de SOF-events.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label className="text-[12px]">Opbrengst / agency fee</Label>
-                        <div className="flex gap-2">
-                          <select
-                            value={currency}
-                            onChange={(e) => setCurrency(e.target.value)}
-                            className="h-10 rounded-md border border-input bg-background px-2 text-sm"
-                          >
-                            {CURRENCIES.map((c) => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                          </select>
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            placeholder="0"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[12px]">Principal</Label>
-                        <Input value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="Opdrachtgever" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-[12px]">ETA</Label>
-                        <Input type="datetime-local" value={eta} onChange={(e) => setEta(e.target.value)} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[12px]">ETB</Label>
-                        <Input type="datetime-local" value={etb} onChange={(e) => setEtb(e.target.value)} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[12px]">ETD</Label>
-                        <Input type="datetime-local" value={etd} onChange={(e) => setEtd(e.target.value)} />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      {amount.trim() ? (
-                        <p className="text-[13px] text-muted-foreground">
-                          Verdiensten op deze aanloop:{' '}
-                          <span className="font-bold text-foreground">
-                            {currency} {Number(amount).toLocaleString()}
-                          </span>
-                        </p>
-                      ) : (
-                        <span />
-                      )}
-                      <Button onClick={saveNomination} disabled={busy}>
-                        Opslaan
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* DOCUMENTS */}
-              <TabsContent value="documents" className="space-y-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <ListChecks className="h-4 w-4 text-primary" /> Arrival documents
-                      {arrivalDocs.length > 0 && (
-                        <span className="text-sm font-normal text-muted-foreground">
-                          {arrivalDone}/{arrivalDocs.length}
+                        {tk.done && <Check className="h-3 w-3" />}
+                      </button>
+                      <span className={cn('min-w-0 flex-1 text-[13px]', tk.done ? 'text-muted-foreground line-through' : 'text-foreground')}>
+                        {tk.title}
+                      </span>
+                      {tk.source === 'ai' && (
+                        <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+                          <Sparkles className="h-2.5 w-2.5" /> AI
                         </span>
                       )}
-                    </CardTitle>
-                    {arrivalDocs.length === 0 && (
-                      <Button size="sm" variant="outline" onClick={handleSeedArrivalDocs} disabled={busy}>
-                        <Plus className="mr-1.5 h-3.5 w-3.5" /> Standaardlijst
-                      </Button>
+                      <button onClick={() => removeTask(tk.id)} className="shrink-0 text-muted-foreground/50 hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nieuwe taak…"
+                  value={newTask}
+                  onChange={(e) => setNewTask(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
+                />
+                <Button variant="outline" onClick={handleAddTask} disabled={!newTask.trim()}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </Block>
+
+            {/* Schip & berth-check */}
+            <Block title="Schip & berth-check" icon={ShipWheel} badge={check ? <Badge className={cn('border', BC_TONE[check.verdict])}>{BC_LABEL[check.verdict]}</Badge> : undefined}>
+              {particulars.length > 0 && (
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                  {particulars.map((p) => {
+                    const Icon = p.icon;
+                    return (
+                      <div key={p.label} className="flex items-start gap-2">
+                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{p.label}</div>
+                          <div className="truncate text-[13px] font-medium text-foreground">{p.value}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">Terminal</Label>
+                <select
+                  value={selectedTerminal?.name ?? ''}
+                  onChange={(e) => setBcTerminal(e.target.value)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  <option value="">Kies terminal…</option>
+                  {TERMINALS.map((tm) => (
+                    <option key={tm.name} value={tm.name}>
+                      {tm.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="space-y-1">
+                  <Label className="text-[11px]">LOA (m)</Label>
+                  <Input type="number" value={bcLoa} onChange={(e) => setBcLoa(e.target.value)} placeholder="—" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Draft (m)</Label>
+                  <Input type="number" value={bcDraft} onChange={(e) => setBcDraft(e.target.value)} placeholder="—" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px]">DWT</Label>
+                  <Input type="number" value={bcDwt} onChange={(e) => setBcDwt(e.target.value)} placeholder="—" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Air draft (m)</Label>
+                  <Input type="number" value={bcAir} onChange={(e) => setBcAir(e.target.value)} placeholder="—" />
+                </div>
+              </div>
+              {check && selectedTerminal && (
+                <div className="space-y-1.5">
+                  {check.rows.map((r) => {
+                    const meta =
+                      r.status === 'ok'
+                        ? { Icon: CheckCircle2, cls: 'text-emerald-600', txt: 'past' }
+                        : r.status === 'nolimit'
+                          ? { Icon: CheckCircle2, cls: 'text-emerald-600', txt: 'geen limiet' }
+                          : r.status === 'exceed'
+                            ? { Icon: XCircle, cls: 'text-rose-600', txt: 'overschrijdt' }
+                            : { Icon: MinusCircle, cls: 'text-muted-foreground', txt: 'onbekend' };
+                    const Icon = meta.Icon;
+                    return (
+                      <div key={r.label} className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2 text-[12px]">
+                        <span className="flex items-center gap-2 font-medium text-foreground">
+                          <Icon className={cn('h-4 w-4', meta.cls)} /> {r.label}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {r.vesselVal != null ? `${r.vesselVal} ${r.unit}` : '—'}
+                          <span className="mx-1.5 opacity-50">/</span>
+                          {r.noteNoLimit ? 'geen limiet' : r.limitVal != null ? `${r.limitVal} ${r.unit}` : 'n.b.'}
+                          <span className={cn('ml-2 font-semibold', meta.cls)}>{meta.txt}</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {selectedTerminal.outOfService && (
+                    <p className="flex items-start gap-1.5 rounded-lg bg-rose-50 px-2 py-1.5 text-[11px] font-medium text-rose-700">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Deze terminal is momenteel in onderhoud / niet in gebruik.
+                    </p>
+                  )}
+                  {selectedTerminal.airDraftM != null && (
+                    <p className="flex items-start gap-1.5 pt-1 text-[11px] text-amber-600">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Julianabrug-doorvaarthoogte {selectedTerminal.airDraftM} m geldt voor het Schottegat.
+                    </p>
+                  )}
+                </div>
+              )}
+              {(call.cargoType || num(bcDraft) != null) && suggestions.length > 0 && (
+                <div className="space-y-2 border-t border-border/50 pt-3">
+                  <p className="flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
+                    <Navigation className="h-3.5 w-3.5 text-primary" /> Terminal-suggestie
+                    {call.cargoType && (
+                      <span className="font-normal text-muted-foreground">
+                        {call.cargoType}
+                        {cargoProduct ? ` → ${cargoProduct}` : ''}
+                      </span>
                     )}
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {arrivalDocs.length === 0 ? (
-                      <p className="py-3 text-center text-sm text-muted-foreground">
-                        Voeg de standaard arrival-documenten toe zodra het schip genomineerd is.
-                      </p>
-                    ) : (
-                      arrivalDocs.map((d) => (
+                  </p>
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={s.terminal.name}
+                      onClick={() => setBcTerminal(s.terminal.name)}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-muted/40',
+                        i === 0 ? 'border-primary/40 bg-primary/5' : 'border-border/60',
+                      )}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-medium text-foreground">
+                          {i === 0 && '★ '}
+                          {s.terminal.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          max draft {s.terminal.maxDraftM != null ? `${s.terminal.maxDraftM} m` : 'n.b.'} ·
+                          {s.terminal.noLoaLimit ? ' geen LOA-limiet' : s.terminal.maxLoaM != null ? ` LOA ${s.terminal.maxLoaM} m` : ' LOA n.b.'}
+                        </p>
+                      </div>
+                      <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold', s.productMatch === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
+                        {s.productMatch === 'confirmed' ? 'lading ✓' : 'ongec.'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Block>
+
+            {/* Kaart */}
+            <Block
+              title={portLoc.name}
+              icon={Navigation}
+              defaultOpen={false}
+              action={
+                <div className="flex items-center gap-2">
+                  <a href={marineTrafficUrl(call.imo, call.vessel)} target="_blank" rel="noreferrer">
+                    <Button size="sm" variant="outline">
+                      MarineTraffic <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                    </Button>
+                  </a>
+                  <a href={vesselFinderUrl(call.imo, call.vessel)} target="_blank" rel="noreferrer">
+                    <Button size="sm" variant="outline">
+                      VesselFinder <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                    </Button>
+                  </a>
+                </div>
+              }
+            >
+              <iframe
+                title="port-map"
+                className="h-[280px] w-full rounded-xl border border-border/60"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                src={osmEmbedUrl(portLoc)}
+              />
+              <p className="text-[11px] text-muted-foreground">Kaart toont de terminal/ligplaats. Live AIS-positie via MarineTraffic/VesselFinder.</p>
+            </Block>
+
+            {/* Documenten */}
+            <Block title="Documenten" icon={ListChecks} badge={arrivalDocs.length + call.documents.length || undefined} defaultOpen={false}>
+              <div className="flex items-center justify-between">
+                <p className="text-[12px] font-semibold text-foreground">
+                  Arrival documents {arrivalDocs.length > 0 && <span className="font-normal text-muted-foreground">{arrivalDone}/{arrivalDocs.length}</span>}
+                </p>
+                {arrivalDocs.length === 0 && (
+                  <Button size="sm" variant="outline" onClick={handleSeedArrivalDocs} disabled={busy}>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" /> Standaardlijst
+                  </Button>
+                )}
+              </div>
+              {arrivalDocs.length === 0 ? (
+                <p className="py-2 text-center text-sm text-muted-foreground">Voeg de standaard arrival-documenten toe zodra het schip genomineerd is.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {arrivalDocs.map((d) => (
+                    <div key={d.id} className="flex items-center gap-3 rounded-xl border border-border/60 px-3 py-2.5">
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{d.label}</span>
+                      <button
+                        onClick={() => cycleDocStatus(d)}
+                        className={cn('rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors', DOC_STATUS_CLS[d.status] || 'bg-muted text-muted-foreground')}
+                        title="Klik om status te wisselen"
+                      >
+                        {d.status === 'pending' ? 'openstaand' : d.status === 'sent' ? 'verzonden' : 'ontvangen'}
+                      </button>
+                      <button onClick={() => removeDoc(d.id)} className="text-muted-foreground/50 hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="border-t border-border/50 pt-3">
+                <p className="mb-2 text-[12px] font-semibold text-foreground">EDA / PDA / FDA &amp; bijlagen</p>
+                {call.documents.length === 0 && docs.filter((d) => d.doc_kind === 'other').length === 0 ? (
+                  <p className="py-2 text-center text-sm text-muted-foreground">{t('portCalls.noDocs')}</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {call.documents.map((d, i) => (
+                      <a
+                        key={`${d.url}-${i}`}
+                        href={d.url || undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-3 rounded-xl border border-border/60 px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-muted/40"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                          <FileText className="h-4 w-4 text-primary" />
+                        </div>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{d.label}</span>
+                        <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </a>
+                    ))}
+                    {docs
+                      .filter((d) => d.doc_kind === 'other')
+                      .map((d) => (
                         <div key={d.id} className="flex items-center gap-3 rounded-xl border border-border/60 px-3 py-2.5">
-                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{d.label}</span>
-                          <button
-                            onClick={() => cycleDocStatus(d)}
-                            className={cn(
-                              'rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors',
-                              DOC_STATUS_CLS[d.status] || 'bg-muted text-muted-foreground',
-                            )}
-                            title="Klik om status te wisselen"
-                          >
-                            {d.status === 'pending' ? 'openstaand' : d.status === 'sent' ? 'verzonden' : 'ontvangen'}
-                          </button>
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          {d.url ? (
+                            <a href={d.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground hover:text-primary">
+                              {d.label}
+                            </a>
+                          ) : (
+                            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{d.label}</span>
+                          )}
                           <button onClick={() => removeDoc(d.id)} className="text-muted-foreground/50 hover:text-destructive">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
+                      ))}
+                  </div>
+                )}
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <Input placeholder="Documentnaam" value={docLabel} onChange={(e) => setDocLabel(e.target.value)} className="sm:flex-1" />
+                  <Input placeholder="URL (optioneel)" value={docUrl} onChange={(e) => setDocUrl(e.target.value)} className="sm:flex-1" />
+                  <Button variant="outline" onClick={handleAddDoc} disabled={!docLabel.trim()}>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" /> Toevoegen
+                  </Button>
+                </div>
+              </div>
+            </Block>
 
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <FileText className="h-4 w-4 text-primary" /> EDA / PDA / FDA &amp; bijlagen
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {call.documents.length === 0 && docs.filter((d) => d.doc_kind === 'other').length === 0 ? (
-                      <p className="py-2 text-center text-sm text-muted-foreground">{t('portCalls.noDocs')}</p>
-                    ) : (
-                      <>
-                        {call.documents.map((d, i) => (
-                          <a
-                            key={`${d.url}-${i}`}
-                            href={d.url || undefined}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-3 rounded-xl border border-border/60 px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-muted/40"
-                          >
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                              <FileText className="h-4 w-4 text-primary" />
-                            </div>
-                            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{d.label}</span>
-                            <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          </a>
-                        ))}
-                        {docs
-                          .filter((d) => d.doc_kind === 'other')
-                          .map((d) => (
-                            <div key={d.id} className="flex items-center gap-3 rounded-xl border border-border/60 px-3 py-2.5">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              {d.url ? (
-                                <a
-                                  href={d.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground hover:text-primary"
-                                >
-                                  {d.label}
-                                </a>
-                              ) : (
-                                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{d.label}</span>
-                              )}
-                              <button onClick={() => removeDoc(d.id)} className="text-muted-foreground/50 hover:text-destructive">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ))}
-                      </>
-                    )}
-                    <div className="flex flex-col gap-2 pt-2 sm:flex-row">
-                      <Input
-                        placeholder="Documentnaam"
-                        value={docLabel}
-                        onChange={(e) => setDocLabel(e.target.value)}
-                        className="sm:flex-1"
-                      />
-                      <Input
-                        placeholder="URL (optioneel)"
-                        value={docUrl}
-                        onChange={(e) => setDocUrl(e.target.value)}
-                        className="sm:flex-1"
-                      />
-                      <Button variant="outline" onClick={handleAddDoc} disabled={!docLabel.trim()}>
-                        <Plus className="mr-1.5 h-3.5 w-3.5" /> Toevoegen
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Concept versturen via n8n (DRAFT ONLY) */}
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Mail className="h-4 w-4 text-primary" /> Concept versturen
-                    </CardTitle>
-                    <Button size="sm" onClick={openDraftDialog}>
-                      <Mail className="mr-1.5 h-3.5 w-3.5" /> Concept aanmaken
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-[12px] text-muted-foreground">
-                      Maakt via n8n een <b>Outlook-concept</b> aan (arrival notice, SOF, NOR, PDA of FDA) met de
-                      dossiergegevens. Er wordt <b>nooit automatisch verzonden</b> — je controleert en verstuurt zelf
-                      vanuit Outlook.
-                    </p>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* COMMUNICATIONS */}
-              <TabsContent value="comms">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Mail className="h-4 w-4 text-primary" /> {t('portCalls.timeline')}
-                      <span className="text-sm font-normal text-muted-foreground">({comms.length})</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ol className="relative space-y-1 border-l border-border/60 pl-5">
-                      {comms.map((e: PCEmail) => {
-                        const sm = statusMeta(e.status);
-                        return (
-                          <li key={e.id} className="relative">
-                            <span className="absolute -left-[23px] top-3 h-2.5 w-2.5 rounded-full border-2 border-card bg-primary" />
-                            <button
-                              onClick={() => navigate(`/inquiries?emailId=${e.id}`)}
-                              className="group w-full rounded-xl px-3 py-3 text-left transition-colors hover:bg-muted/50"
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-[11px] text-muted-foreground">{fmtDateTime(e.sent_at || e.created_at)}</span>
-                                <Badge variant="outline" className={cn('text-[10px]', sm.cls)}>
-                                  {sm.label}
-                                </Badge>
-                              </div>
-                              <p className="mt-1 line-clamp-2 text-[13px] font-medium text-foreground group-hover:text-primary">
-                                {e.subject || t('portCalls.noSubject')}
-                              </p>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+            {/* Communicatie */}
+            <Block title="Communicatie" icon={Mail} badge={comms.length || undefined} defaultOpen={false}>
+              <ol className="relative space-y-1 border-l border-border/60 pl-5">
+                {comms.map((e: PCEmail) => {
+                  const sm = statusMeta(e.status);
+                  return (
+                    <li key={e.id} className="relative">
+                      <span className="absolute -left-[23px] top-3 h-2.5 w-2.5 rounded-full border-2 border-card bg-primary" />
+                      <button
+                        onClick={() => navigate(`/inquiries?emailId=${e.id}`)}
+                        className="group w-full rounded-xl px-3 py-3 text-left transition-colors hover:bg-muted/50"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] text-muted-foreground">{fmtDateTime(e.sent_at || e.created_at)}</span>
+                          <Badge variant="outline" className={cn('text-[10px]', sm.cls)}>
+                            {sm.label}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-[13px] font-medium text-foreground group-hover:text-primary">
+                          {e.subject || t('portCalls.noSubject')}
+                        </p>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </Block>
           </div>
 
           {/* RIGHT: SOF event log */}
           <Card className="h-fit lg:sticky lg:top-4">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
+              <div className="flex items-center gap-2 text-base font-semibold">
                 <Clock className="h-4 w-4 text-primary" /> Statement of Facts
                 <span className="text-sm font-normal text-muted-foreground">({events.length})</span>
-              </CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Call-type filter toggle */}
               {callType && (
                 <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-1.5">
                   <span className="text-[11px] text-muted-foreground">
                     {showAllEvents ? 'Alle events' : callType === 'cargo_agent' ? 'Cargo-events' : 'Owner’s-events'}
                   </span>
-                  <button
-                    onClick={() => setShowAllEvents((v) => !v)}
-                    className="text-[11px] font-medium text-primary hover:underline"
-                  >
+                  <button onClick={() => setShowAllEvents((v) => !v)} className="text-[11px] font-medium text-primary hover:underline">
                     {showAllEvents ? 'Toon relevante' : 'Toon alle'}
                   </button>
                 </div>
@@ -1247,18 +1225,14 @@ export default function PortCallDetail() {
                   rows={2}
                   className={cn('resize-none', reasonNeeded && 'border-amber-400')}
                 />
-                {reasonNeeded && (
-                  <p className="text-[11px] text-amber-600">Dit event vereist een reden in de opmerking.</p>
-                )}
+                {reasonNeeded && <p className="text-[11px] text-amber-600">Dit event vereist een reden in de opmerking.</p>}
                 <Button className="w-full" onClick={handleAddEvent} disabled={!newType || busy || reasonNeeded}>
                   <Plus className="mr-1.5 h-4 w-4" /> Event toevoegen
                 </Button>
               </div>
 
               {events.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  Nog geen events gelogd. Voeg ETA, anchored, ETB enz. toe.
-                </p>
+                <p className="py-6 text-center text-sm text-muted-foreground">Nog geen events gelogd. Voeg ETA, anchored, ETB enz. toe.</p>
               ) : (
                 <ol className="relative space-y-1 border-l border-border/60 pl-4">
                   {events.map((e) => {
@@ -1266,22 +1240,11 @@ export default function PortCallDetail() {
                     const editing = editId === e.id;
                     return (
                       <li key={e.id} className="relative">
-                        <span
-                          className={cn(
-                            'absolute -left-[21px] top-2.5 h-2.5 w-2.5 rounded-full border-2 border-card',
-                            def ? PHASE_DOT[def.phase] : 'bg-muted-foreground',
-                          )}
-                        />
+                        <span className={cn('absolute -left-[21px] top-2.5 h-2.5 w-2.5 rounded-full border-2 border-card', def ? PHASE_DOT[def.phase] : 'bg-muted-foreground')} />
                         {editing ? (
                           <div className="space-y-2 rounded-lg border border-border/60 p-2">
                             <Input type="datetime-local" value={editTime} onChange={(ev) => setEditTime(ev.target.value)} />
-                            <Textarea
-                              value={editRemark}
-                              onChange={(ev) => setEditRemark(ev.target.value)}
-                              rows={2}
-                              placeholder="Opmerking…"
-                              className="resize-none"
-                            />
+                            <Textarea value={editRemark} onChange={(ev) => setEditRemark(ev.target.value)} rows={2} placeholder="Opmerking…" className="resize-none" />
                             <div className="flex justify-end gap-1.5">
                               <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>
                                 <X className="h-3.5 w-3.5" />
@@ -1294,9 +1257,7 @@ export default function PortCallDetail() {
                         ) : (
                           <div className="group rounded-lg px-2 py-1.5 hover:bg-muted/40">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
-                                {fmtDateTime(e.event_time)}
-                              </span>
+                              <span className="text-[11px] font-medium tabular-nums text-muted-foreground">{fmtDateTime(e.event_time)}</span>
                               <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                                 <button onClick={() => startEdit(e)} className="text-muted-foreground hover:text-primary">
                                   <Pencil className="h-3 w-3" />
@@ -1320,24 +1281,98 @@ export default function PortCallDetail() {
         </div>
       </div>
 
+      {/* Nomination dialog */}
+      <Dialog open={nomOpen} onOpenChange={setNomOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-primary" /> Nominatie &amp; opbrengst
+            </DialogTitle>
+            <DialogDescription>Nominatie, opbrengst en planning voor {call.vessel}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-xl border border-border/60 px-4 py-3">
+              <div>
+                <p className="text-[13px] font-medium text-foreground">Genomineerd</p>
+                <p className="text-[11px] text-muted-foreground">Schip is aan ons toegewezen voor deze port call.</p>
+              </div>
+              <Switch checked={nominated} onCheckedChange={setNominated} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px]">Status</Label>
+              <select
+                value={record?.status ?? 'expected'}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+              >
+                {LIFECYCLE_ORDER.map((s) => (
+                  <option key={s} value={s}>
+                    {LIFECYCLE_META[s].label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">Opbrengst / agency fee</Label>
+                <div className="flex gap-2">
+                  <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+                    {CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <Input type="number" inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">Principal</Label>
+                <Input value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="Opdrachtgever" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">ETA</Label>
+                <Input type="datetime-local" value={eta} onChange={(e) => setEta(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">ETB</Label>
+                <Input type="datetime-local" value={etb} onChange={(e) => setEtb(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">ETD</Label>
+                <Input type="datetime-local" value={etd} onChange={(e) => setEtd(e.target.value)} />
+              </div>
+            </div>
+            {amount.trim() && (
+              <p className="text-[13px] text-muted-foreground">
+                Verdiensten op deze port call: <span className="font-bold text-foreground">{currency} {Number(amount).toLocaleString()}</span>
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setNomOpen(false)}>
+              Sluiten
+            </Button>
+            <Button onClick={saveNomination} disabled={busy}>
+              Opslaan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* n8n draft dialog (concept-only) */}
       <Dialog open={draftOpen} onOpenChange={setDraftOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Concept aanmaken</DialogTitle>
-            <DialogDescription>
-              n8n maakt alleen een Outlook-concept aan voor {call.vessel}. Er wordt niets verzonden.
-            </DialogDescription>
+            <DialogDescription>n8n maakt alleen een Outlook-concept aan voor {call.vessel}. Er wordt niets verzonden.</DialogDescription>
           </DialogHeader>
-
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-[12px]">Documenttype</Label>
-              <select
-                value={draftType}
-                onChange={(e) => onDraftTypeChange(e.target.value as DocType)}
-                className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
-              >
+              <select value={draftType} onChange={(e) => onDraftTypeChange(e.target.value as DocType)} className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm">
                 {(['arrival_notice', 'SOF', 'NOR', 'PDA', 'FDA'] as DocType[]).map((tp) => (
                   <option key={tp} value={tp}>
                     {DOC_TYPE_LABEL[tp]}
@@ -1361,24 +1396,13 @@ export default function PortCallDetail() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[12px]">n8n webhook-URL</Label>
-              <Input
-                value={draftWebhook}
-                onChange={(e) => setDraftWebhook(e.target.value)}
-                placeholder="https://…app.n8n.cloud/webhook/…"
-              />
+              <Input value={draftWebhook} onChange={(e) => setDraftWebhook(e.target.value)} placeholder="https://…app.n8n.cloud/webhook/…" />
               <p className="text-[11px] text-muted-foreground">
-                Al ingesteld op de LBH-koppeling. De aanroep stuurt altijd <code>draft:true</code> — n8n maakt
-                een Outlook-concept aan, verstuurt nooit.
+                Al ingesteld op de LBH-koppeling. De aanroep stuurt altijd <code>draft:true</code> — n8n maakt een Outlook-concept aan, verstuurt nooit.
               </p>
             </div>
-
             {draftResult && (
-              <div
-                className={cn(
-                  'rounded-lg px-3 py-2 text-[12px]',
-                  draftResult.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700',
-                )}
-              >
+              <div className={cn('rounded-lg px-3 py-2 text-[12px]', draftResult.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700')}>
                 {draftResult.ok ? (
                   draftResult.draft_url ? (
                     <a href={draftResult.draft_url} target="_blank" rel="noreferrer" className="font-medium underline">
@@ -1393,7 +1417,6 @@ export default function PortCallDetail() {
               </div>
             )}
           </div>
-
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDraftOpen(false)}>
               Sluiten
