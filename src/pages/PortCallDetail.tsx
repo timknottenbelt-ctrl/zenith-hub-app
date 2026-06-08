@@ -41,6 +41,7 @@ import {
   type PortCallDoc,
 } from '@/lib/portCallOps';
 import { TERMINALS, resolveTerminal, berthCheck, suggestBerths, cargoToProduct } from '@/lib/terminals';
+import { LIFECYCLE_ORDER, LIFECYCLE_META } from '@/lib/portCallStatus';
 import { resolvePortLoc, osmEmbedUrl, marineTrafficUrl, vesselFinderUrl } from '@/lib/curacaoPorts';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { getN8nWebhook, setN8nWebhook, createN8nDraft, type DocType, type DraftResult } from '@/lib/n8n';
@@ -416,6 +417,13 @@ export default function PortCallDetail() {
     if (!record) return;
     await apiDeleteEvent(id);
     await reloadEvents(record.id);
+  }
+
+  async function handleStatusChange(status: string) {
+    if (!record) return;
+    await updatePortCall(record.id, { status });
+    setRecord({ ...record, status });
+    toast({ title: `Status: ${LIFECYCLE_META[status as keyof typeof LIFECYCLE_META]?.label ?? status}` });
   }
 
   async function saveNomination() {
@@ -878,6 +886,24 @@ export default function PortCallDetail() {
                         <p className="text-[11px] text-muted-foreground">Schip is aan ons toegewezen voor deze aanloop.</p>
                       </div>
                       <Switch checked={nominated} onCheckedChange={setNominated} />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-[12px]">Status</Label>
+                      <select
+                        value={record?.status ?? 'expected'}
+                        onChange={(e) => handleStatusChange(e.target.value)}
+                        className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+                      >
+                        {LIFECYCLE_ORDER.map((s) => (
+                          <option key={s} value={s}>
+                            {LIFECYCLE_META[s].label}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-muted-foreground">
+                        Handmatige fase. De live-status bovenin volgt automatisch uit de SOF-events.
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
