@@ -57,19 +57,38 @@ const pc = () => supabase.from('port_call') as any;
 const ev = () => supabase.from('port_call_event') as any;
 const dc = () => supabase.from('port_call_doc') as any;
 
-/** Standard arrival documents an agent handles once a vessel is nominated. */
-export const ARRIVAL_DOC_TEMPLATES: string[] = [
+export type CallType = 'cargo_agent' | 'owners_agent' | null;
+
+// Standard arrival documents, split by call type (cargo vs owner's agent).
+const COMMON_ARRIVAL_DOCS = [
   'Pre-arrival Notification / Forms',
-  'Notice of Readiness (NOR)',
   'Crew List',
   'Maritime Declaration of Health',
   'Inward Clearance (Customs / Immigration)',
+  'Port Clearance Certificate',
+];
+const CARGO_ARRIVAL_DOCS = [
+  'Notice of Readiness (NOR)',
   'Cargo Manifest',
   'Stowage / Loading Plan',
-  'Port Clearance Certificate',
+  'Bill of Lading',
   'Statement of Facts (SOF)',
   'Time Sheet / Laytime Statement',
 ];
+const OWNERS_ARRIVAL_DOCS = [
+  'Crew Change / Sign On-Off List',
+  'Cash to Master Receipt',
+  'Sludge / Garbage / FW Receipts',
+  'Bunker Delivery Note (BDN)',
+  'Stores / Provisions List',
+];
+
+/** Standard arrival documents for a call type (defaults to the full set). */
+export function arrivalDocTemplates(callType: CallType): string[] {
+  if (callType === 'cargo_agent') return [...COMMON_ARRIVAL_DOCS, ...CARGO_ARRIVAL_DOCS];
+  if (callType === 'owners_agent') return [...COMMON_ARRIVAL_DOCS, ...OWNERS_ARRIVAL_DOCS];
+  return [...COMMON_ARRIVAL_DOCS, ...CARGO_ARRIVAL_DOCS, ...OWNERS_ARRIVAL_DOCS];
+}
 
 /** Fetch all persisted dossier records, keyed by dossier_key (for list merge). */
 export async function fetchPortCallRecords(): Promise<Map<string, PortCallRecord>> {
@@ -157,9 +176,13 @@ export async function deleteDoc(id: string): Promise<void> {
 }
 
 /** Seed the standard arrival-document checklist (skips ones already present). */
-export async function seedArrivalDocs(portCallId: string, existing: PortCallDoc[]): Promise<PortCallDoc[]> {
+export async function seedArrivalDocs(
+  portCallId: string,
+  existing: PortCallDoc[],
+  callType: CallType = null,
+): Promise<PortCallDoc[]> {
   const have = new Set(existing.filter((d) => d.doc_kind === 'arrival').map((d) => d.label));
-  const toAdd = ARRIVAL_DOC_TEMPLATES.filter((l) => !have.has(l));
+  const toAdd = arrivalDocTemplates(callType).filter((l) => !have.has(l));
   if (!toAdd.length) return [];
   const rows = toAdd.map((label) => ({ port_call_id: portCallId, label, doc_kind: 'arrival', status: 'pending' }));
   const { data, error } = await dc().insert(rows).select();

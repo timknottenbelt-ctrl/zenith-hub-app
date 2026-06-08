@@ -18,9 +18,11 @@ import {
   SOF_EVENTS,
   SOF_BY_KEY,
   deriveOpsStatus,
+  eventApplies,
   eventLabel,
   type SofPhase,
   type OpsStatus,
+  type AppliesTo,
 } from '@/lib/sofEvents';
 import {
   materializePortCall,
@@ -197,6 +199,7 @@ export default function PortCallDetail() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editTime, setEditTime] = useState('');
   const [editRemark, setEditRemark] = useState('');
+  const [showAllEvents, setShowAllEvents] = useState(false);
 
   // Nomination form
   const [nominated, setNominated] = useState(false);
@@ -301,6 +304,12 @@ export default function PortCallDetail() {
 
   async function quickAdd(typeKey: string) {
     if (!record) return;
+    // Events that need a reason can't be one-click logged — open the form instead.
+    if (SOF_BY_KEY[typeKey]?.requiresReason) {
+      setNewType(typeKey);
+      setNewTime(nowLocal());
+      return;
+    }
     const ev = await apiAddEvent(record.id, typeKey, new Date().toISOString(), null);
     if (ev) {
       await reloadEvents(record.id);
@@ -351,7 +360,8 @@ export default function PortCallDetail() {
   async function handleSeedArrivalDocs() {
     if (!record) return;
     setBusy(true);
-    await seedArrivalDocs(record.id, docs);
+    const ct = call?.category === 'cargo' ? 'cargo_agent' : call?.category === 'owners' ? 'owners_agent' : null;
+    await seedArrivalDocs(record.id, docs, ct);
     await reloadDocs(record.id);
     setBusy(false);
   }
@@ -422,6 +432,14 @@ export default function PortCallDetail() {
     { label: 'ETB', value: record?.etb },
     { label: 'ETD', value: record?.etd },
   ];
+
+  // Call type drives which SOF events / arrival docs are relevant.
+  const callType: AppliesTo | null =
+    call.category === 'cargo' ? 'cargo_agent' : call.category === 'owners' ? 'owners_agent' : null;
+  const filterType = showAllEvents ? null : callType;
+  const quickKeys = QUICK_KEYS.filter((k) => SOF_BY_KEY[k] && eventApplies(SOF_BY_KEY[k], filterType));
+  const newDef = newType ? SOF_BY_KEY[newType] : null;
+  const reasonNeeded = !!newDef?.requiresReason && !newRemark.trim();
 
   return (
     <DashboardLayout>
@@ -783,8 +801,23 @@ export default function PortCallDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Call-type filter toggle */}
+              {callType && (
+                <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-1.5">
+                  <span className="text-[11px] text-muted-foreground">
+                    {showAllEvents ? 'Alle events' : callType === 'cargo_agent' ? 'Cargo-events' : 'Owner’s-events'}
+                  </span>
+                  <button
+                    onClick={() => setShowAllEvents((v) => !v)}
+                    className="text-[11px] font-medium text-primary hover:underline"
+                  >
+                    {showAllEvents ? 'Toon relevante' : 'Toon alle'}
+                  </button>
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-1.5">
-                {QUICK_KEYS.map((k) => (
+                {quickKeys.map((k) => (
                   <button
                     key={k}
                     onClick={() => quickAdd(k)}
@@ -804,25 +837,33 @@ export default function PortCallDetail() {
                   className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
                 >
                   <option value="">Kies een event…</option>
-                  {SOF_PHASES.map((ph) => (
-                    <optgroup key={ph.key} label={ph.label}>
-                      {SOF_EVENTS.filter((e) => e.phase === ph.key).map((e) => (
-                        <option key={e.key} value={e.key}>
-                          {e.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
+                  {SOF_PHASES.map((ph) => {
+                    const opts = SOF_EVENTS.filter((e) => e.phase === ph.key && eventApplies(e, filterType));
+                    if (!opts.length) return null;
+                    return (
+                      <optgroup key={ph.key} label={ph.label}>
+                        {opts.map((e) => (
+                          <option key={e.key} value={e.key}>
+                            {e.label}
+                            {e.requiresReason ? ' *' : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
                 </select>
                 <Input type="datetime-local" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
                 <Textarea
-                  placeholder="Opmerking (optioneel)…"
+                  placeholder={newDef?.requiresReason ? 'Reden / opmerking (verplicht)…' : 'Opmerking (optioneel)…'}
                   value={newRemark}
                   onChange={(e) => setNewRemark(e.target.value)}
                   rows={2}
-                  className="resize-none"
+                  className={cn('resize-none', reasonNeeded && 'border-amber-400')}
                 />
-                <Button className="w-full" onClick={handleAddEvent} disabled={!newType || busy}>
+                {reasonNeeded && (
+                  <p className="text-[11px] text-amber-600">Dit event vereist een reden in de opmerking.</p>
+                )}
+                <Button className="w-full" onClick={handleAddEvent} disabled={!newType || busy || reasonNeeded}>
                   <Plus className="mr-1.5 h-4 w-4" /> Event toevoegen
                 </Button>
               </div>
