@@ -14,8 +14,8 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>(() => {
     const stored = localStorage.getItem('language') as Language;
-    // Default to English for new users
-    return stored && ['en', 'nl', 'es', 'pt'].includes(stored) ? stored : 'en';
+    // Default to Dutch (LBH Curaçao is a Dutch office) — avoids an English flash on first load.
+    return stored && ['en', 'nl', 'es', 'pt'].includes(stored) ? stored : 'nl';
   });
 
   const [office, setOffice] = useState<string | null>(() => {
