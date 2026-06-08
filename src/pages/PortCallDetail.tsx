@@ -794,6 +794,12 @@ export default function PortCallDetail() {
                             </div>
                           );
                         })}
+                        {selectedTerminal.outOfService && (
+                          <p className="flex items-start gap-1.5 rounded-lg bg-rose-50 px-2 py-1.5 pt-1 text-[11px] font-medium text-rose-700">
+                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            Deze terminal is momenteel in onderhoud / niet in gebruik.
+                          </p>
+                        )}
                         {selectedTerminal.airDraftM != null && (
                           <p className="flex items-start gap-1.5 pt-1 text-[11px] text-amber-600">
                             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -1101,9 +1107,9 @@ export default function PortCallDetail() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-[12px] text-muted-foreground">
-                      Maakt via n8n een <b>Gmail-concept</b> aan (arrival notice, SOF, NOR, PDA of FDA) met de
+                      Maakt via n8n een <b>Outlook-concept</b> aan (arrival notice, SOF, NOR, PDA of FDA) met de
                       dossiergegevens. Er wordt <b>nooit automatisch verzonden</b> — je controleert en verstuurt zelf
-                      vanuit Gmail.
+                      vanuit Outlook.
                     </p>
                   </CardContent>
                 </Card>
@@ -1296,7 +1302,7 @@ export default function PortCallDetail() {
           <DialogHeader>
             <DialogTitle>Concept aanmaken</DialogTitle>
             <DialogDescription>
-              n8n maakt alleen een Gmail-concept aan voor {call.vessel}. Er wordt niets verzonden.
+              n8n maakt alleen een Outlook-concept aan voor {call.vessel}. Er wordt niets verzonden.
             </DialogDescription>
           </DialogHeader>
 
@@ -1337,8 +1343,8 @@ export default function PortCallDetail() {
                 placeholder="https://…app.n8n.cloud/webhook/…"
               />
               <p className="text-[11px] text-muted-foreground">
-                Wordt lokaal bewaard. De aanroep stuurt altijd <code>draft:true</code> — n8n moet daarop de
-                Gmail “Create Draft”-actie doen, niet Send.
+                Al ingesteld op de LBH-koppeling. De aanroep stuurt altijd <code>draft:true</code> — n8n maakt
+                een Outlook-concept aan, verstuurt nooit.
               </p>
             </div>
 
@@ -1352,7 +1358,7 @@ export default function PortCallDetail() {
                 {draftResult.ok ? (
                   draftResult.draft_url ? (
                     <a href={draftResult.draft_url} target="_blank" rel="noreferrer" className="font-medium underline">
-                      Concept openen in Gmail →
+                      Concept openen in Outlook →
                     </a>
                   ) : (
                     'Concept aangemaakt in n8n.'

@@ -8,11 +8,15 @@
 
 const WEBHOOK_KEY = 'lbh_n8n_webhook';
 
+// Live draft-only webhook in the LBH n8n instance (Webhook → Build → Outlook
+// Create Draft → Respond). Draft-only by construction; never sends.
+const DEFAULT_WEBHOOK = 'https://lbhcuracao.app.n8n.cloud/webhook/dashboard-create-draft';
+
 export function getN8nWebhook(): string {
   try {
-    return localStorage.getItem(WEBHOOK_KEY) || '';
+    return localStorage.getItem(WEBHOOK_KEY) || DEFAULT_WEBHOOK;
   } catch {
-    return '';
+    return DEFAULT_WEBHOOK;
   }
 }
 
