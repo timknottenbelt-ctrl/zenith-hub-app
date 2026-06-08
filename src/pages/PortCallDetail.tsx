@@ -40,6 +40,7 @@ import {
   type PortCallEvent,
   type PortCallDoc,
 } from '@/lib/portCallOps';
+import { TERMINALS, resolveTerminal, berthCheck } from '@/lib/terminals';
 import { resolvePortLoc, osmEmbedUrl, marineTrafficUrl } from '@/lib/curacaoPorts';
 import {
   ArrowLeft,
@@ -64,6 +65,11 @@ import {
   Clock,
   ListChecks,
   CircleDot,
+  CheckCircle2,
+  XCircle,
+  MinusCircle,
+  AlertTriangle,
+  ShipWheel,
 } from 'lucide-react';
 
 const TONE: Record<OpsStatus['tone'], string> = {
@@ -214,6 +220,13 @@ export default function PortCallDetail() {
   const [docLabel, setDocLabel] = useState('');
   const [docUrl, setDocUrl] = useState('');
 
+  // Berth check
+  const [bcTerminal, setBcTerminal] = useState('');
+  const [bcLoa, setBcLoa] = useState('');
+  const [bcDraft, setBcDraft] = useState('');
+  const [bcDwt, setBcDwt] = useState('');
+  const [bcAir, setBcAir] = useState('');
+
   // Resolve the call (from cache or a fresh fetch) and materialise its record.
   useEffect(() => {
     let active = true;
@@ -247,6 +260,9 @@ export default function PortCallDetail() {
         setEta(toLocalInput(rec.eta || c.eta));
         setEtb(toLocalInput(rec.etb));
         setEtd(toLocalInput(rec.etd));
+        if (c.loa) setBcLoa(String(c.loa));
+        const rt = resolveTerminal(rec.terminal, c.terminal, c.port);
+        if (rt) setBcTerminal(rt.name);
         const [evs, dcs] = await Promise.all([loadEvents(rec.id), loadDocs(rec.id)]);
         if (!active) return;
         setEvents(evs);
@@ -261,10 +277,11 @@ export default function PortCallDetail() {
   }, [decodedKey]);
 
   const opsStatus = useMemo(() => deriveOpsStatus(events), [events]);
-  const portLoc = useMemo(
-    () => resolvePortLoc(record?.terminal, call?.terminal, call?.port),
-    [record?.terminal, call?.terminal, call?.port],
-  );
+  const portLoc = useMemo(() => {
+    const tt = resolveTerminal(record?.terminal, call?.terminal, call?.port);
+    if (tt) return { name: tt.name, lat: tt.lat, lon: tt.lon };
+    return resolvePortLoc(record?.terminal, call?.terminal, call?.port);
+  }, [record?.terminal, call?.terminal, call?.port]);
   const comms = useMemo(() => (call ? [...call.emails].reverse() : []), [call]);
   const arrivalDocs = docs.filter((d) => d.doc_kind === 'arrival');
   const arrivalDone = arrivalDocs.filter((d) => d.status !== 'pending').length;
@@ -441,6 +458,20 @@ export default function PortCallDetail() {
   const newDef = newType ? SOF_BY_KEY[newType] : null;
   const reasonNeeded = !!newDef?.requiresReason && !newRemark.trim();
 
+  // Berth feasibility check against the Curaçao terminal database.
+  const num = (s: string) => (s.trim() ? Number(s) : null);
+  const selectedTerminal =
+    (bcTerminal ? TERMINALS.find((t) => t.name === bcTerminal) : null) ||
+    resolveTerminal(record?.terminal, call?.terminal, call?.port);
+  const check = selectedTerminal
+    ? berthCheck(
+        { loa: num(bcLoa) ?? call.loa, draft: num(bcDraft), dwt: num(bcDwt), airDraft: num(bcAir) },
+        selectedTerminal,
+      )
+    : null;
+  const BC_TONE = { fits: TONE.emerald, exceeds: TONE.rose, unknown: TONE.slate } as const;
+  const BC_LABEL = { fits: 'Past', exceeds: 'Past niet', unknown: 'Onbekend' } as const;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -550,6 +581,96 @@ export default function PortCallDetail() {
                     <p className="mt-2 text-[11px] text-muted-foreground">
                       Kaart toont de terminal/ligplaats. Live AIS-positie via de MarineTraffic-knop.
                     </p>
+                  </CardContent>
+                </Card>
+
+                {/* Berth check */}
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <ShipWheel className="h-4 w-4 text-primary" /> Berth-check
+                    </CardTitle>
+                    {check && (
+                      <Badge className={cn('border', BC_TONE[check.verdict])}>{BC_LABEL[check.verdict]}</Badge>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[12px]">Terminal</Label>
+                      <select
+                        value={selectedTerminal?.name ?? ''}
+                        onChange={(e) => setBcTerminal(e.target.value)}
+                        className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+                      >
+                        <option value="">Kies terminal…</option>
+                        {TERMINALS.map((tm) => (
+                          <option key={tm.name} value={tm.name}>
+                            {tm.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">LOA (m)</Label>
+                        <Input type="number" value={bcLoa} onChange={(e) => setBcLoa(e.target.value)} placeholder="—" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Draft (m)</Label>
+                        <Input type="number" value={bcDraft} onChange={(e) => setBcDraft(e.target.value)} placeholder="—" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">DWT</Label>
+                        <Input type="number" value={bcDwt} onChange={(e) => setBcDwt(e.target.value)} placeholder="—" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Air draft (m)</Label>
+                        <Input type="number" value={bcAir} onChange={(e) => setBcAir(e.target.value)} placeholder="—" />
+                      </div>
+                    </div>
+
+                    {check && selectedTerminal && (
+                      <div className="space-y-1.5">
+                        {check.rows.map((r) => {
+                          const meta =
+                            r.status === 'ok'
+                              ? { Icon: CheckCircle2, cls: 'text-emerald-600', txt: 'past' }
+                              : r.status === 'nolimit'
+                                ? { Icon: CheckCircle2, cls: 'text-emerald-600', txt: 'geen limiet' }
+                                : r.status === 'exceed'
+                                  ? { Icon: XCircle, cls: 'text-rose-600', txt: 'overschrijdt' }
+                                  : { Icon: MinusCircle, cls: 'text-muted-foreground', txt: 'onbekend' };
+                          const Icon = meta.Icon;
+                          return (
+                            <div key={r.label} className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2 text-[12px]">
+                              <span className="flex items-center gap-2 font-medium text-foreground">
+                                <Icon className={cn('h-4 w-4', meta.cls)} /> {r.label}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {r.vesselVal != null ? `${r.vesselVal} ${r.unit}` : '—'}
+                                <span className="mx-1.5 opacity-50">/</span>
+                                {r.noteNoLimit
+                                  ? 'geen limiet'
+                                  : r.limitVal != null
+                                    ? `${r.limitVal} ${r.unit}`
+                                    : 'n.b.'}
+                                <span className={cn('ml-2 font-semibold', meta.cls)}>{meta.txt}</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {selectedTerminal.airDraftM != null && (
+                          <p className="flex items-start gap-1.5 pt-1 text-[11px] text-amber-600">
+                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            Julianabrug-doorvaarthoogte {selectedTerminal.airDraftM} m geldt voor het Schottegat.
+                          </p>
+                        )}
+                        {selectedTerminal.notes && (
+                          <p className="pt-1 text-[11px] text-muted-foreground">{selectedTerminal.notes}</p>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
