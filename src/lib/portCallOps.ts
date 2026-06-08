@@ -23,6 +23,11 @@ export interface PortCallRecord {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  // Cached latest AI scan (shows instantly; we only re-scan when new mail arrived).
+  ai_summary: string | null;
+  ai_updates: string[] | null;
+  ai_scanned_at: string | null;
+  ai_scanned_count: number | null;
 }
 
 export interface PortCallEvent {
@@ -238,6 +243,23 @@ export interface AiScanResult {
   summary: string;
   updates: string[];
   todos: string[];
+}
+
+/** Persist the latest AI scan on the port_call record (summary + updates +
+ *  the email count it was based on, so we only re-scan when new mail arrives). */
+export async function saveAiScan(
+  portCallId: string,
+  result: AiScanResult,
+  emailCount: number,
+): Promise<void> {
+  await pc()
+    .update({
+      ai_summary: result.summary,
+      ai_updates: result.updates,
+      ai_scanned_at: new Date().toISOString(),
+      ai_scanned_count: emailCount,
+    })
+    .eq('id', portCallId);
 }
 
 /** Run the port-call AI scan over the given emails (read-only). */

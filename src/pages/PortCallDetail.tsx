@@ -41,6 +41,7 @@ import {
   toggleTask as apiToggleTask,
   deleteTask as apiDeleteTask,
   runPortCallAi,
+  saveAiScan,
   type PortCallRecord,
   type PortCallEvent,
   type PortCallDoc,
@@ -412,6 +413,31 @@ export default function PortCallDetail() {
         setEvents(evs);
         setDocs(dcs);
         setTasks(tks);
+        // Show the cached AI summary instantly.
+        if (rec.ai_summary) setAiResult({ summary: rec.ai_summary, updates: rec.ai_updates || [], todos: [] });
+        // Auto-scan in the background when new mail has arrived since the last scan.
+        const emailCount = c.emails.length;
+        if (emailCount > 0 && (rec.ai_scanned_count == null || emailCount > rec.ai_scanned_count)) {
+          setAiBusy(true);
+          (async () => {
+            const res = await runPortCallAi(c!.emails.map((e) => e.id));
+            if (!active) return;
+            if (res) {
+              setAiResult(res);
+              await saveAiScan(rec.id, res, emailCount);
+              if (res.todos.length) {
+                await apiAddTasks(rec.id, res.todos, tks, 'ai');
+                if (active) setTasks(await loadTasks(rec.id));
+              }
+              setRecord((r) =>
+                r
+                  ? { ...r, ai_summary: res.summary, ai_updates: res.updates, ai_scanned_count: emailCount, ai_scanned_at: new Date().toISOString() }
+                  : r,
+              );
+            }
+            if (active) setAiBusy(false);
+          })();
+        }
       }
       setLoading(false);
     })();
@@ -556,6 +582,12 @@ export default function PortCallDetail() {
     const res = await runPortCallAi(call.emails.map((e) => e.id));
     if (res) {
       setAiResult(res);
+      await saveAiScan(record.id, res, call.emails.length);
+      setRecord((r) =>
+        r
+          ? { ...r, ai_summary: res.summary, ai_updates: res.updates, ai_scanned_count: call.emails.length, ai_scanned_at: new Date().toISOString() }
+          : r,
+      );
       if (res.todos.length) {
         await apiAddTasks(record.id, res.todos, tasks, 'ai');
         await reloadTasks(record.id);
@@ -828,11 +860,21 @@ export default function PortCallDetail() {
                 </Button>
               }
             >
+              {aiBusy && !aiResult?.summary && (
+                <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-[12px] text-primary">
+                  <Sparkles className="h-3.5 w-3.5 animate-pulse" /> AI leest de mails…
+                </div>
+              )}
               {aiResult?.summary && (
                 <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-[12px]">
-                  <p className="flex items-center gap-1.5 font-semibold text-primary">
-                    <Sparkles className="h-3.5 w-3.5" /> AI-samenvatting
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex items-center gap-1.5 font-semibold text-primary">
+                      <Sparkles className={cn('h-3.5 w-3.5', aiBusy && 'animate-pulse')} /> AI-samenvatting
+                    </p>
+                    {record?.ai_scanned_at && (
+                      <span className="text-[10px] text-muted-foreground">bijgewerkt {fmtDateTime(record.ai_scanned_at)}</span>
+                    )}
+                  </div>
                   <p className="mt-1 text-foreground">{aiResult.summary}</p>
                   {aiResult.updates.length > 0 && (
                     <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-muted-foreground">
