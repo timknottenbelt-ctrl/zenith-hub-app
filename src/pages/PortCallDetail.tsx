@@ -73,6 +73,7 @@ import {
   MinusCircle,
   AlertTriangle,
   ShipWheel,
+  RotateCcw,
 } from 'lucide-react';
 
 const TONE: Record<OpsStatus['tone'], string> = {
@@ -640,6 +641,22 @@ export default function PortCallDetail() {
               {record?.nominated && (
                 <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-700">Nominated</Badge>
               )}
+              {record &&
+                (record.status === 'closed' ? (
+                  <button
+                    onClick={() => handleStatusChange('sailed')}
+                    className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/25"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Heropenen
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleStatusChange('closed')}
+                    className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/25"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Sluiten
+                  </button>
+                ))}
             </div>
           </div>
 
