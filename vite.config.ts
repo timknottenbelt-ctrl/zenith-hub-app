@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt"],
       manifest: {
-        name: "LBH Portal",
-        short_name: "LBH",
+        name: "PortAgent AI",
+        short_name: "PortAgent",
         description: "LBH Group portable AI inquiry dashboard",
         theme_color: "#0284c7",
         background_color: "#fafafa",
