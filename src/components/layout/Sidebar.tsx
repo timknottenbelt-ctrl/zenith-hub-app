@@ -76,8 +76,8 @@ export const Sidebar = memo(function Sidebar() {
             <Ship className="w-5 h-5 text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="font-bold text-foreground text-[16px] leading-tight tracking-tight">LBH Portal</span>
-            <span className="text-[11px] text-muted-foreground/60 leading-tight font-medium">Maritime Services</span>
+            <span className="font-bold text-foreground text-[16px] leading-tight tracking-tight">PortAgent AI</span>
+            <span className="text-[11px] text-muted-foreground/60 leading-tight font-medium">LBH Curaçao</span>
           </div>
           {officeFlagUrl && (
             <img
