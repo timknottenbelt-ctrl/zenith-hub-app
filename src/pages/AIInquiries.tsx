@@ -451,11 +451,16 @@ export default function AIInquiries() {
             }
           }
 
-          // Attach the generated DA/EDA PDF (public da-pdfs url) so it rides along
-          // with the outgoing reply, not just shown under Documents.
+          // Attach the generated DA/EDA PDF(s) (public da-pdfs urls) so they ride
+          // along with the outgoing reply, not just shown under Documents.
           if (selectedEmail.pdf_url) {
             const vesselSlug = (selectedEmail.vessel_name || 'vessel').replace(/[^a-zA-Z0-9]+/g, '_');
             attachmentUrls.push({ file_name: `EDA - ${vesselSlug}.pdf`, url: selectedEmail.pdf_url });
+          }
+          const v2pdf = (selectedEmail as unknown as Record<string, unknown>).dock_link_2 as string | undefined;
+          if (v2pdf && /\.pdf(\?|$)/i.test(v2pdf)) {
+            const v2slug = (((selectedEmail as unknown as Record<string, unknown>).vessel_2_name as string) || 'vessel-2').replace(/[^a-zA-Z0-9]+/g, '_');
+            attachmentUrls.push({ file_name: `EDA - ${v2slug}.pdf`, url: v2pdf });
           }
 
           const payload = {
@@ -952,8 +957,11 @@ export default function AIInquiries() {
                     )}
                   </div>
 
-                  {/* ── Disbursement Account (generate + attach) ── */}
-                  <InquiryDAPanel key={selectedEmail.id} email={selectedEmail} onAttached={() => selectEmail(selectedEmail.id)} />
+                  {/* ── Disbursement Account (one EDA Calculator per vessel) ── */}
+                  <InquiryDAPanel key={`${selectedEmail.id}-1`} email={selectedEmail} vesselIndex={1} onAttached={() => selectEmail(selectedEmail.id)} />
+                  {(selectedEmail as unknown as Record<string, unknown>).vessel_2_name ? (
+                    <InquiryDAPanel key={`${selectedEmail.id}-2`} email={selectedEmail} vesselIndex={2} onAttached={() => selectEmail(selectedEmail.id)} />
+                  ) : null}
 
                   {/* ── Attachments ── */}
                   <div className="px-5 py-3 border-t border-border/50">
@@ -1127,6 +1135,11 @@ const ORIG_LABELS = [
 function prettifyOriginal(raw: string): string {
   if (!raw) return '';
   let t = raw;
+  // Strip invisible/zero-width junk and tracking trailers that wreck the layout.
+  t = t
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF\u00AD\u034F]/g, '')
+    .replace(/[ \t]*Conversation ID:[\s\S]*$/i, '')
+    .replace(/[\u2500-\u257F]{3,}/g, '\n');
   // HTML -> text: turn structural tags into line breaks, drop the rest, decode entities.
   if (/<[a-z/][^>]*>/i.test(t)) {
     t = t

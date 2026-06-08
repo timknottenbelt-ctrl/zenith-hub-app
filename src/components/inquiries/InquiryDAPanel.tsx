@@ -47,23 +47,29 @@ function portToTerminal(port?: string | null): string {
 const SERVICE_RE =
   /sludge|slop|garbage|bilge|\bwaste\b|fresh\s*water|drinking\s*water|provision|\bstores?\b|\bspares?\b|crew\s*change|cash to master|\bctm\b|diving|hot\s*work|certificate|disposal|launch\s*boat|hotel/i;
 
-export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached: () => void }) {
+export function InquiryDAPanel({ email, onAttached, vesselIndex = 1 }: { email: Email; onAttached: () => void; vesselIndex?: number }) {
   const e = email as unknown as Record<string, unknown>;
+  const vi = vesselIndex === 2 ? 2 : 1;
+  // Pick this panel's vessel from the email (vessel 1 or vessel 2 columns).
+  const vName = (vi === 2 ? (e.vessel_2_name as string) : email.vessel_name) || '';
+  const vGrt = vi === 2 ? e.vessel_2_grt : e.vessel_grt;
+  const vLoa = vi === 2 ? e.vessel_2_loa : e.vessel_loa;
+  const multiVessel = !!(e.vessel_2_name);
   const isService = SERVICE_RE.test(
     `${email.subject || ''} ${String(e.cargo_type || '')} ${String(e.services_requested || '')}`,
   );
   const [open, setOpen] = useState(!isService);
   const [v, setV] = useState<Vals>(() => ({
-    vessel_name: email.vessel_name || '',
+    vessel_name: vName,
     client_name: email.company_name || email.contact_name || '',
-    gt: e.vessel_grt ? String(e.vessel_grt) : '',
-    loa: e.vessel_loa ? String(e.vessel_loa) : '',
+    gt: vGrt ? String(vGrt) : '',
+    loa: vLoa ? String(vLoa) : '',
     dwt: '',
     terminal: (e.terminal as string) || portToTerminal(e.port as string),
     facility: 'Bouy',
     operation_type: (e.operation_type as string) || (/CARGO|LOADING|DISCHARGE/i.test(email['Email Type'] || '') ? 'discharge' : 'discharge'),
-    cargo_type: (e.cargo_type as string) || '',
-    cargo_quantity: e.cargo_quantity ? String(e.cargo_quantity) : '',
+    cargo_type: vi === 2 ? '' : ((e.cargo_type as string) || ''),
+    cargo_quantity: vi === 2 ? '' : (e.cargo_quantity ? String(e.cargo_quantity) : ''),
     agency_fee: '',
   }));
   const [extra, setExtra] = useState<Line[]>([]);
@@ -138,8 +144,8 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
     }
     (async () => {
       let next = { ...v };
-      if (!next.gt && email.vessel_name) {
-        const cleanName = email.vessel_name.replace(/^M[\/.]?[TV]\s+/i, '').trim();
+      if (!next.gt && vName) {
+        const cleanName = vName.replace(/^M[\/.]?[TV]\s+/i, '').trim();
         const { data } = await supabase
           .from('vessels')
           .select('gross_tonnage, loa_m, dwt_mt')
@@ -176,7 +182,11 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
     const { data, error } = await supabase.functions.invoke(fn, { body: { da_output_id: id } });
     const url = data?.pdf_url || data?.excel_url;
     if (error || !url) { setBusy(null); toast({ title: 'Genereren mislukt', description: error?.message || data?.error, variant: 'destructive' }); return; }
-    const patch = kind === 'pdf' ? { pdf_url: url } : { doc_link: url };
+    // Vessel 1 attaches to pdf_url/doc_link; vessel 2 to dock_link_2 so two EDAs
+    // don't overwrite each other.
+    const patch = vi === 2
+      ? { dock_link_2: url }
+      : (kind === 'pdf' ? { pdf_url: url } : { doc_link: url });
     await supabase.from('email').update(patch as never).eq('id', email.id);
     setBusy(null);
     toast({ title: kind === 'pdf' ? 'PDF gekoppeld aan deze aanvraag' : 'Excel gekoppeld aan deze aanvraag' });
@@ -196,14 +206,16 @@ export function InquiryDAPanel({ email, onAttached }: { email: Email; onAttached
     </div>
   );
 
-  const attached = !!email.pdf_url || !!email.doc_link;
+  const attached = vi === 2 ? !!e.dock_link_2 : (!!email.pdf_url || !!email.doc_link);
 
   return (
     <div className="px-5 py-3 border-t border-border/50">
       <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-2 text-left">
         {open ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
         <Calculator className="w-3.5 h-3.5 text-primary" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">EDA Calculator</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          EDA Calculator{multiVessel ? ` · Schip ${vi}: ${vName}` : ''}
+        </span>
         {attached ? (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">
             <Check className="w-2.5 h-2.5" /> gekoppeld

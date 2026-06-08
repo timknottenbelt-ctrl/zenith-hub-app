@@ -187,6 +187,7 @@ Deno.serve(async (req) => {
     composed.body = normalizeBody(composed.body);
 
     const v0 = vessels[0] ?? {} as Extracted["vessels"][number];
+    const v1 = vessels[1] as (Extracted["vessels"][number] | undefined);
     const update: Record<string, unknown> = {
       subject: composed.subject,
       body: composed.body,
@@ -196,6 +197,11 @@ Deno.serve(async (req) => {
       vessel_loa: (v0 as { loa?: number }).loa ?? null,
       cargo_type: (v0 as { cargo_type?: string }).cargo_type ?? null,
       cargo_quantity: (v0 as { cargo_quantity?: number }).cargo_quantity ?? null,
+      // Second vessel (for the per-vessel EDA calculators).
+      vessel_2_name: v1?.name ?? null,
+      vessel_2_imo: v1?.imo ?? null,
+      vessel_2_grt: (v1 as { grt?: number } | undefined)?.grt ?? null,
+      vessel_2_loa: (v1 as { loa?: number } | undefined)?.loa ?? null,
       port: pdas[0]?.port_code ?? extracted.location?.port ?? null,
       eta: extracted.eta ?? v0.eta ?? null,
       contact_name: extracted.contact?.name ?? null,
