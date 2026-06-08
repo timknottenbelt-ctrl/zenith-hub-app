@@ -23,6 +23,7 @@ import {
 const navItems = [
   { key: 'overview', icon: LayoutDashboard, path: '/', group: 'main' },
   { key: 'aiInquiries', icon: MessageSquare, path: '/inquiries', group: 'operations' },
+  { key: 'portCalls', icon: Ship, path: '/port-calls', group: 'operations' },
   { key: 'sentPDAs', icon: Send, path: '/inquiries/sent', group: 'operations' },
   { key: 'pdaAdmin', icon: Anchor, path: '/pda-admin', group: 'operations' },
   { key: 'daCreator', icon: Calculator, path: '/da-creator', group: 'operations' },
