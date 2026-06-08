@@ -50,6 +50,7 @@ import {
 } from '@/lib/portCallOps';
 import { TERMINALS, resolveTerminal, berthCheck, suggestBerths, cargoToProduct } from '@/lib/terminals';
 import { LIFECYCLE_ORDER, LIFECYCLE_META } from '@/lib/portCallStatus';
+import { DACalculatorPanel, type DAInitial } from '@/components/da/DACalculatorPanel';
 import { resolvePortLoc, osmEmbedUrl, marineTrafficUrl, vesselFinderUrl } from '@/lib/curacaoPorts';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { getN8nWebhook, setN8nWebhook, createN8nDraft, type DocType, type DraftResult } from '@/lib/n8n';
@@ -340,6 +341,9 @@ export default function PortCallDetail() {
   const [newTask, setNewTask] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiResult, setAiResult] = useState<AiScanResult | null>(null);
+
+  // Inline tool view below the header: dossier (default) | da
+  const [view, setView] = useState<'dossier' | 'da'>('dossier');
 
   // Nomination form (in a dialog)
   const [nomOpen, setNomOpen] = useState(false);
@@ -744,18 +748,15 @@ export default function PortCallDetail() {
 
   const actionBtn = 'flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/25';
 
-  // Prefill the DA Creator from this port call.
-  const daQuery = (() => {
-    const q = new URLSearchParams();
-    q.set('vessel', call.vessel);
-    if (call.grt) q.set('gt', String(call.grt));
-    if (call.loa) q.set('loa', String(call.loa));
-    if (call.cargoType) q.set('cargo', call.cargoType);
-    const term = record?.terminal || call.terminal || call.port;
-    if (term) q.set('terminal', term);
-    if (principal || call.company) q.set('client', principal || call.company || '');
-    return q.toString();
-  })();
+  // Prefill the inline DA calculator from this port call.
+  const daInitial: DAInitial = {
+    vessel_name: call.vessel,
+    gt: call.grt ? String(call.grt) : undefined,
+    loa: call.loa ? String(call.loa) : undefined,
+    cargo_type: call.cargoType || undefined,
+    terminal: record?.terminal || call.terminal || call.port || undefined,
+    client_name: principal || call.company || undefined,
+  };
 
   return (
     <DashboardLayout>
@@ -815,7 +816,10 @@ export default function PortCallDetail() {
                   </span>
                 )}
               </button>
-              <button onClick={() => navigate(`/da-creator?${daQuery}`)} className={actionBtn}>
+              <button
+                onClick={() => setView((view) => (view === 'da' ? 'dossier' : 'da'))}
+                className={cn(actionBtn, view === 'da' && 'bg-white text-primary hover:bg-white/90')}
+              >
                 <Calculator className="h-3.5 w-3.5" /> DA Creator
               </button>
               <button onClick={() => navigate('/fda-curacao')} className={actionBtn}>
@@ -859,6 +863,9 @@ export default function PortCallDetail() {
           </div>
         </div>
 
+        {view === 'da' ? (
+          <DACalculatorPanel initial={daInitial} onBack={() => setView('dossier')} />
+        ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* LEFT: blocks */}
           <div className="space-y-4 lg:col-span-2">
@@ -1334,6 +1341,7 @@ export default function PortCallDetail() {
             </CardContent>
           </Card>
         </div>
+        )}
       </div>
 
       {/* Nomination dialog */}
