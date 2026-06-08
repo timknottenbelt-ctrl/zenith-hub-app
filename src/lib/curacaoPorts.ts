@@ -47,3 +47,12 @@ export function marineTrafficUrl(imo: string | null | undefined, name: string | 
   const q = encodeURIComponent((name || '').trim());
   return `https://www.marinetraffic.com/en/ais/index/search/all?keyword=${q}`;
 }
+
+/** Live AIS tracking link (VesselFinder) by IMO, falling back to a name search. */
+export function vesselFinderUrl(imo: string | null | undefined, name: string | null | undefined): string {
+  if (imo && /^\d{7}$/.test(imo.trim())) {
+    return `https://www.vesselfinder.com/vessels/details/${imo.trim()}`;
+  }
+  const q = encodeURIComponent((name || '').trim());
+  return `https://www.vesselfinder.com/vessels?name=${q}`;
+}
