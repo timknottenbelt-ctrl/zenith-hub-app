@@ -13,6 +13,7 @@ export type SofPhase =
   | 'completion_closing';
 
 export type SofType = 'milestone' | 'remark';
+export type AppliesTo = 'cargo_agent' | 'owners_agent' | 'both';
 
 export interface SofEventDef {
   key: string;
@@ -20,6 +21,10 @@ export interface SofEventDef {
   phase: SofPhase;
   type: SofType;
   definition: string;
+  // Which call type the event is relevant to, and whether a remark/reason is
+  // mandatory when logging it (stoppages, protests, rejections, medical).
+  appliesTo: AppliesTo;
+  requiresReason: boolean;
 }
 
 export const SOF_PHASES: { key: SofPhase; label: string; short: string; tone: string }[] = [
@@ -32,7 +37,9 @@ export const SOF_PHASES: { key: SofPhase; label: string; short: string; tone: st
   { key: 'completion_closing', label: 'Completion / Closing', short: 'Closing', tone: 'text-emerald-600' },
 ];
 
-export const SOF_EVENTS: SofEventDef[] = [
+type RawSofEvent = Omit<SofEventDef, 'appliesTo' | 'requiresReason'>;
+
+const RAW_EVENTS: RawSofEvent[] = [
   // 1. Pre-arrival / Approach
   { key: 'nomination_received', label: 'Nomination Received', phase: 'pre_arrival', type: 'milestone', definition: 'Agentschap wordt door de principaal aangesteld om het schip in de haven af te handelen.' },
   { key: 'appointment_confirmed', label: 'Agency Appointment Confirmed', phase: 'pre_arrival', type: 'milestone', definition: 'Bevestiging dat het agentschap formeel is benoemd als ship’s agent voor deze aanloop.' },
@@ -163,9 +170,59 @@ export const SOF_EVENTS: SofEventDef[] = [
   { key: 'port_call_closed', label: 'Port Call / Statement Closed', phase: 'completion_closing', type: 'milestone', definition: 'Aanloop administratief afgesloten in het systeem.' },
 ];
 
+// Events specific to a cargo call even though they fall outside the cargo phase.
+const CARGO_ONLY_KEYS = new Set([
+  'nor_tendered',
+  'nor_accepted',
+  'nor_rejected',
+  'laytime_commenced',
+  'cargo_docs_signed',
+  'documents_dispatched',
+]);
+
+// Events that must carry a reason/remark when logged (delays, protests, etc.).
+const REQUIRES_REASON_KEYS = new Set([
+  'nor_rejected',
+  'awaiting_weather',
+  'shifting_berth_commenced',
+  'cargo_stopped',
+  'cargo_resumed',
+  'stoppage_rain',
+  'stoppage_equipment_failure',
+  'stoppage_shore_tank',
+  'stoppage_vessel_reasons',
+  'stoppage_awaiting_documents',
+  'bunkering_stopped',
+  'medical_attendance',
+  'crew_hospitalized',
+  'repairs_on_board',
+  'lop_issued',
+]);
+
+function appliesToOf(e: RawSofEvent): AppliesTo {
+  if (e.phase === 'cargo_operations') return 'cargo_agent';
+  if (e.phase === 'bunkering_services') return 'owners_agent';
+  if (CARGO_ONLY_KEYS.has(e.key)) return 'cargo_agent';
+  return 'both';
+}
+
+// The canonical catalogue, enriched with applicability + reason flags. Array
+// order is the canonical SOF order (pre-arrival → closing).
+export const SOF_EVENTS: SofEventDef[] = RAW_EVENTS.map((e) => ({
+  ...e,
+  appliesTo: appliesToOf(e),
+  requiresReason: REQUIRES_REASON_KEYS.has(e.key),
+}));
+
 export const SOF_BY_KEY: Record<string, SofEventDef> = Object.fromEntries(
   SOF_EVENTS.map((e) => [e.key, e]),
 );
+
+/** Is an event relevant to a given call type? `null` callType = show all. */
+export function eventApplies(def: SofEventDef, callType: AppliesTo | null): boolean {
+  if (!callType || callType === 'both') return true;
+  return def.appliesTo === 'both' || def.appliesTo === callType;
+}
 
 export function eventLabel(key: string): string {
   return SOF_BY_KEY[key]?.label ?? key;

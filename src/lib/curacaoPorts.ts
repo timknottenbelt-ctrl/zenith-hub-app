@@ -8,7 +8,8 @@ export interface PortLoc {
 }
 
 const LOCATIONS: { match: RegExp; loc: PortLoc }[] = [
-  { match: /bullen|bullenbaai|bopec/i, loc: { name: 'Bullen Bay (Bullenbaai)', lat: 12.1989, lon: -68.989 } },
+  // Bullenbaai is the Curaçao crude/products terminal. (BOPEC is on Bonaire — not here.)
+  { match: /bullen|bullenbaai/i, loc: { name: 'Bullen Bay (Bullenbaai)', lat: 12.1989, lon: -68.989 } },
   { match: /caracas/i, loc: { name: 'Caracas Bay (Caracasbaai)', lat: 12.0668, lon: -68.8623 } },
   { match: /isla|emmastad|schottegat|refiner|cru|motet|rdf/i, loc: { name: 'Isla Refinery / Schottegat', lat: 12.1369, lon: -68.918 } },
   { match: /mega\s*pier|megapier|cruise/i, loc: { name: 'Mega Pier, Willemstad', lat: 12.1101, lon: -68.9402 } },
