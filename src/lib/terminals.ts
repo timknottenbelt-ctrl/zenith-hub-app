@@ -25,6 +25,7 @@ export interface Terminal {
   typicalTugs: number | null;
   mooringType: string;
   noLoaLimit?: boolean;
+  outOfService?: boolean; // terminal currently not in use (e.g. under maintenance)
   notes: string;
 }
 
@@ -45,7 +46,8 @@ export const TERMINALS: Terminal[] = [
     nightBerthing: true,
     typicalTugs: 2,
     mooringType: 'jetty',
-    notes: 'Crude/products transshipment. Geen LOA-limiet. Kleinste jetty ~70.000 DWT. Geen ankerage in baai. Bron: CPA.',
+    outOfService: true,
+    notes: 'IN ONDERHOUD — al jaren niet in gebruik. Crude/products transshipment. Geen LOA-limiet. Geen ankerage in baai. Bron: CPA.',
   },
   {
     name: 'Caracas Bay (Caracasbaai)',
@@ -376,6 +378,7 @@ export function suggestBerths(cargoType: string | null | undefined, dims: Vessel
   for (const t of TERMINALS) {
     if (parents.has(t.name)) continue; // skip the aggregate when sub-berths exist
     if (t.mooringType === 'buoy') continue; // anchorages aren't cargo berths
+    if (t.outOfService) continue; // skip terminals under maintenance
     // Drop berths that physically can't take the vessel.
     if (dims.draft != null && t.maxDraftM != null && dims.draft > t.maxDraftM) continue;
     if (dims.loa != null && t.maxLoaM != null && !t.noLoaLimit && dims.loa > t.maxLoaM) continue;
