@@ -147,7 +147,7 @@ export default function FDACuracaoHistory() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[calc(100vh-280px)]">
+              <div>
                 {loading ? (
                   <div className="flex items-center justify-center p-8">
                     <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -207,7 +207,7 @@ export default function FDACuracaoHistory() {
                     ))}
                   </div>
                 )}
-              </ScrollArea>
+              </div>
             </CardContent>
           </Card>
 

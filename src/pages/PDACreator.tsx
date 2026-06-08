@@ -298,7 +298,7 @@ export default function PDACreator() {
                 </Button>
               </CardHeader>
               <CardContent className="p-0">
-                <ScrollArea className="h-[calc(100vh-380px)] min-h-[300px]">
+                <div>
                   <div className="space-y-2 p-6 pt-0">
                     {tugGroups.map(([terminal, rules]) => {
                       const isExpanded = expandedTerminals.has(terminal);
@@ -368,7 +368,7 @@ export default function PDACreator() {
                       <p className="text-center text-sm text-muted-foreground py-8">Geen tug rules gevonden</p>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -389,7 +389,7 @@ export default function PDACreator() {
                 </Button>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="max-h-[500px]">
+                <div>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -420,7 +420,7 @@ export default function PDACreator() {
                       ))}
                     </TableBody>
                   </Table>
-                </ScrollArea>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -441,7 +441,7 @@ export default function PDACreator() {
                 </Button>
               </CardHeader>
               <CardContent className="p-0">
-                <ScrollArea className="h-[calc(100vh-340px)] min-h-[400px]">
+                <div>
                   <div className="space-y-1.5 p-4 pt-0">
                     {terminalAreaGroups.map(({ area, terminals }) => {
                       const isExpanded = expandedAreas.has(area);
@@ -528,7 +528,7 @@ export default function PDACreator() {
                       <p className="text-center text-sm text-muted-foreground py-8">Geen terminals gevonden</p>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
