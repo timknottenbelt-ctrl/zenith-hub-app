@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { fetchPortCalls, getCachedPortCalls, type PortCall, type PCStage } from '@/lib/portCalls';
+import { LIFECYCLE_ORDER, LIFECYCLE_META, lifecycleMeta, isOpenLifecycle } from '@/lib/portCallStatus';
 import { cn } from '@/lib/utils';
 import {
   Ship,
@@ -42,6 +43,7 @@ export default function PortCalls() {
   const [loading, setLoading] = useState(!getCachedPortCalls());
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all'); // all | open | <lifecycle>
 
   const load = async () => {
     setRefreshing(true);
@@ -58,23 +60,38 @@ export default function PortCalls() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return calls;
-    return calls.filter(
-      (c) =>
+    return calls.filter((c) => {
+      if (statusFilter === 'open' && !isOpenLifecycle(c.recordStatus)) return false;
+      else if (statusFilter !== 'all' && statusFilter !== 'open' && c.recordStatus !== statusFilter) return false;
+      if (!q) return true;
+      return (
         c.vessel.toLowerCase().includes(q) ||
         (c.imo || '').toLowerCase().includes(q) ||
         (c.port || '').toLowerCase().includes(q) ||
         (c.terminal || '').toLowerCase().includes(q) ||
         (c.company || '').toLowerCase().includes(q) ||
-        (c.cargoType || '').toLowerCase().includes(q),
-    );
-  }, [calls, query]);
+        (c.cargoType || '').toLowerCase().includes(q)
+      );
+    });
+  }, [calls, query, statusFilter]);
 
   const kpis = useMemo(() => {
     const open = calls.filter((c) => c.stage === 'inquiry' || c.hasOpen).length;
     const vessels = new Set(calls.map((c) => c.slug)).size;
     const docs = calls.reduce((n, c) => n + c.documents.length, 0);
-    return { total: calls.length, open, vessels, docs };
+    const pipeline = calls.reduce((n, c) => n + (c.nominated && c.nominationAmount ? c.nominationAmount : 0), 0);
+    return { total: calls.length, open, vessels, docs, pipeline };
+  }, [calls]);
+
+  // Status filter chips with live counts.
+  const statusCounts = useMemo(() => {
+    const m: Record<string, number> = { all: calls.length, open: 0 };
+    for (const c of calls) {
+      if (isOpenLifecycle(c.recordStatus)) m.open++;
+      const s = c.recordStatus || 'expected';
+      m[s] = (m[s] || 0) + 1;
+    }
+    return m;
   }, [calls]);
 
   return (
@@ -92,12 +109,16 @@ export default function PortCalls() {
             <h1 className="mt-1 text-2xl font-bold tracking-tight">{t('portCalls.title')}</h1>
             <p className="mt-1 max-w-xl text-[13px] text-white/80">{t('portCalls.subtitle')}</p>
 
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {[
                 { label: t('portCalls.kpiCalls'), value: kpis.total },
                 { label: t('portCalls.kpiOpen'), value: kpis.open },
                 { label: t('portCalls.kpiVessels'), value: kpis.vessels },
                 { label: t('portCalls.kpiDocs'), value: kpis.docs },
+                {
+                  label: t('portCalls.kpiPipeline'),
+                  value: kpis.pipeline ? `$${(kpis.pipeline / 1000).toFixed(kpis.pipeline >= 10000 ? 0 : 1)}k` : '$0',
+                },
               ].map((k) => (
                 <div key={k.label} className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
                   <div className="text-2xl font-bold tabular-nums">{k.value}</div>
@@ -124,6 +145,33 @@ export default function PortCalls() {
           </Button>
         </div>
 
+        {/* Status filter chips */}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { key: 'all', label: t('portCalls.filterAll') },
+            { key: 'open', label: t('portCalls.filterOpen') },
+            ...LIFECYCLE_ORDER.map((s) => ({ key: s, label: LIFECYCLE_META[s].label })),
+          ].map((f) => {
+            const count = statusCounts[f.key] || 0;
+            const active = statusFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => setStatusFilter(f.key)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
+                  active
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-border/60 bg-card text-foreground/70 hover:border-primary/40',
+                )}
+              >
+                {f.label}
+                <span className={cn('tabular-nums', active ? 'text-white/80' : 'text-muted-foreground')}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Grid */}
         {loading ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -143,6 +191,7 @@ export default function PortCalls() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filtered.map((c) => {
               const sm = STAGE_META[c.stage];
+              const lc = lifecycleMeta(c.recordStatus);
               return (
                 <button
                   key={c.key}
@@ -152,7 +201,7 @@ export default function PortCalls() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className={cn('h-2 w-2 shrink-0 rounded-full', sm.dot)} />
+                        <span className={cn('h-2 w-2 shrink-0 rounded-full', lc ? lc.dot : sm.dot)} />
                         <h3 className="truncate text-[15px] font-bold tracking-tight text-foreground">{c.vessel}</h3>
                       </div>
                       <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
@@ -160,8 +209,11 @@ export default function PortCalls() {
                         {c.company ? ` · ${c.company}` : ''}
                       </p>
                     </div>
-                    <Badge variant="outline" className={cn('shrink-0 text-[10px]', sm.badge)}>
-                      {t(sm.key)}
+                    <Badge
+                      variant="outline"
+                      className={cn('shrink-0 text-[10px]', lc ? lc.tone : sm.badge)}
+                    >
+                      {lc ? lc.label : t(sm.key)}
                     </Badge>
                   </div>
 
