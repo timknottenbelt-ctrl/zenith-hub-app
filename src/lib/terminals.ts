@@ -11,6 +11,7 @@
 export interface Terminal {
   name: string;
   aliases: string[];
+  parent?: string; // set on sub-berths (e.g. Isla jetties → the refinery record)
   lat: number;
   lon: number;
   maxLoaM: number | null;
@@ -216,6 +217,68 @@ export const TERMINALS: Terminal[] = [
     mooringType: 'buoy',
     notes: 'Wachtplaats ZW-Schottegat, dolphins met mooring buoy (348m), diepte 12,19m. Toestemming havenmeester. GEEN ankerage in Bullen Bay. Bron: CPA.',
   },
+
+  // --- Isla / Emmastad refinery, per-jetty (parent = the aggregate record above) ---
+  {
+    name: 'Isla Jetty 1', aliases: ['Emmastad Jetty 1', 'Isla Jetty 1'], parent: 'Isla / Emmastad Refinery (Schottegat)',
+    lat: 12.1345, lon: -68.9331, maxLoaM: 177, maxDraftM: 8.23, maxDwt: null, berthLengthM: 177, airDraftM: 56.4, berths: 1,
+    products: ['gasoil', 'mogas', 'avtur', 'chemicals'], nightBerthing: true, typicalTugs: null, mooringType: 'jetty',
+    notes: 'Producten: ballast, mogas, gasoil, avtur, zwavelzuur, MEK, tolueen, furfural, spent soda. Bron: CPA / agency directory.',
+  },
+  {
+    name: 'Isla Jetty 2', aliases: ['Emmastad Jetty 2', 'Isla Jetty 2'], parent: 'Isla / Emmastad Refinery (Schottegat)',
+    lat: 12.1345, lon: -68.9331, maxLoaM: 175, maxDraftM: 9.14, maxDwt: null, berthLengthM: 175, airDraftM: 56.4, berths: 1,
+    products: ['bunkers', 'gasoil', 'mogas', 'avtur', 'naphtha', 'avgas', 'white oils', 'LPG', 'chemicals'], nightBerthing: true, typicalTugs: null, mooringType: 'jetty',
+    notes: 'Draft fwd 9,14m / aft 9,60m → conservatief 9,14m. Incl. propaan/butaan/isobutaan, caustic soda. Bron: CPA / agency directory.',
+  },
+  {
+    name: 'Isla Jetty 3', aliases: ['Emmastad Jetty 3', 'Isla Jetty 3'], parent: 'Isla / Emmastad Refinery (Schottegat)',
+    lat: 12.1345, lon: -68.9331, maxLoaM: 175, maxDraftM: 9.3, maxDwt: null, berthLengthM: 175, airDraftM: 56.4, berths: 1,
+    products: [], nightBerthing: true, typicalTugs: null, mooringType: 'jetty',
+    notes: 'Producten niet publiek — bevestigen bij CPA. Bron: CPA / agency directory.',
+  },
+  {
+    name: 'Isla Jetty 4', aliases: ['Emmastad Jetty 4', 'Isla Jetty 4'], parent: 'Isla / Emmastad Refinery (Schottegat)',
+    lat: 12.1345, lon: -68.9331, maxLoaM: 236, maxDraftM: 11.58, maxDwt: null, berthLengthM: 236, airDraftM: 56.4, berths: 1,
+    products: ['bunkers', 'gasoil', 'mogas', 'avtur', 'naphtha', 'avgas', 'white oils'], nightBerthing: true, typicalTugs: null, mooringType: 'jetty',
+    notes: 'Incl. CatCracker feed. Bron: CPA / agency directory.',
+  },
+  {
+    name: 'Isla Jetty 5', aliases: ['Emmastad Jetty 5', 'Isla Jetty 5'], parent: 'Isla / Emmastad Refinery (Schottegat)',
+    lat: 12.1345, lon: -68.9331, maxLoaM: 259, maxDraftM: 13.71, maxDwt: null, berthLengthM: 259, airDraftM: 56.4, berths: 1,
+    products: ['crude', 'heavy crude', 'fuel oil', 'bunkers', 'gasoil', 'mogas', 'avtur', 'naphtha', 'white oils'], nightBerthing: true, typicalTugs: null, mooringType: 'jetty',
+    notes: 'Diepste jetty. Incl. Lt/Med crude, Long Residue, CatCracker feed. Bron: CPA / agency directory.',
+  },
+  {
+    name: 'Isla Jetty 6', aliases: ['Emmastad Jetty 6', 'Isla Jetty 6'], parent: 'Isla / Emmastad Refinery (Schottegat)',
+    lat: 12.1345, lon: -68.9331, maxLoaM: 228, maxDraftM: 11.43, maxDwt: null, berthLengthM: 228, airDraftM: 56.4, berths: 1,
+    products: ['crude', 'heavy crude', 'fuel oil', 'bitumen', 'bunkers', 'gasoil', 'mogas', 'avtur', 'naphtha', 'white oils'], nightBerthing: true, typicalTugs: null, mooringType: 'jetty',
+    notes: 'BITUMEN + crude/fuel oil op 11,43m draft. Incl. Lt/Med crude, Long Residue, CatCracker feed. Bron: CPA / agency directory.',
+  },
+  {
+    name: 'Isla Jetty 7', aliases: ['Emmastad Jetty 7', 'Isla Jetty 7'], parent: 'Isla / Emmastad Refinery (Schottegat)',
+    lat: 12.1345, lon: -68.9331, maxLoaM: 170, maxDraftM: 9.45, maxDwt: null, berthLengthM: 170, airDraftM: 56.4, berths: 1,
+    products: ['crude', 'heavy crude', 'fuel oil', 'bitumen', 'bunkers', 'gasoil'], nightBerthing: true, typicalTugs: null, mooringType: 'jetty',
+    notes: 'BITUMEN + crude/fuel oil maar ondieper (9,45m). Incl. Lt/Med crude, Long Residue. Bron: CPA / agency directory.',
+  },
+  {
+    name: 'Isla Jetty 8', aliases: ['Emmastad Jetty 8', 'Isla Jetty 8'], parent: 'Isla / Emmastad Refinery (Schottegat)',
+    lat: 12.1345, lon: -68.9331, maxLoaM: 259, maxDraftM: 13.71, maxDwt: null, berthLengthM: 259, airDraftM: 56.4, berths: 1,
+    products: [], nightBerthing: true, typicalTugs: null, mooringType: 'jetty',
+    notes: 'Diepste jetty (13,71m, 259m). Producten niet publiek; vermoedelijk crude/fuel oil-klasse zoals jetty 5 — bevestigen. Bron: CPA / agency directory.',
+  },
+  {
+    name: 'Isla Jetty 9', aliases: ['Emmastad Jetty 9', 'Isla Jetty 9'], parent: 'Isla / Emmastad Refinery (Schottegat)',
+    lat: 12.1345, lon: -68.9331, maxLoaM: 259, maxDraftM: 10.21, maxDwt: null, berthLengthM: 259, airDraftM: 56.4, berths: 1,
+    products: [], nightBerthing: true, typicalTugs: null, mooringType: 'jetty',
+    notes: 'Producten niet publiek — bevestigen bij CPA. Bron: CPA / agency directory.',
+  },
+  {
+    name: 'Isla Jetty 10', aliases: ['Emmastad Jetty 10', 'Isla Jetty 10'], parent: 'Isla / Emmastad Refinery (Schottegat)',
+    lat: 12.1345, lon: -68.9331, maxLoaM: 259, maxDraftM: 6.4, maxDwt: null, berthLengthM: 259, airDraftM: 56.4, berths: 1,
+    products: [], nightBerthing: true, typicalTugs: null, mooringType: 'jetty',
+    notes: 'Draft fwd 6,40m / aft 9,45m → conservatief 6,40m. Producten niet publiek — bevestigen bij CPA. Bron: CPA / agency directory.',
+  },
 ];
 
 /** Resolve a terminal/port free-text string against names + aliases. */
@@ -275,4 +338,61 @@ export function berthCheck(vessel: VesselDims, t: Terminal): BerthCheckResult {
       ? 'fits'
       : 'unknown';
   return { verdict, rows };
+}
+
+// Map a free-text cargo description (from the email) to a terminal product key.
+const CARGO_PRODUCT_MAP: { match: RegExp; product: string }[] = [
+  { match: /bitumen|asphalt|asfalt/i, product: 'bitumen' },
+  { match: /crude/i, product: 'crude' },
+  { match: /hfo|heavy fuel|fuel oil|stookolie|residue|ifo|vlsfo|lsfo/i, product: 'fuel oil' },
+  { match: /gas\s?oil|gasoil|diesel|mgo|mdo/i, product: 'gasoil' },
+  { match: /gasoline|mogas|petrol|benzine|naphtha/i, product: 'mogas' },
+  { match: /jet|avtur|kerosene|avgas/i, product: 'avtur' },
+  { match: /lpg|propane|butane|propaan|butaan/i, product: 'LPG' },
+  { match: /container/i, product: 'containers' },
+  { match: /phosphate|fosfaat|sand|zand|bulk/i, product: 'dry bulk' },
+];
+
+export function cargoToProduct(cargoType: string | null | undefined): string | null {
+  if (!cargoType) return null;
+  for (const { match, product } of CARGO_PRODUCT_MAP) if (match.test(cargoType)) return product;
+  return null;
+}
+
+export interface BerthSuggestion {
+  terminal: Terminal;
+  productMatch: 'confirmed' | 'unconfirmed';
+}
+
+/** Rank berths that can take the cargo and fit the vessel. Excludes aggregate
+ *  parent records when their individual sub-berths exist (jetties are more
+ *  specific). Berths whose published products clearly exclude the cargo are
+ *  dropped; berths with no published product list surface as "unconfirmed". */
+export function suggestBerths(cargoType: string | null | undefined, dims: VesselDims): BerthSuggestion[] {
+  const kw = cargoToProduct(cargoType);
+  const parents = new Set(TERMINALS.filter((t) => t.parent).map((t) => t.parent));
+  const out: BerthSuggestion[] = [];
+
+  for (const t of TERMINALS) {
+    if (parents.has(t.name)) continue; // skip the aggregate when sub-berths exist
+    if (t.mooringType === 'buoy') continue; // anchorages aren't cargo berths
+    // Drop berths that physically can't take the vessel.
+    if (dims.draft != null && t.maxDraftM != null && dims.draft > t.maxDraftM) continue;
+    if (dims.loa != null && t.maxLoaM != null && !t.noLoaLimit && dims.loa > t.maxLoaM) continue;
+
+    let productMatch: 'confirmed' | 'unconfirmed';
+    if (!kw) productMatch = 'unconfirmed';
+    else if (t.products.length === 0) productMatch = 'unconfirmed';
+    else if (t.products.some((p) => p.toLowerCase().includes(kw))) productMatch = 'confirmed';
+    else continue; // products known and cargo not among them → not suitable
+
+    out.push({ terminal: t, productMatch });
+  }
+
+  // Confirmed first; then the shallowest sufficient berth (reserve deep berths).
+  out.sort((a, b) => {
+    if (a.productMatch !== b.productMatch) return a.productMatch === 'confirmed' ? -1 : 1;
+    return (a.terminal.maxDraftM ?? 99) - (b.terminal.maxDraftM ?? 99);
+  });
+  return out;
 }

@@ -40,7 +40,7 @@ import {
   type PortCallEvent,
   type PortCallDoc,
 } from '@/lib/portCallOps';
-import { TERMINALS, resolveTerminal, berthCheck } from '@/lib/terminals';
+import { TERMINALS, resolveTerminal, berthCheck, suggestBerths, cargoToProduct } from '@/lib/terminals';
 import { resolvePortLoc, osmEmbedUrl, marineTrafficUrl } from '@/lib/curacaoPorts';
 import {
   ArrowLeft,
@@ -472,6 +472,14 @@ export default function PortCallDetail() {
   const BC_TONE = { fits: TONE.emerald, exceeds: TONE.rose, unknown: TONE.slate } as const;
   const BC_LABEL = { fits: 'Past', exceeds: 'Past niet', unknown: 'Onbekend' } as const;
 
+  // Terminal suggestion based on cargo type + entered/derived vessel dims.
+  const cargoProduct = cargoToProduct(call.cargoType);
+  const suggestions = suggestBerths(call.cargoType, {
+    loa: num(bcLoa) ?? call.loa,
+    draft: num(bcDraft),
+    dwt: num(bcDwt),
+  }).slice(0, 5);
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -673,6 +681,71 @@ export default function PortCallDetail() {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Terminal suggestion */}
+                {(call.cargoType || num(bcDraft) != null) && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Navigation className="h-4 w-4 text-primary" /> Terminal-suggestie
+                        {call.cargoType && (
+                          <span className="text-sm font-normal text-muted-foreground">
+                            {call.cargoType}
+                            {cargoProduct ? ` → ${cargoProduct}` : ''}
+                          </span>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {suggestions.length === 0 ? (
+                        <p className="py-2 text-center text-sm text-muted-foreground">
+                          Geen passende berth gevonden voor deze lading/maten.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {suggestions.map((s, i) => (
+                            <button
+                              key={s.terminal.name}
+                              onClick={() => setBcTerminal(s.terminal.name)}
+                              className={cn(
+                                'flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/40',
+                                i === 0 ? 'border-primary/40 bg-primary/5' : 'border-border/60',
+                              )}
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-[13px] font-medium text-foreground">
+                                  {i === 0 && '★ '}
+                                  {s.terminal.name}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  max draft {s.terminal.maxDraftM != null ? `${s.terminal.maxDraftM} m` : 'n.b.'} ·
+                                  {s.terminal.noLoaLimit
+                                    ? ' geen LOA-limiet'
+                                    : s.terminal.maxLoaM != null
+                                      ? ` LOA ${s.terminal.maxLoaM} m`
+                                      : ' LOA n.b.'}
+                                </p>
+                              </div>
+                              <span
+                                className={cn(
+                                  'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                  s.productMatch === 'confirmed'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-amber-100 text-amber-700',
+                                )}
+                              >
+                                {s.productMatch === 'confirmed' ? 'lading ✓' : 'ongec.'}
+                              </span>
+                            </button>
+                          ))}
+                          <p className="pt-1 text-[11px] text-muted-foreground">
+                            Gerangschikt op ladingmatch + ondiepste passende berth. "ongec." = productlijst niet publiek.
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
                 <Card>
                   <CardHeader className="pb-3">
