@@ -6,15 +6,22 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   Ship, User, Receipt, Anchor, Package, DollarSign, CreditCard,
-  Plus, Trash2, Loader2, ArrowLeft, Calendar, ExternalLink, FileText,
+  Plus, Trash2, Loader2, ArrowLeft, Calendar, ExternalLink, FileText, Send, Pencil,
 } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns";
 import { ClientSelector } from "@/components/ClientSelector";
 import { FDACuracaoInvoiceUpload } from "@/components/fda-curacao/FDACuracaoInvoiceUpload";
+import { FDACuracaoProcessingStatus } from "@/components/fda-curacao/FDACuracaoProcessingStatus";
+import { WEBHOOKS, webhookPostJSON } from "@/lib/webhooks";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface FDAFormData {
@@ -74,6 +81,8 @@ export interface FDAInlinePanelProps {
   dossierKey?: string | null;
   /** Deep-link to open the full FDA workspace (processing / e-mail steps). */
   onOpenFull?: (projectId: string) => void;
+  /** Open the FDA e-mail review page for this project. */
+  onOpenEmail?: (projectId: string) => void;
   /** Close the panel and return to the dossier. */
   onBack: () => void;
   /** Fired after a successful create or save so the parent can refresh links/totals. */
@@ -87,17 +96,25 @@ export function FDAInlinePanel({
   createDefaults,
   dossierKey,
   onOpenFull,
+  onOpenEmail,
   onBack,
   onChanged,
 }: FDAInlinePanelProps) {
   const [projectId, setProjectId] = useState<string | null>(initialProjectId ?? null);
   const [loading, setLoading] = useState<boolean>(!!initialProjectId);
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
   const [form, setForm] = useState<FDAFormData>(EMPTY_FORM);
   const [rows, setRows] = useState<AgencyCostRow[]>([
     { id: crypto.randomUUID(), description: "", number: "", remark: "", amount: "" },
   ]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  // Project lifecycle + processing-step deep state.
+  const [status, setStatus] = useState<string | null>(null);
+  const [sheetUrl, setSheetUrl] = useState<string | null>(null);
+  const [agencyCostUrl, setAgencyCostUrl] = useState<string | null>(null);
+  // Which inline sub-view: the editable form, or the live processing status.
+  const [subView, setSubView] = useState<"edit" | "processing">("edit");
 
   const set = (field: keyof FDAFormData, value: string) => setForm((p) => ({ ...p, [field]: value }));
 
@@ -122,6 +139,9 @@ export function FDAInlinePanel({
         advanced_payment_status: str("advanced_payment_status") || "unpaid",
         advanced_payment_remark: str("advanced_payment_remark"),
       });
+      setStatus(p.status == null ? null : String(p.status));
+      setSheetUrl(p.google_sheet_url == null ? null : String(p.google_sheet_url));
+      setAgencyCostUrl(p.agency_cost_url == null ? null : String(p.agency_cost_url));
     }
     const { data: agency } = await supabase
       .from("fda_curacao_agency_costs").select("*").eq("project_id", id).order("created_at", { ascending: true });
@@ -222,6 +242,75 @@ export function FDAInlinePanel({
     }
   }
 
+  // ── Send to processing (n8n) — generates the FDA sheet + a reviewable draft ──
+  async function handleSend(forceResend: boolean) {
+    if (!projectId) return;
+    if (!form.vessel_arrived || !form.vessel_sailed || !form.operation) {
+      toast({ title: "Velden ontbreken", description: "Vul aankomst, vertrek en operatie in voordat je verstuurt.", variant: "destructive" });
+      return;
+    }
+    setSending(true);
+    try {
+      // Persist the latest edits before handing off to the workflow.
+      await (supabase.from("fda_curacao_projects") as ReturnType<typeof supabase.from>)
+        .update(projectPayload()).eq("project_id", projectId);
+      await saveAgencyCosts(projectId);
+      if (forceResend) {
+        await supabase.from("fda_curacao_processed_invoices").delete().eq("project_id", projectId);
+      }
+      await (supabase.from("fda_curacao_projects") as ReturnType<typeof supabase.from>)
+        .update({ status: "processing" }).eq("project_id", projectId);
+
+      const payload = {
+        project_id: projectId,
+        lbh_number: form.lbh_number, ship_name: form.ship_name, fda_responsible: form.fda_responsible,
+        client_name: form.client_name, client_email: form.client_email, client_phone: form.client_phone,
+        billing_company: form.billing_company, billing_address: form.billing_address,
+        billing_email: form.billing_email, billing_phone: form.billing_phone,
+        vessel_arrived: form.vessel_arrived, vessel_sailed: form.vessel_sailed,
+        operation: form.operation, commodity: form.commodity, client_reference: form.client_reference,
+        advanced_payment_amount: form.advanced_payment_amount ? parseFloat(form.advanced_payment_amount) : null,
+        advanced_payment_currency: form.advanced_payment_currency,
+        advanced_payment_reference: form.advanced_payment_reference,
+        advanced_payment_status: form.advanced_payment_status,
+        advanced_payment_remark: form.advanced_payment_remark,
+        agency_costs: rows.filter((r) => r.description || r.amount).map((r) => ({
+          description: r.description, number: r.number, remark: r.remark,
+          amount: r.amount ? parseFloat(r.amount) : null, currency: form.advanced_payment_currency || "USD",
+        })),
+        invoice_files: invoices.map((inv) => ({ file_name: inv.file_name, file_url: inv.file_url, invoice_number: inv.invoice_number })),
+        invoice_count: invoices.length, force_resend: forceResend,
+      };
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
+      const res = await webhookPostJSON(WEBHOOKS.FDA_CURACAO_INVOICE_UPLOAD, payload, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!res.ok) throw new Error("server_error");
+
+      setStatus("processing");
+      setSubView("processing");
+      onChanged?.();
+      toast({ title: "Verzonden", description: "Verwerking gestart…" });
+    } catch (e) {
+      const err = e as { name?: string };
+      if (err?.name === "AbortError") {
+        toast({ title: "Even geduld", description: "De verwerking duurt langer dan verwacht. Wacht 2 minuten en ververs.", variant: "destructive" });
+        setStatus("processing");
+        setSubView("processing");
+      } else {
+        toast({ title: "Fout bij verzenden", description: "Er ging iets mis bij het verwerken. Probeer het opnieuw.", variant: "destructive" });
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const isProcessing = status === "processing" || status === "ready_to_send";
+  const isSent = status === "sent" || status === "completed";
+  const hasBeenProcessed = isProcessing || isSent || !!sheetUrl;
+  const canSend = !!projectId && invoices.length > 0;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center rounded-2xl border border-border/60 bg-card py-16">
@@ -262,24 +351,76 @@ export function FDAInlinePanel({
             <ArrowLeft className="mr-1 h-4 w-4" /> Dossier
           </Button>
           <div>
-            <h2 className="text-base font-semibold leading-tight">
+            <h2 className="flex items-center gap-2 text-base font-semibold leading-tight">
               {projectId ? (form.ship_name || "FDA bewerken") : "Nieuwe FDA"}
+              {status && <Badge variant="outline" className="text-[10px] font-normal">{status}</Badge>}
             </h2>
             <p className="text-[12px] text-muted-foreground">{form.lbh_number || "Vul de gegevens in"}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {projectId && onOpenFull && (
             <Button variant="outline" size="sm" onClick={() => onOpenFull(projectId)}>
               <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Volledige FDA
             </Button>
           )}
-          <Button size="sm" onClick={handleSave} disabled={saving}>
-            {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-            {projectId ? "Opslaan" : "Aanmaken"}
-          </Button>
+          {subView === "processing" ? (
+            <Button variant="outline" size="sm" onClick={() => setSubView("edit")}>
+              <Pencil className="mr-1.5 h-3.5 w-3.5" /> Bewerken
+            </Button>
+          ) : (
+            <>
+              <Button size="sm" variant="outline" onClick={handleSave} disabled={saving}>
+                {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                {projectId ? "Opslaan" : "Aanmaken"}
+              </Button>
+              {hasBeenProcessed && (
+                <Button size="sm" variant="outline" onClick={() => setSubView("processing")}>
+                  Verwerking
+                </Button>
+              )}
+              {canSend && (hasBeenProcessed ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" disabled={sending}>
+                      {sending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
+                      Opnieuw verwerken
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Opnieuw verwerken?</AlertDialogTitle>
+                      <AlertDialogDescription>Deze FDA is al eerder verwerkt. Alle facturen worden opnieuw verwerkt.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleSend(true)}>Ja, opnieuw verwerken</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <Button size="sm" onClick={() => handleSend(false)} disabled={sending}>
+                  {sending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
+                  Verstuur FDA
+                </Button>
+              ))}
+            </>
+          )}
         </div>
       </div>
+
+      {subView === "processing" && projectId ? (
+        <FDACuracaoProcessingStatus
+          projectId={projectId}
+          initialStatus={status}
+          initialSheetUrl={sheetUrl}
+          initialAgencyCostUrl={agencyCostUrl}
+          onComplete={() => onChanged?.()}
+          onNavigateToEmail={() => (onOpenEmail ? onOpenEmail(projectId) : onOpenFull?.(projectId))}
+        />
+      ) : (
+      <>
+        {/* edit form */}
 
       {/* Ship + Client */}
       <div className="grid gap-3 md:grid-cols-2">
@@ -393,6 +534,8 @@ export function FDAInlinePanel({
           )}
         </CardContent>
       </Card>
+      </>
+      )}
     </div>
   );
 }
