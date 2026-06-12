@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { fetchPortCalls, getCachedPortCalls, type PortCall, type PCEmail } from '@/lib/portCalls';
 import {
@@ -354,6 +355,8 @@ export default function PortCallDetail() {
   const [eta, setEta] = useState('');
   const [etb, setEtb] = useState('');
   const [etd, setEtd] = useState('');
+  const [clientSaving, setClientSaving] = useState(false);
+  const [contactOpts, setContactOpts] = useState<string[]>([]);
 
   // New custom doc
   const [docLabel, setDocLabel] = useState('');
@@ -541,6 +544,34 @@ export default function PortCallDetail() {
     toast({ title: `Status: ${LIFECYCLE_META[status as keyof typeof LIFECYCLE_META]?.label ?? status}` });
   }
 
+  // Load known clients/companies from the contacts table for autocomplete.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data } = await supabase.from('contacts').select('company,name').limit(500);
+      if (!active || !data) return;
+      const set = new Set<string>();
+      for (const c of data as { company: string | null; name: string | null }[]) {
+        if (c.company) set.add(c.company);
+        if (c.name) set.add(c.name);
+      }
+      setContactOpts(Array.from(set).sort((a, b) => a.localeCompare(b)));
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function saveClient() {
+    if (!record) return;
+    setClientSaving(true);
+    const value = principal.trim() || null;
+    await updatePortCall(record.id, { principal: value });
+    setRecord({ ...record, principal: value } as PortCallRecord);
+    setClientSaving(false);
+    toast({ title: 'Klant opgeslagen' });
+  }
+
   async function saveNomination() {
     if (!record) return;
     setBusy(true);
@@ -717,7 +748,6 @@ export default function PortCallDetail() {
           ? t('portCalls.services')
           : null,
     },
-    { icon: Building2, label: t('portCalls.client'), value: principal || call.company },
   ].filter((p) => p.value);
 
   const etaRow = [
@@ -968,6 +998,28 @@ export default function PortCallDetail() {
                   })}
                 </div>
               )}
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5 text-[12px]">
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" /> Klant / Opdrachtgever
+                </Label>
+                <div className="flex gap-1.5">
+                  <Input
+                    list="pc-client-options"
+                    value={principal}
+                    onChange={(e) => setPrincipal(e.target.value)}
+                    placeholder={call.company || 'Naam klant…'}
+                    className="h-10"
+                  />
+                  <Button size="sm" variant="secondary" disabled={!record || clientSaving} onClick={saveClient}>
+                    {clientSaving ? '…' : 'Opslaan'}
+                  </Button>
+                </div>
+                <datalist id="pc-client-options">
+                  {contactOpts.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-[12px]">Terminal</Label>
                 <select
