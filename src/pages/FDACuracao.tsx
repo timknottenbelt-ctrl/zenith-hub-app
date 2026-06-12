@@ -144,8 +144,28 @@ export default function FDACuracao() {
     { id: crypto.randomUUID(), description: "", number: "", remark: "", amount: "" }
   ]);
   const [formData, setFormData] = useState<FDAFormData>(INITIAL_FORM);
+  const [dossierKey, setDossierKey] = useState<string | null>(null);
 
   useEffect(() => { fetchProjects(true); }, []);
+
+  // When opened from a port call (?prefill=1&…), open the create dialog pre-filled
+  // and remember the dossier key so the new FDA is linked back to that port call.
+  useEffect(() => {
+    if (searchParams.get("prefill") !== "1") return;
+    setFormData((f) => ({
+      ...f,
+      ship_name: searchParams.get("ship") || f.ship_name,
+      client_name: searchParams.get("client") || f.client_name,
+      vessel_arrived: searchParams.get("arrived") || f.vessel_arrived,
+      vessel_sailed: searchParams.get("sailed") || f.vessel_sailed,
+    }));
+    setDossierKey(searchParams.get("dossier"));
+    setShowCreateDialog(true);
+    const next = new URLSearchParams(searchParams);
+    ["prefill", "ship", "client", "arrived", "sailed", "dossier"].forEach((k) => next.delete(k));
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const projectId = searchParams.get("project");
@@ -231,12 +251,16 @@ export default function FDACuracao() {
     }
     setSaving(true);
     const projectId = crypto.randomUUID();
-    const { data, error } = await supabase.from("fda_curacao_projects").insert({
+    const { data, error } = await (supabase.from("fda_curacao_projects") as any).insert({
       project_id: projectId, lbh_number: formData.lbh_number, ship_name: formData.ship_name,
       fda_responsible: formData.fda_responsible || null, client_name: formData.client_name || null,
       client_email: formData.client_email || null, client_phone: formData.client_phone || null,
       billing_company: formData.billing_company || null, billing_address: formData.billing_address || null,
       billing_email: formData.billing_email || null, billing_phone: formData.billing_phone || null,
+      vessel_arrived: formData.vessel_arrived || null, vessel_sailed: formData.vessel_sailed || null,
+      operation: formData.operation || null, commodity: formData.commodity || null,
+      client_reference: formData.client_reference || null,
+      dossier_key: dossierKey || null,
     }).select().single();
 
     if (error) {

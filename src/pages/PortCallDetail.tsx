@@ -357,6 +357,7 @@ export default function PortCallDetail() {
   const [etd, setEtd] = useState('');
   const [clientSaving, setClientSaving] = useState(false);
   const [contactOpts, setContactOpts] = useState<string[]>([]);
+  const [fdaLinks, setFdaLinks] = useState<{ project_id: string; lbh_number: string; ship_name: string; status: string | null }[]>([]);
 
   // New custom doc
   const [docLabel, setDocLabel] = useState('');
@@ -571,6 +572,38 @@ export default function PortCallDetail() {
     setClientSaving(false);
     toast({ title: 'Klant opgeslagen' });
   }
+
+  // Open the FDA Creator pre-filled with this port call's context.
+  function openFdaForCall() {
+    if (!call) return;
+    const p = new URLSearchParams();
+    p.set('prefill', '1');
+    p.set('dossier', call.key);
+    if (call.vessel) p.set('ship', call.vessel);
+    const client = principal.trim() || call.company || '';
+    if (client) p.set('client', client);
+    const arrived = record?.eta || record?.etb;
+    if (arrived) p.set('arrived', arrived.slice(0, 10));
+    if (record?.etd) p.set('sailed', record.etd.slice(0, 10));
+    navigate(`/fda-curacao?${p.toString()}`);
+  }
+
+  // FDA projects linked to this dossier.
+  useEffect(() => {
+    if (!call?.key) return;
+    let active = true;
+    (async () => {
+      // dossier_key is not in the generated types yet; cast the builder.
+      const q = supabase.from('fda_curacao_projects') as unknown as {
+        select: (c: string) => { eq: (k: string, v: string) => { order: (c: string, o: { ascending: boolean }) => Promise<{ data: typeof fdaLinks | null }> } };
+      };
+      const { data } = await q.select('project_id, lbh_number, ship_name, status').eq('dossier_key', call.key).order('created_at', { ascending: false });
+      if (active && data) setFdaLinks(data);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [call?.key]);
 
   async function saveNomination() {
     if (!record) return;
@@ -852,7 +885,7 @@ export default function PortCallDetail() {
               >
                 <Calculator className="h-3.5 w-3.5" /> DA Creator
               </button>
-              <button onClick={() => navigate('/fda-curacao')} className={actionBtn}>
+              <button onClick={openFdaForCall} className={actionBtn}>
                 <FileSignature className="h-3.5 w-3.5" /> FDA Creator
               </button>
               <button onClick={runAiScan} disabled={aiBusy} className={cn(actionBtn, 'disabled:opacity-60')}>
@@ -1128,6 +1161,35 @@ export default function PortCallDetail() {
                   ))}
                 </div>
               )}
+            </Block>
+
+            {/* Gekoppelde FDA */}
+            <Block title="FDA & facturen" icon={FileSignature}>
+              {fdaLinks.length === 0 ? (
+                <p className="text-[12px] text-muted-foreground">Nog geen FDA aan deze aanloop gekoppeld.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {fdaLinks.map((f) => (
+                    <button
+                      key={f.project_id}
+                      onClick={() => navigate(`/fda-curacao?project=${f.project_id}`)}
+                      className="flex w-full items-center justify-between rounded-lg border border-border/50 px-3 py-2 text-left text-[12px] transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    >
+                      <span className="min-w-0 truncate">
+                        <span className="font-medium text-foreground">{f.lbh_number || 'FDA'}</span>
+                        <span className="ml-2 text-muted-foreground">{f.ship_name}</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
+                        {f.status && <Badge variant="outline" className="text-[10px]">{f.status}</Badge>}
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Button size="sm" variant="secondary" className="mt-2 w-full" onClick={openFdaForCall}>
+                <FileSignature className="mr-1.5 h-3.5 w-3.5" /> {fdaLinks.length ? 'Nieuwe FDA voor deze aanloop' : 'FDA aanmaken voor deze aanloop'}
+              </Button>
             </Block>
 
             {/* Kaart */}
