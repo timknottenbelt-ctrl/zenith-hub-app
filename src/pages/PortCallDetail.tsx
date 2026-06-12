@@ -999,6 +999,7 @@ export default function PortCallDetail() {
             createDefaults={fdaCreateDefaults}
             dossierKey={call.key}
             onOpenFull={(pid) => navigate(`/fda-curacao?project=${pid}`)}
+            onOpenEmail={(pid) => navigate(`/fda-curacao/email/${pid}`)}
             onBack={() => setView('dossier')}
             onChanged={reloadFdaLinks}
           />
