@@ -39,13 +39,18 @@ export function osmEmbedUrl(loc: PortLoc, span = 0.06): string {
   return `https://www.openstreetmap.org/export/embed.html?bbox=${minLon}%2C${minLat}%2C${maxLon}%2C${maxLat}&layer=mapnik&marker=${loc.lat}%2C${loc.lon}`;
 }
 
-/** Live AIS tracking link (MarineTraffic) by IMO, falling back to a name search. */
+/**
+ * Live AIS tracking link (MarineTraffic).
+ *
+ * MarineTraffic only deep-links to a vessel via an internal `shipid` that
+ * can't be derived from an IMO, and the bare `…/ships/imo:<n>` shortcut is
+ * unreliable (resolves to the wrong ship or "not found"). Routing through the
+ * keyword search with the IMO number gives a single exact match — the correct
+ * vessel — and falls back to the name when there is no IMO.
+ */
 export function marineTrafficUrl(imo: string | null | undefined, name: string | null | undefined): string {
-  if (imo && /^\d{7}$/.test(imo.trim())) {
-    return `https://www.marinetraffic.com/en/ais/details/ships/imo:${imo.trim()}`;
-  }
-  const q = encodeURIComponent((name || '').trim());
-  return `https://www.marinetraffic.com/en/ais/index/search/all?keyword=${q}`;
+  const term = imo && /^\d{7}$/.test(imo.trim()) ? imo.trim() : (name || '').trim();
+  return `https://www.marinetraffic.com/en/ais/index/search/all?keyword=${encodeURIComponent(term)}`;
 }
 
 /** Live AIS tracking link (VesselFinder) by IMO, falling back to a name search. */
