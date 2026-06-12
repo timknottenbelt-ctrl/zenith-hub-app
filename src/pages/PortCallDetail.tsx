@@ -926,6 +926,35 @@ export default function PortCallDetail() {
           </div>
         </div>
 
+        {/* At-a-glance dossier summary */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { icon: ClipboardList, label: 'Open taken', value: String(openTasks), tone: openTasks > 0 ? 'text-amber-600' : 'text-emerald-600' },
+            { icon: ListChecks, label: 'Arrival docs', value: arrivalDocs.length ? `${arrivalDone}/${arrivalDocs.length}` : '—', tone: '' },
+            { icon: Clock, label: 'SOF events', value: String(events.length), tone: '' },
+            {
+              icon: DollarSign,
+              label: 'FDA',
+              value: fdaLinks.length
+                ? fdaLinks.some((f) => f.total_amount != null)
+                  ? fdaLinks.reduce((s, f) => s + (f.total_amount || 0), 0).toLocaleString()
+                  : `${fdaLinks.length}×`
+                : '—',
+              tone: '',
+            },
+          ].map((s) => {
+            const Icon = s.icon;
+            return (
+              <div key={s.label} className="rounded-xl border border-border/60 bg-card p-3">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                  <Icon className="h-3.5 w-3.5" /> {s.label}
+                </div>
+                <div className={cn('mt-1 text-xl font-bold tabular-nums', s.tone || 'text-foreground')}>{s.value}</div>
+              </div>
+            );
+          })}
+        </div>
+
         {view === 'da' ? (
           <DACalculatorPanel initial={daInitial} onBack={() => setView('dossier')} />
         ) : (
