@@ -357,7 +357,7 @@ export default function PortCallDetail() {
   const [etd, setEtd] = useState('');
   const [clientSaving, setClientSaving] = useState(false);
   const [contactOpts, setContactOpts] = useState<string[]>([]);
-  const [fdaLinks, setFdaLinks] = useState<{ project_id: string; lbh_number: string; ship_name: string; status: string | null }[]>([]);
+  const [fdaLinks, setFdaLinks] = useState<{ project_id: string; lbh_number: string; ship_name: string; status: string | null; total_amount: number | null; total_invoices: number | null }[]>([]);
 
   // New custom doc
   const [docLabel, setDocLabel] = useState('');
@@ -597,7 +597,7 @@ export default function PortCallDetail() {
       const q = supabase.from('fda_curacao_projects') as unknown as {
         select: (c: string) => { eq: (k: string, v: string) => { order: (c: string, o: { ascending: boolean }) => Promise<{ data: typeof fdaLinks | null }> } };
       };
-      const { data } = await q.select('project_id, lbh_number, ship_name, status').eq('dossier_key', call.key).order('created_at', { ascending: false });
+      const { data } = await q.select('project_id, lbh_number, ship_name, status, total_amount, total_invoices').eq('dossier_key', call.key).order('created_at', { ascending: false });
       if (active && data) setFdaLinks(data);
     })();
     return () => {
@@ -1160,6 +1160,33 @@ export default function PortCallDetail() {
                     </button>
                   ))}
                 </div>
+              )}
+            </Block>
+
+            {/* Financieel overzicht */}
+            <Block title="Financieel overzicht" icon={DollarSign}>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-border/50 p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Verwacht · nominatie</div>
+                  <div className="mt-1 text-lg font-bold text-foreground">
+                    {record?.nomination_amount != null
+                      ? `${record.nomination_currency || 'USD'} ${record.nomination_amount.toLocaleString()}`
+                      : '—'}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border/50 p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    FDA totaal · {fdaLinks.length} FDA · {fdaLinks.reduce((s, f) => s + (f.total_invoices || 0), 0)} facturen
+                  </div>
+                  <div className="mt-1 text-lg font-bold text-foreground">
+                    {fdaLinks.some((f) => f.total_amount != null)
+                      ? fdaLinks.reduce((s, f) => s + (f.total_amount || 0), 0).toLocaleString()
+                      : '—'}
+                  </div>
+                </div>
+              </div>
+              {record?.nomination_amount == null && fdaLinks.length === 0 && (
+                <p className="mt-2 text-[11px] text-muted-foreground">Voeg een nominatie/opbrengst toe of koppel een FDA om dit overzicht te vullen.</p>
               )}
             </Block>
 
