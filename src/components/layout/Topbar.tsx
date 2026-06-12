@@ -59,7 +59,7 @@ export const Topbar = memo(function Topbar({ title }: TopbarProps) {
     if (!isInquiriesRoute) return;
     const q = searchParams.get('q') ?? '';
     setSearchQuery((prev) => (prev === q ? prev : q));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isInquiriesRoute, searchParams]);
 
   const updateInquiriesQueryParam = useCallback(

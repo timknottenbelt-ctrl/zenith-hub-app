@@ -158,7 +158,7 @@ export function InquiryDAPanel({ email, onAttached, vesselIndex = 1 }: { email: 
       // Enrich from the vessels database — fill GT/LOA/DWT whenever any is missing
       // (DWT isn't used in the DA calc, but it's nice to show when we know it).
       if (vName && (!next.gt || !next.loa || !next.dwt)) {
-        const cleanName = vName.replace(/^M[\/.]?[TV]\s+/i, '').trim();
+        const cleanName = vName.replace(/^M[/.]?[TV]\s+/i, '').trim();
         const { data } = await supabase
           .from('vessels')
           .select('gross_tonnage, loa_m, dwt_mt')

@@ -97,6 +97,7 @@ export default function SentPDAs() {
 
   useEffect(() => {
     fetchSentEmails();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -175,9 +176,9 @@ export default function SentPDAs() {
   async function fetchSentEmails() {
     setLoading(true);
 
-    const { data, error } = await (supabase
+    const { data, error } = await supabase
       .from('email')
-      .select('*') as any)
+      .select('*')
       .eq('archived', false)
       .in('status', ['approved', 'sent'])
       .order('sent_at', { ascending: false });
@@ -213,7 +214,7 @@ export default function SentPDAs() {
         const blobUrl = URL.createObjectURL(data);
         setPdfPreviewUrl(blobUrl);
       }
-    } catch (error: any) {
+    } catch {
       toast({ title: t('common.error'), description: t('common.error_occurred'), variant: 'destructive' });
     }
 
@@ -236,7 +237,7 @@ export default function SentPDAs() {
         document.body.removeChild(link);
         URL.revokeObjectURL(blobUrl);
       }
-    } catch (error: any) {
+    } catch {
       toast({ title: t('common.error'), description: t('common.error_occurred'), variant: 'destructive' });
     }
   }

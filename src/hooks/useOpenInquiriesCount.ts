@@ -14,10 +14,10 @@ export function useOpenInquiriesCount(intervalMs = 45000) {
 
     const load = async () => {
       // `archived` is added by migration 20260607120000 and not yet in the
-      // generated types — cast the builder to keep TS happy.
-      const { count: c } = await (supabase.from('email') as any)
+      // generated types — cast just the column key to keep TS happy.
+      const { count: c } = await supabase.from('email')
         .select('id', { count: 'exact', head: true })
-        .eq('archived', false)
+        .eq('archived' as never, false as never)
         .not('status', 'in', '("approved","sent")');
       if (active && typeof c === 'number') setCount(c);
     };

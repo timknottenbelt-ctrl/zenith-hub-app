@@ -58,9 +58,14 @@ export interface PortCallSeed {
   eta?: string | null;
 }
 
+// These tables were added via migration and aren't in the generated Supabase
+// types, so the typed client can't model them — `any` is a deliberate escape
+// hatch here. Results are cast to the local interfaces at each call site.
+/* eslint-disable @typescript-eslint/no-explicit-any */
 const pc = () => supabase.from('port_call') as any;
 const ev = () => supabase.from('port_call_event') as any;
 const dc = () => supabase.from('port_call_doc') as any;
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export type CallType = 'cargo_agent' | 'owners_agent' | null;
 
@@ -204,6 +209,8 @@ export interface PortCallTask {
   created_at: string;
 }
 
+// Untyped table (see note above) — deliberate escape hatch.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tk = () => supabase.from('port_call_task') as any;
 
 export async function loadTasks(portCallId: string): Promise<PortCallTask[]> {

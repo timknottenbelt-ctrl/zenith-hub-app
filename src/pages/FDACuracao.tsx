@@ -54,6 +54,17 @@ interface FDAProject {
   created_at: string | null;
   google_sheet_url: string | null;
   agency_cost_url: string | null;
+  // Columns not yet in the generated Supabase types.
+  vessel_arrived?: string | null;
+  vessel_sailed?: string | null;
+  operation?: string | null;
+  commodity?: string | null;
+  client_reference?: string | null;
+  advanced_payment_amount?: number | null;
+  advanced_payment_currency?: string | null;
+  advanced_payment_reference?: string | null;
+  advanced_payment_status?: string | null;
+  advanced_payment_remark?: string | null;
 }
 
 interface Invoice {
@@ -179,6 +190,7 @@ export default function FDACuracao() {
 
   useEffect(() => {
     if (selectedProject) loadProjectData(selectedProject);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProject?.id]);
 
   async function fetchProjects(showLoader = false) {
@@ -195,19 +207,19 @@ export default function FDACuracao() {
       client_name: project.client_name || "", client_email: project.client_email || "", client_phone: project.client_phone || "",
       billing_company: project.billing_company || "", billing_address: project.billing_address || "",
       billing_email: project.billing_email || "", billing_phone: project.billing_phone || "",
-      vessel_arrived: (project as any).vessel_arrived || "", vessel_sailed: (project as any).vessel_sailed || "",
-      operation: (project as any).operation || "", commodity: (project as any).commodity || "",
-      client_reference: (project as any).client_reference || "",
-      advanced_payment_amount: (project as any).advanced_payment_amount?.toString() || "",
-      advanced_payment_currency: (project as any).advanced_payment_currency || "USD",
-      advanced_payment_reference: (project as any).advanced_payment_reference || "",
-      advanced_payment_status: (project as any).advanced_payment_status || "unpaid",
-      advanced_payment_remark: (project as any).advanced_payment_remark || "",
+      vessel_arrived: project.vessel_arrived || "", vessel_sailed: project.vessel_sailed || "",
+      operation: project.operation || "", commodity: project.commodity || "",
+      client_reference: project.client_reference || "",
+      advanced_payment_amount: project.advanced_payment_amount?.toString() || "",
+      advanced_payment_currency: project.advanced_payment_currency || "USD",
+      advanced_payment_reference: project.advanced_payment_reference || "",
+      advanced_payment_status: project.advanced_payment_status || "unpaid",
+      advanced_payment_remark: project.advanced_payment_remark || "",
     });
 
     const { data: agencyData } = await supabase.from("fda_curacao_agency_costs").select("*").eq("project_id", project.project_id).order("created_at", { ascending: true });
     if (agencyData && agencyData.length > 0) {
-      setAgencyCostRows(agencyData.map((row: any) => ({ id: row.id, description: row.description || "", number: row.invoice_number || "", remark: row.remark || "", amount: row.total_amount?.toString() || "" })));
+      setAgencyCostRows(agencyData.map((row) => ({ id: row.id, description: row.description || "", number: row.invoice_number || "", remark: row.remark || "", amount: row.total_amount?.toString() || "" })));
     } else {
       setAgencyCostRows([{ id: crypto.randomUUID(), description: "", number: "", remark: "", amount: "" }]);
     }
@@ -251,7 +263,7 @@ export default function FDACuracao() {
     }
     setSaving(true);
     const projectId = crypto.randomUUID();
-    const { data, error } = await (supabase.from("fda_curacao_projects") as any).insert({
+    const { data, error } = await (supabase.from("fda_curacao_projects") as ReturnType<typeof supabase.from>).insert({
       project_id: projectId, lbh_number: formData.lbh_number, ship_name: formData.ship_name,
       fda_responsible: formData.fda_responsible || null, client_name: formData.client_name || null,
       client_email: formData.client_email || null, client_phone: formData.client_phone || null,
@@ -383,10 +395,10 @@ export default function FDACuracao() {
       setSelectedProject(prev => prev ? { ...prev, status: "processing" } : null);
       toast({ title: "Verzonden", description: "Verwerking gestart..." });
       setStepInUrl("processing");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Send error:", error);
 
-      if (error?.name === "AbortError") {
+      if ((error as { name?: string })?.name === "AbortError") {
         toast({
           title: "Even geduld",
           description: "De verwerking duurt langer dan verwacht. Wacht 2 minuten en ververs de pagina om te controleren of je facturen zijn verwerkt.",

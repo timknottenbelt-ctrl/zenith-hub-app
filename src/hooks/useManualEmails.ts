@@ -49,6 +49,7 @@ export function useManualEmails(filterAgentType: string) {
 
   useEffect(() => {
     fetchManualEmails();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterAgentType]);
 
   // Auto-refresh polling for processing emails
@@ -84,6 +85,7 @@ export function useManualEmails(filterAgentType: string) {
     }, 3000);
 
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterAgentType]);
 
   async function fetchManualEmails(options: { showLoading?: boolean } = {}) {

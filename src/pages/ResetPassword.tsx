@@ -35,7 +35,7 @@ export default function ResetPassword() {
 
       // Heeft de URL recovery/magic link params? Dan sessie herstellen
       if (access_token && refresh_token) {
-        await (supabase.auth as any).setSession({ access_token, refresh_token });
+        await supabase.auth.setSession({ access_token, refresh_token });
         setReady(true);
         return;
       }

@@ -138,7 +138,7 @@ export function FDACuracaoProcessingStatus({
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [projectId, initiallyComplete]);
 
   const completedSteps = steps.filter((s) => s.status === "complete").length;

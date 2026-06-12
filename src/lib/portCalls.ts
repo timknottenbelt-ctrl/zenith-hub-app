@@ -179,8 +179,12 @@ async function fetchFdaDocs(): Promise<Map<string, PCDocument>> {
   const map = new Map<string, PCDocument>();
   try {
     const queries = [
+      // These select strings mix columns that aren't all present in the
+      // generated types for both tables — cast the builder loosely.
+      /* eslint-disable @typescript-eslint/no-explicit-any */
       (supabase.from('fda_curacao_projects').select('ship_name, final_pdf_url, updated_at, created_at') as any).limit(1000),
       (supabase.from('fda_projects').select('ship_name, final_pdf_url, updated_at, created_at') as any).limit(1000),
+      /* eslint-enable @typescript-eslint/no-explicit-any */
     ];
     const results = await Promise.allSettled(queries);
     for (const r of results) {
@@ -213,8 +217,8 @@ export function getCachedPortCalls(): PortCall[] | null {
 /** Fetch emails + FDA docs and derive port-call dossiers (one per voyage). */
 export async function fetchPortCalls(): Promise<PortCall[]> {
   const [emailsRes, fda, records] = await Promise.all([
-    (supabase.from('email').select(EMAIL_COLS) as any)
-      .eq('archived', false)
+    supabase.from('email').select(EMAIL_COLS)
+      .eq('archived' as never, false as never)
       .not('vessel_name', 'is', null)
       .order('created_at', { ascending: true })
       .limit(3000),

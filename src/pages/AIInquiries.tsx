@@ -171,6 +171,7 @@ export default function AIInquiries() {
     if (found && selectedEmail?.id !== id) {
       selectEmail(id);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, emails, selectedEmail?.id]);
 
   // Filter emails based on search and date
@@ -239,6 +240,7 @@ export default function AIInquiries() {
 
   useEffect(() => {
     fetchEmails();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   useEffect(() => {
@@ -260,7 +262,7 @@ export default function AIInquiries() {
     let query = supabase.from('email').select(LIST_COLS);
 
     // Never show archived rows (out-of-scope + non-inquiry thread noise).
-    query = (query as any).eq('archived', false);
+    query = query.eq('archived' as never, false as never);
 
     // Exclude sent/approved emails from all tabs - they belong in Sent PDAs
     query = query.not('status', 'in', '("approved","sent")');
@@ -300,7 +302,7 @@ export default function AIInquiries() {
   // Per-tab counts for the tab badges (kept in sync after every fetch/action).
   async function fetchCounts() {
     const base = () =>
-      (supabase.from('email').select('*', { count: 'exact', head: true }) as any)
+      supabase.from('email').select('*', { count: 'exact', head: true })
         .eq('archived', false)
         .not('status', 'in', '("approved","sent")');
     const [cargo, owners, incomplete] = await Promise.all([
@@ -426,8 +428,8 @@ export default function AIInquiries() {
       } else {
         throw new Error(data?.error || 'compose failed');
       }
-    } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || t('common.error_occurred'), variant: 'destructive' });
+    } catch (e) {
+      toast({ title: t('common.error'), description: (e as Error).message || t('common.error_occurred'), variant: 'destructive' });
     } finally {
       setComposing(false);
     }
@@ -503,9 +505,9 @@ export default function AIInquiries() {
         setSelectedEmail(null);
         setEmailIdInUrl(null);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error in handleUpdateStatus:', error);
-      toast({ title: t('common.error'), description: error.message || t('common.error_occurred'), variant: 'destructive' });
+      toast({ title: t('common.error'), description: (error as Error).message || t('common.error_occurred'), variant: 'destructive' });
     }
 
     setSending(false);
@@ -573,8 +575,8 @@ export default function AIInquiries() {
   const originalText = selectedEmail
     ? prettifyOriginal(selectedEmail.original_email || selectedEmail.orignal_email || '')
     : '';
-  const confidence = selectedEmail ? (selectedEmail as any).classification_confidence as number | null : null;
-  const reasoning = selectedEmail ? (selectedEmail as any).classification_reasoning as string | null : null;
+  const confidence = selectedEmail ? (selectedEmail as { classification_confidence?: number | null }).classification_confidence ?? null : null;
+  const reasoning = selectedEmail ? (selectedEmail as { classification_reasoning?: string | null }).classification_reasoning ?? null : null;
   const currentCategory = selectedEmail ? categoryKey(selectedEmail['Email Type']) : null;
   const hasAiReply = selectedEmail ? isRealAiReply(selectedEmail) : false;
 
@@ -686,7 +688,7 @@ export default function AIInquiries() {
                           </div>
                           {group.emails.map((email) => {
                             const who = email.company_name || email.contact_name || t('inquiries.noSubject');
-                            const conf = (email as any).classification_confidence as number | null;
+                            const conf = (email as { classification_confidence?: number | null }).classification_confidence ?? null;
                             const selected = selectedEmail?.id === email.id;
                             return (
                               <button
@@ -1136,7 +1138,10 @@ function prettifyOriginal(raw: string): string {
   if (!raw) return '';
   let t = raw;
   // Strip invisible/zero-width junk and tracking trailers that wreck the layout.
+  // The class intentionally lists individual zero-width / bidi / format code
+  // points; that's exactly what we want to remove.
   t = t
+    // eslint-disable-next-line no-misleading-character-class
     .replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF\u00AD\u034F]/g, '')
     .replace(/[ \t]*Conversation ID:[\s\S]*$/i, '')
     .replace(/[\u2500-\u257F]{3,}/g, '\n');

@@ -103,7 +103,11 @@ const KpiTile = memo(function KpiTile({
 });
 
 // Custom tooltip for the activity chart
-function ActivityTooltip({ active, payload, label }: any) {
+function ActivityTooltip({ active, payload, label }: {
+  active?: boolean;
+  payload?: { payload?: { received?: number; sent?: number } }[];
+  label?: string | number;
+}) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border border-border/60 bg-popover/95 backdrop-blur-sm px-3 py-2 shadow-lg text-xs">
@@ -131,7 +135,7 @@ async function fetchDashboardData() {
     fdaDraftsResult,
     curacaoProjectsResult,
   ] = await Promise.all([
-    (supabase.from('email').select('id, subject, email_to_person, created_at, status, "Email Type", vessel_name, missing_information') as any).eq('archived', false),
+    supabase.from('email').select('id, subject, email_to_person, created_at, status, "Email Type", vessel_name, missing_information').eq('archived' as never, false as never),
     supabase.from('vessels').select('*', { count: 'exact', head: true }),
     supabase.from('contacts').select('*', { count: 'exact', head: true }),
     supabase.from('fda_projects').select('*', { count: 'exact', head: true }),
