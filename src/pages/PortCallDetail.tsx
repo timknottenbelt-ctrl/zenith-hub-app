@@ -358,6 +358,7 @@ export default function PortCallDetail() {
   const [clientSaving, setClientSaving] = useState(false);
   const [contactOpts, setContactOpts] = useState<string[]>([]);
   const [fdaLinks, setFdaLinks] = useState<{ project_id: string; lbh_number: string; ship_name: string; status: string | null; total_amount: number | null; total_invoices: number | null }[]>([]);
+  const [fdaInvoices, setFdaInvoices] = useState<Record<string, { id: string; invoice_number: string | null; supplier_name: string | null; total_amount: number | null; currency: string | null; file_url: string | null; file_name: string | null }[]>>({});
 
   // New custom doc
   const [docLabel, setDocLabel] = useState('');
@@ -604,6 +605,32 @@ export default function PortCallDetail() {
       active = false;
     };
   }, [call?.key]);
+
+  // Processed invoices for the linked FDA projects, shown inline on the dossier.
+  useEffect(() => {
+    if (fdaLinks.length === 0) {
+      setFdaInvoices({});
+      return;
+    }
+    let active = true;
+    (async () => {
+      const ids = fdaLinks.map((f) => f.project_id);
+      const { data } = await supabase
+        .from('fda_curacao_processed_invoices')
+        .select('project_id, id, invoice_number, supplier_name, total_amount, currency, file_url, file_name')
+        .in('project_id', ids)
+        .order('created_at', { ascending: true });
+      if (!active || !data) return;
+      const grouped: Record<string, typeof fdaInvoices[string]> = {};
+      for (const inv of data as unknown as (typeof fdaInvoices[string][number] & { project_id: string })[]) {
+        (grouped[inv.project_id] ||= []).push(inv);
+      }
+      setFdaInvoices(grouped);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [fdaLinks]);
 
   async function saveNomination() {
     if (!record) return;
@@ -1225,22 +1252,49 @@ export default function PortCallDetail() {
                 <p className="text-[12px] text-muted-foreground">Nog geen FDA aan deze aanloop gekoppeld.</p>
               ) : (
                 <div className="space-y-1.5">
-                  {fdaLinks.map((f) => (
-                    <button
-                      key={f.project_id}
-                      onClick={() => navigate(`/fda-curacao?project=${f.project_id}`)}
-                      className="flex w-full items-center justify-between rounded-lg border border-border/50 px-3 py-2 text-left text-[12px] transition-colors hover:border-primary/40 hover:bg-primary/5"
-                    >
-                      <span className="min-w-0 truncate">
-                        <span className="font-medium text-foreground">{f.lbh_number || 'FDA'}</span>
-                        <span className="ml-2 text-muted-foreground">{f.ship_name}</span>
-                      </span>
-                      <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
-                        {f.status && <Badge variant="outline" className="text-[10px]">{f.status}</Badge>}
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </span>
-                    </button>
-                  ))}
+                  {fdaLinks.map((f) => {
+                    const inv = fdaInvoices[f.project_id] || [];
+                    return (
+                      <div key={f.project_id} className="overflow-hidden rounded-lg border border-border/50">
+                        <button
+                          onClick={() => navigate(`/fda-curacao?project=${f.project_id}`)}
+                          className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] transition-colors hover:bg-primary/5"
+                        >
+                          <span className="min-w-0 truncate">
+                            <span className="font-medium text-foreground">{f.lbh_number || 'FDA'}</span>
+                            <span className="ml-2 text-muted-foreground">{f.ship_name}</span>
+                          </span>
+                          <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
+                            {f.status && <Badge variant="outline" className="text-[10px]">{f.status}</Badge>}
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </span>
+                        </button>
+                        {inv.length > 0 && (
+                          <div className="space-y-1 border-t border-border/50 bg-muted/20 px-3 py-2">
+                            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Facturen ({inv.length})</div>
+                            {inv.map((iv) => (
+                              <div key={iv.id} className="flex items-center justify-between gap-2 text-[11px]">
+                                <span className="min-w-0 truncate text-muted-foreground">
+                                  {iv.supplier_name || iv.invoice_number || iv.file_name || 'Factuur'}
+                                  {iv.supplier_name && iv.invoice_number && <span className="ml-1 opacity-60">· {iv.invoice_number}</span>}
+                                </span>
+                                <span className="flex shrink-0 items-center gap-2">
+                                  {iv.total_amount != null && (
+                                    <span className="font-medium tabular-nums text-foreground">{iv.currency || ''} {iv.total_amount.toLocaleString()}</span>
+                                  )}
+                                  {iv.file_url && (
+                                    <a href={iv.file_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  )}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               <Button size="sm" variant="secondary" className="mt-2 w-full" onClick={openFdaForCall}>
