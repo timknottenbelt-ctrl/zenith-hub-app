@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -52,6 +52,7 @@ import {
 import { TERMINALS, resolveTerminal, berthCheck, suggestBerths, cargoToProduct } from '@/lib/terminals';
 import { LIFECYCLE_ORDER, LIFECYCLE_META } from '@/lib/portCallStatus';
 import { DACalculatorPanel, type DAInitial } from '@/components/da/DACalculatorPanel';
+import { FDAInlinePanel } from '@/components/fda/FDAInlinePanel';
 import { resolvePortLoc, osmEmbedUrl, marineTrafficUrl, vesselFinderUrl } from '@/lib/curacaoPorts';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { getN8nWebhook, setN8nWebhook, createN8nDraft, type DocType, type DraftResult } from '@/lib/n8n';
@@ -343,8 +344,10 @@ export default function PortCallDetail() {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiResult, setAiResult] = useState<AiScanResult | null>(null);
 
-  // Inline tool view below the header: dossier (default) | da
-  const [view, setView] = useState<'dossier' | 'da'>('dossier');
+  // Inline tool view below the header: dossier (default) | da | fda
+  const [view, setView] = useState<'dossier' | 'da' | 'fda'>('dossier');
+  // Which FDA the inline editor targets — { projectId: null } means create mode.
+  const [fdaTarget, setFdaTarget] = useState<{ projectId: string | null } | null>(null);
 
   // Nomination form (in a dialog)
   const [nomOpen, setNomOpen] = useState(false);
@@ -574,37 +577,41 @@ export default function PortCallDetail() {
     toast({ title: 'Klant opgeslagen' });
   }
 
-  // Open the FDA Creator pre-filled with this port call's context.
-  function openFdaForCall() {
-    if (!call) return;
-    const p = new URLSearchParams();
-    p.set('prefill', '1');
-    p.set('dossier', call.key);
-    if (call.vessel) p.set('ship', call.vessel);
-    const client = principal.trim() || call.company || '';
-    if (client) p.set('client', client);
-    const arrived = record?.eta || record?.etb;
-    if (arrived) p.set('arrived', arrived.slice(0, 10));
-    if (record?.etd) p.set('sailed', record.etd.slice(0, 10));
-    navigate(`/fda-curacao?${p.toString()}`);
+  // Defaults handed to the inline FDA editor when creating a new FDA.
+  const fdaCreateDefaults = useMemo(
+    () => ({
+      ship_name: call?.vessel || '',
+      client_name: principal.trim() || call?.company || '',
+      vessel_arrived: (record?.eta || record?.etb || '').slice(0, 10),
+      vessel_sailed: (record?.etd || '').slice(0, 10),
+    }),
+    [call?.vessel, call?.company, principal, record?.eta, record?.etb, record?.etd],
+  );
+
+  // Open the inline FDA editor — create mode (no projectId) or edit an existing one.
+  function openFdaCreate() {
+    setFdaTarget({ projectId: null });
+    setView('fda');
+  }
+  function openFdaEdit(projectId: string) {
+    setFdaTarget({ projectId });
+    setView('fda');
   }
 
   // FDA projects linked to this dossier.
-  useEffect(() => {
+  const reloadFdaLinks = useCallback(async () => {
     if (!call?.key) return;
-    let active = true;
-    (async () => {
-      // dossier_key is not in the generated types yet; cast the builder.
-      const q = supabase.from('fda_curacao_projects') as unknown as {
-        select: (c: string) => { eq: (k: string, v: string) => { order: (c: string, o: { ascending: boolean }) => Promise<{ data: typeof fdaLinks | null }> } };
-      };
-      const { data } = await q.select('project_id, lbh_number, ship_name, status, total_amount, total_invoices').eq('dossier_key', call.key).order('created_at', { ascending: false });
-      if (active && data) setFdaLinks(data);
-    })();
-    return () => {
-      active = false;
+    // dossier_key is not in the generated types yet; cast the builder.
+    const q = supabase.from('fda_curacao_projects') as unknown as {
+      select: (c: string) => { eq: (k: string, v: string) => { order: (c: string, o: { ascending: boolean }) => Promise<{ data: typeof fdaLinks | null }> } };
     };
+    const { data } = await q.select('project_id, lbh_number, ship_name, status, total_amount, total_invoices').eq('dossier_key', call.key).order('created_at', { ascending: false });
+    if (data) setFdaLinks(data);
   }, [call?.key]);
+
+  useEffect(() => {
+    reloadFdaLinks();
+  }, [reloadFdaLinks]);
 
   // Processed invoices for the linked FDA projects, shown inline on the dossier.
   useEffect(() => {
@@ -912,7 +919,10 @@ export default function PortCallDetail() {
               >
                 <Calculator className="h-3.5 w-3.5" /> DA Creator
               </button>
-              <button onClick={openFdaForCall} className={actionBtn}>
+              <button
+                onClick={() => (view === 'fda' ? setView('dossier') : (fdaLinks[0] ? openFdaEdit(fdaLinks[0].project_id) : openFdaCreate()))}
+                className={cn(actionBtn, view === 'fda' && 'bg-white text-primary hover:bg-white/90')}
+              >
                 <FileSignature className="h-3.5 w-3.5" /> FDA Creator
               </button>
               <button onClick={runAiScan} disabled={aiBusy} className={cn(actionBtn, 'disabled:opacity-60')}>
@@ -982,7 +992,17 @@ export default function PortCallDetail() {
           })}
         </div>
 
-        {view === 'da' ? (
+        {view === 'fda' && fdaTarget ? (
+          <FDAInlinePanel
+            key={fdaTarget.projectId ?? 'new'}
+            projectId={fdaTarget.projectId}
+            createDefaults={fdaCreateDefaults}
+            dossierKey={call.key}
+            onOpenFull={(pid) => navigate(`/fda-curacao?project=${pid}`)}
+            onBack={() => setView('dossier')}
+            onChanged={reloadFdaLinks}
+          />
+        ) : view === 'da' ? (
           <DACalculatorPanel initial={daInitial} onBack={() => setView('dossier')} />
         ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -1257,7 +1277,7 @@ export default function PortCallDetail() {
                     return (
                       <div key={f.project_id} className="overflow-hidden rounded-lg border border-border/50">
                         <button
-                          onClick={() => navigate(`/fda-curacao?project=${f.project_id}`)}
+                          onClick={() => openFdaEdit(f.project_id)}
                           className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] transition-colors hover:bg-primary/5"
                         >
                           <span className="min-w-0 truncate">
@@ -1266,7 +1286,7 @@ export default function PortCallDetail() {
                           </span>
                           <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
                             {f.status && <Badge variant="outline" className="text-[10px]">{f.status}</Badge>}
-                            <ExternalLink className="h-3.5 w-3.5" />
+                            <Pencil className="h-3.5 w-3.5" />
                           </span>
                         </button>
                         {inv.length > 0 && (
@@ -1297,7 +1317,7 @@ export default function PortCallDetail() {
                   })}
                 </div>
               )}
-              <Button size="sm" variant="secondary" className="mt-2 w-full" onClick={openFdaForCall}>
+              <Button size="sm" variant="secondary" className="mt-2 w-full" onClick={openFdaCreate}>
                 <FileSignature className="mr-1.5 h-3.5 w-3.5" /> {fdaLinks.length ? 'Nieuwe FDA voor deze aanloop' : 'FDA aanmaken voor deze aanloop'}
               </Button>
             </Block>
