@@ -24,15 +24,15 @@ export async function warmDashboard() {
   if (warming) return;
   warming = true;
   try {
-    const inquiries = (supabase.from('email').select(LIST_COLS) as any)
-      .eq('archived', false)
+    const inquiries = supabase.from('email').select(LIST_COLS)
+      .eq('archived' as never, false as never)
       .not('status', 'in', '("approved","sent")')
       .in('Email Type', CARGO_TYPES)
       .neq('status', 'out_of_scope')
       .order('created_at', { ascending: false })
       .limit(300);
 
-    const sent = (supabase.from('email').select('*') as any)
+    const sent = supabase.from('email').select('*')
       .eq('archived', false)
       .in('status', ['approved', 'sent'])
       .order('sent_at', { ascending: false });

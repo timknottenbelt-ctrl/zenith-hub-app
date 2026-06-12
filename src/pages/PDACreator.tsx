@@ -102,6 +102,7 @@ export default function PDACreator() {
     if (terminalAreaGroups.length > 0 && expandedAreas.size === 0) {
       setExpandedAreas(new Set(terminalAreaGroups.map(g => g.area)));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [terminalAreaGroups]);
 
   const existingTerminals = useMemo(() => {
@@ -132,6 +133,7 @@ export default function PDACreator() {
     if (tugGroups.length > 0 && expandedTerminals.size === 0) {
       setExpandedTerminals(new Set(tugGroups.map(([t]) => t)));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tugGroups]);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -193,7 +195,7 @@ export default function PDACreator() {
       tug_type: null,
       operation_types: null,
       cargo_types: cargoArr,
-    } as any);
+    });
     setNewTugForTerminal(null);
     toast({ title: 'Tug rule aangemaakt' });
   };
@@ -612,7 +614,7 @@ export default function PDACreator() {
                 toast({ title: 'Max Draft is verplicht', variant: 'destructive' });
                 return;
               }
-              editingTerminal && saveTerminal(editingTerminal);
+              if (editingTerminal) saveTerminal(editingTerminal);
             }}>Opslaan</Button>
           </DialogFooter>
         </DialogContent>
@@ -637,7 +639,7 @@ export default function PDACreator() {
             tug_type: null,
             operation_types: null,
             cargo_types: cargoArr,
-          } as any);
+          });
           setShowNewTug(false);
           toast({ title: 'Tug rule aangemaakt' });
         }}
@@ -655,7 +657,7 @@ export default function PDACreator() {
       <NewRuleDialog
         open={showNewRate} onClose={() => setShowNewRate(false)} title="Nieuwe Loading Rate"
         onSave={async (form) => {
-          await createLoadingRate({ cargo_type: form.cargo_type, cargo_category: form.cargo_category || null, loading_rate: Number(form.loading_rate), discharge_rate: Number(form.discharge_rate), heating_required: false, heating_buffer_percent: 0, port_stay_buffer_percent: 0, notes: form.notes || null } as any);
+          await createLoadingRate({ cargo_type: form.cargo_type, cargo_category: form.cargo_category || null, loading_rate: Number(form.loading_rate), discharge_rate: Number(form.discharge_rate), heating_required: false, heating_buffer_percent: 0, port_stay_buffer_percent: 0, notes: form.notes || null });
           setShowNewRate(false);
           toast({ title: 'Loading rate aangemaakt' });
         }}
@@ -689,7 +691,7 @@ export default function PDACreator() {
             allowed_operations: data.allowed_operations || [],
             notes: data.notes || null,
             priority: data.priority ? Number(data.priority) : 1,
-          } as any);
+          });
           setShowNewTerminal(false);
           toast({ title: 'Terminal aangemaakt' });
         }}

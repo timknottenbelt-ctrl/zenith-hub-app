@@ -58,6 +58,17 @@ interface FDAProject {
   agency_cost_url: string | null;
   front_page_url: string | null;
   final_pdf_url: string | null;
+  // Columns not yet in the generated Supabase types.
+  vessel_arrived?: string | null;
+  vessel_sailed?: string | null;
+  operation?: string | null;
+  commodity?: string | null;
+  client_reference?: string | null;
+  advanced_payment_amount?: number | null;
+  advanced_payment_currency?: string | null;
+  advanced_payment_reference?: string | null;
+  advanced_payment_status?: string | null;
+  advanced_payment_remark?: string | null;
 }
 
 interface FDAInvoice {
@@ -192,10 +203,12 @@ export default function FDACreator() {
     if (found && (!selectedProject || selectedProject.project_id !== found.project_id)) {
       setSelectedProject(found);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, searchParams]);
 
   useEffect(() => {
     if (selectedProject) loadProjectData(selectedProject);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProject?.id]);
 
   async function fetchProjects(showLoader = false) {
@@ -217,16 +230,16 @@ export default function FDACreator() {
       billing_address: project.billing_address || "",
       billing_email: project.billing_email || "",
       billing_phone: project.billing_phone || "",
-      vessel_arrived: (project as any).vessel_arrived || "",
-      vessel_sailed: (project as any).vessel_sailed || "",
-      operation: (project as any).operation || "",
-      commodity: (project as any).commodity || "",
-      client_reference: (project as any).client_reference || "",
-      advanced_payment_amount: (project as any).advanced_payment_amount?.toString() || "",
-      advanced_payment_currency: (project as any).advanced_payment_currency || "USD",
-      advanced_payment_reference: (project as any).advanced_payment_reference || "",
-      advanced_payment_status: (project as any).advanced_payment_status || "unpaid",
-      advanced_payment_remark: (project as any).advanced_payment_remark || "",
+      vessel_arrived: project.vessel_arrived || "",
+      vessel_sailed: project.vessel_sailed || "",
+      operation: project.operation || "",
+      commodity: project.commodity || "",
+      client_reference: project.client_reference || "",
+      advanced_payment_amount: project.advanced_payment_amount?.toString() || "",
+      advanced_payment_currency: project.advanced_payment_currency || "USD",
+      advanced_payment_reference: project.advanced_payment_reference || "",
+      advanced_payment_status: project.advanced_payment_status || "unpaid",
+      advanced_payment_remark: project.advanced_payment_remark || "",
     });
     const { data } = await supabase.from("fda_invoices").select("*").eq("fda_project_id", project.id).order("created_at", { ascending: true });
     setInvoices(data || []);

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 // ─── Types (matching actual DB tables) ───────────────
 export interface TugRule {
@@ -89,8 +90,8 @@ export function usePDAConfigs() {
         terminalAssignments: (termRes.data || []) as unknown as TerminalAssignment[],
       });
       setError(null);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load configs');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load configs');
     } finally {
       setLoading(false);
     }
@@ -102,49 +103,49 @@ export function usePDAConfigs() {
 
   // ── CRUD helpers ─────────────────────────────
   const updateTugRule = async (id: string, updates: Partial<TugRule>) => {
-    const { data, error } = await supabase.from('tug_rules').update(updates as any).eq('id', id).select();
+    const { data, error } = await supabase.from('tug_rules').update(updates as TablesUpdate<'tug_rules'>).eq('id', id).select();
     if (error) throw error;
     await fetchConfigs();
     return data?.[0];
   };
 
   const createTugRule = async (rule: Omit<TugRule, 'id' | 'created_at' | 'updated_at' | 'version' | 'is_active'>) => {
-    const { data, error } = await supabase.from('tug_rules').insert({ ...rule, is_active: true, version: 1 } as any).select();
+    const { data, error } = await supabase.from('tug_rules').insert({ ...rule, is_active: true, version: 1 } as TablesInsert<'tug_rules'>).select();
     if (error) throw error;
     await fetchConfigs();
     return data?.[0];
   };
 
   const updateLoadingRate = async (id: string, updates: Partial<LoadingRate>) => {
-    const { data, error } = await supabase.from('loading_rates').update(updates as any).eq('id', id).select();
+    const { data, error } = await supabase.from('loading_rates').update(updates as TablesUpdate<'loading_rates'>).eq('id', id).select();
     if (error) throw error;
     await fetchConfigs();
     return data?.[0];
   };
 
   const createLoadingRate = async (rate: Omit<LoadingRate, 'id' | 'created_at' | 'updated_at' | 'version' | 'is_active'>) => {
-    const { data, error } = await supabase.from('loading_rates').insert({ ...rate, is_active: true, version: 1 } as any).select();
+    const { data, error } = await supabase.from('loading_rates').insert({ ...rate, is_active: true, version: 1 } as TablesInsert<'loading_rates'>).select();
     if (error) throw error;
     await fetchConfigs();
     return data?.[0];
   };
 
   const updateTerminalAssignment = async (id: string, updates: Partial<TerminalAssignment>) => {
-    const { data, error } = await supabase.from('terminal_assignments').update(updates as any).eq('id', id).select();
+    const { data, error } = await supabase.from('terminal_assignments').update(updates as TablesUpdate<'terminal_assignments'>).eq('id', id).select();
     if (error) throw error;
     await fetchConfigs();
     return data?.[0];
   };
 
   const createTerminalAssignment = async (assignment: Omit<TerminalAssignment, 'id' | 'created_at' | 'updated_at' | 'version' | 'is_active'>) => {
-    const { data, error } = await supabase.from('terminal_assignments').insert({ ...assignment, is_active: true, version: 1 } as any).select();
+    const { data, error } = await supabase.from('terminal_assignments').insert({ ...assignment, is_active: true, version: 1 } as TablesInsert<'terminal_assignments'>).select();
     if (error) throw error;
     await fetchConfigs();
     return data?.[0];
   };
 
   const deactivateRule = async (table: 'tug_rules' | 'loading_rates' | 'terminal_assignments', id: string) => {
-    const { error } = await supabase.from(table as any).update({ is_active: false } as any).eq('id', id);
+    const { error } = await supabase.from(table).update({ is_active: false } as TablesUpdate<'tug_rules'>).eq('id', id);
     if (error) throw error;
     await fetchConfigs();
   };
@@ -165,14 +166,15 @@ export function usePDAConfigs() {
     const text = await file.text();
     const config = JSON.parse(text);
     const ops = [];
+    const stripId = (r: Record<string, unknown>) => ({ ...r, id: undefined, is_active: true });
     if (config.tugRules?.length) {
-      ops.push(supabase.from('tug_rules').insert(config.tugRules.map((r: any) => ({ ...r, id: undefined, is_active: true })) as any));
+      ops.push(supabase.from('tug_rules').insert(config.tugRules.map(stripId) as TablesInsert<'tug_rules'>[]));
     }
     if (config.loadingRates?.length) {
-      ops.push(supabase.from('loading_rates').insert(config.loadingRates.map((r: any) => ({ ...r, id: undefined, is_active: true })) as any));
+      ops.push(supabase.from('loading_rates').insert(config.loadingRates.map(stripId) as TablesInsert<'loading_rates'>[]));
     }
     if (config.terminalAssignments?.length) {
-      ops.push(supabase.from('terminal_assignments').insert(config.terminalAssignments.map((r: any) => ({ ...r, id: undefined, is_active: true })) as any));
+      ops.push(supabase.from('terminal_assignments').insert(config.terminalAssignments.map(stripId) as TablesInsert<'terminal_assignments'>[]));
     }
     await Promise.all(ops);
     await fetchConfigs();

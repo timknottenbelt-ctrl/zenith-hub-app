@@ -73,6 +73,7 @@ export default function Settings() {
 
   useEffect(() => {
     fetchProfile();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function fetchProfile() {

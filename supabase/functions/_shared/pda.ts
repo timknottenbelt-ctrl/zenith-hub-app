@@ -6,10 +6,37 @@
 // Config rows come straight from the Supabase tables tug_rules / loading_rates /
 // terminal_assignments. Field names match those tables.
 
+// Config-row shapes (subset of the Supabase tables actually read here).
+export interface TugRuleRow {
+  port_code?: string | null;
+  loa_min?: number | string | null;
+  loa_max?: number | string | null;
+  tug_count?: number;
+  operation_types?: string[] | null;
+}
+export interface LoadingRateRow {
+  cargo_type?: string | null;
+  loading_rate?: number;
+  discharge_rate?: number | null;
+  heating_required?: boolean | null;
+  heating_buffer_percent?: number | null;
+  port_stay_buffer_percent?: number | null;
+}
+export interface TerminalAssignmentRow {
+  cargo_type?: string | null;
+  loa_min?: number | string | null;
+  loa_max?: number | string | null;
+  priority?: number | null;
+  terminal_name?: string | null;
+  facility_name?: string | null;
+  port_code?: string | null;
+  area_name?: string | null;
+}
+
 export interface PdaConfig {
-  tugRules: any[];
-  loadingRates: any[];
-  terminalAssignments: any[];
+  tugRules: TugRuleRow[];
+  loadingRates: LoadingRateRow[];
+  terminalAssignments: TerminalAssignmentRow[];
 }
 
 export interface VesselInput {
@@ -38,7 +65,7 @@ export interface PdaResult {
 }
 
 // ── Terminal Assignment (from Terminal Assignment1) ──
-export function assignTerminal(vessel: VesselInput, terminalAssignments: any[]) {
+export function assignTerminal(vessel: VesselInput, terminalAssignments: TerminalAssignmentRow[]) {
   const cargoType = (vessel.cargo_type || "").toLowerCase();
   const operation = (vessel.operation_type || "").toLowerCase();
   const loa = vessel.loa || 0;
@@ -115,7 +142,7 @@ export function assignTerminal(vessel: VesselInput, terminalAssignments: any[]) 
 }
 
 // ── Tug Calculator (from Tug Calculator1) ──
-export function tugCount(loa: number, portCode: string, operationType: string, tugRules: any[]): number {
+export function tugCount(loa: number, portCode: string, operationType: string, tugRules: TugRuleRow[]): number {
   const operation = (operationType || "").toLowerCase();
   let tugs = 0;
 
@@ -155,7 +182,7 @@ export function tugCount(loa: number, portCode: string, operationType: string, t
 
 // ── Port Stay Calculator (from Port Stay Calculator1) ──
 export function portStay(
-  cargoQty: number, operationType: string, portCode: string, cargoType: string, loadingRates: any[],
+  cargoQty: number, operationType: string, portCode: string, cargoType: string, loadingRates: LoadingRateRow[],
 ): { port_stay: number | null; loading_rate: number | null } {
   const operation = (operationType || "").toLowerCase();
   const cargo = (cargoType || "").toLowerCase();

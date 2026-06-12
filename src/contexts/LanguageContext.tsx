@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- file intentionally exports hooks/variants beside its component */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Language, t as translate } from '@/lib/i18n';
 

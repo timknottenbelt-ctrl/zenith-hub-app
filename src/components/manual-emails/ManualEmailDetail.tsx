@@ -168,7 +168,10 @@ export function ManualEmailDetail({ email, onDelete, onEmailUpdated, onRefresh }
         console.warn("n8n upstream error:", responseData);
       }
 
-      const webhookData: any = responseData?.data ?? null;
+      const webhookData = (responseData?.data ?? null) as {
+        subject?: string; body?: string;
+        data?: { subject?: string; body?: string; vessel_name?: string };
+      } | null;
       const respSubject = webhookData?.data?.subject ?? webhookData?.subject;
       const respBody = webhookData?.data?.body ?? webhookData?.body;
       const respVesselName = webhookData?.data?.vessel_name;

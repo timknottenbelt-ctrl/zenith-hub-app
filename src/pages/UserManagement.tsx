@@ -84,8 +84,8 @@ export default function UserManagement() {
       if (fnError) throw new Error(fnError.message);
       toast({ title: 'Succes', description: 'Gebruiker verwijderd' });
       fetchUsers();
-    } catch (error: any) {
-      toast({ title: 'Fout', description: error.message, variant: 'destructive' });
+    } catch (error) {
+      toast({ title: 'Fout', description: (error as Error).message, variant: 'destructive' });
     }
     setActionLoading(null);
   }
@@ -139,8 +139,8 @@ export default function UserManagement() {
       setNewUserName('');
       setNewUserRole('user');
       fetchUsers();
-    } catch (error: any) {
-      toast({ title: 'Fout', description: error.message, variant: 'destructive' });
+    } catch (error) {
+      toast({ title: 'Fout', description: (error as Error).message, variant: 'destructive' });
     }
     setCreating(false);
   }
