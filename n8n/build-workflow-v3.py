@@ -947,8 +947,9 @@ def main() -> int:
             if fid not in existing:
                 fvs.append({"fieldId": fid, "fieldValue": expr})
 
-    # Cargo, single vessel — source: PDA Validator → output.vessel (uses loa_m)
+    # Cargo, single vessel — source: PDA Validator → output.{vessel,cargo} (uses loa_m)
     v = "$('PDA Validator').first().json.output.vessel"
+    c = "$('PDA Validator').first().json.output.cargo"
     _add_fields("Store Complete Email2", [
         ("vessel_name", _expr(f"{v}?.name")),
         ("vessel_imo", _expr(f"{v}?.imo")),
@@ -956,6 +957,10 @@ def main() -> int:
         ("vessel_grt", _expr(f"{v}?.grt")),
         ("vessel_dwt", _expr(f"{v}?.dwt")),
         ("vessel_flag", _expr(f"{v}?.flag")),
+        # Cargo particulars (extraction fields). Terminal/port are calculator
+        # outputs written by another node, so intentionally left untouched.
+        ("cargo_type", _expr(f"{c}?.type")),
+        ("cargo_quantity", _expr(f"{c}?.quantity")),
     ])
 
     # Cargo, multiple vessels — source: Parse Multiple Vessels AI output → output.vessels[] (uses loa)
