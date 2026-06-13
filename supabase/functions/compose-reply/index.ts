@@ -10,6 +10,7 @@ import { reportError } from "../_shared/tados.ts";
 import { chat } from "../_shared/openai.ts";
 import { semanticSearch, curacaoKnowledgeSearch } from "../_shared/rag.ts";
 import { calculatePda, type PdaConfig, type VesselInput } from "../_shared/pda.ts";
+import { REPLY_EMAIL_PROMPT } from "../_shared/compose-helpers.ts";
 
 interface Extracted {
   vessels: Array<VesselInput & { imo?: string; flag?: string; eta?: string }>;
@@ -142,8 +143,11 @@ Deno.serve(async (req) => {
     const pdas = vessels.map((v) => calculatePda(v, config));
 
     // Everything the sender wants answered or quoted — answered concretely from the KB.
+    // Disbursement/PDA/tugs/port-stay asks are answered by the DA/PDA below — keep them
+    // out of the tariff KB (it would punt them as "confirm on nomination").
+    const DA_ANSWERED = /disburs|\bp\.?d\.?a\.?\b|\be\.?d\.?a\.?\b|\btug|port[ -]?stay|estimated cost|total cost|duration|how (long|many days)/i;
     const asks = [...(extracted.service_asks ?? []), ...(extracted.questions ?? [])]
-      .map((s) => String(s).trim()).filter(Boolean);
+      .map((s) => String(s).trim()).filter(Boolean).filter((a) => !DA_ANSWERED.test(a));
     const uniqAsks = [...new Set(asks)].slice(0, 8);
 
     let kbBlock = "";
@@ -171,14 +175,39 @@ Deno.serve(async (req) => {
       kbBlock = `\n\nKB ANSWERS (use these figures verbatim in the reply):\n${kbAnswers}`;
     }
 
+    // DA estimate up front (cargo + GT) so the reply quotes a real figure. Non-fatal.
+    const _op = (vessels[0]?.operation_type || "").toLowerCase();
+    let daEstimate: { total?: number; lines?: { description?: string; amount?: number }[] } | null = null;
+    if ((_op.includes("load") || _op.includes("discharge")) && vessels[0]?.grt) {
+      try {
+        daEstimate = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/calculate-da`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": Deno.env.get("INBOUND_API_KEY") ?? "" },
+          body: JSON.stringify({
+            vessel: {
+              vessel_name: vessels[0].name, gt: vessels[0].grt, loa: vessels[0].loa,
+              port_stay: pdas[0]?.port_stay, tugs: pdas[0]?.tugs, linesmen_hours: 2, facility: "Bouy",
+              operation_type: vessels[0].operation_type, cargo_type: vessels[0].cargo_type,
+              cargo_quantity: vessels[0].cargo_quantity, terminal: pdas[0]?.terminal, area: pdas[0]?.area,
+            },
+            store: false, doc_type: "PDA",
+          }),
+        }).then((r) => r.json());
+      } catch (e) {
+        console.error("[compose-reply] DA estimate failed (non-fatal):", e);
+      }
+    }
+
     const composed = parseJson<{ subject: string; body: string }>(
       await chat(
-        [{ role: "system", content: EMAIL_PROMPT },
+        [{ role: "system", content: REPLY_EMAIL_PROMPT },
          { role: "user", content: JSON.stringify({
             inquiry_kind: extracted.inquiry_kind ?? null,
             services_requested: extracted.services_requested ?? null,
             contact: extracted.contact ?? {},
             location: extracted.location ?? {},
+            estimated_disbursement_usd: daEstimate?.total ?? null,
+            cost_breakdown: (daEstimate?.lines ?? []).filter((l) => (l.amount ?? 0) > 0).map((l) => ({ item: l.description, usd: l.amount })),
             vessels: vessels.map((v, i) => ({ ...v, ...pdas[i] })),
           }) + kbBlock }],
         { model: "gpt-4o", temperature: 0.4 },

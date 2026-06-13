@@ -141,18 +141,47 @@ Deno.serve(async (req) => {
     // 3. PDA calculation per vessel (deterministic)
     const pdas = vessels.map((v) => calculatePda(v, config));
 
-    // 4. KB answers (with real tariff prices) for every service the sender asked about
+    // 4. KB answers (with real tariff prices) — but keep disbursement/PDA/tugs/
+    //    port-stay asks OUT (the DA/PDA answers those; the tariff KB would punt them).
+    const DA_ANSWERED = /disburs|\bp\.?d\.?a\.?\b|\be\.?d\.?a\.?\b|\btug|port[ -]?stay|estimated cost|total cost|duration|how (long|many days)/i;
     const kbBlock = await buildKbBlock(db, [
       ...((extracted as { service_asks?: string[] }).service_asks ?? []),
       ...(extracted.questions ?? []),
-    ]);
+    ].filter((a) => !DA_ANSWERED.test(String(a))));
 
-    // 5. Compose the quotation email (AI), fed with calculated PDA data
+    // 4b. DA estimate up front (cargo + GT) so the reply can quote a real figure
+    //     instead of punting. store:false → calculation only; the storing DA call
+    //     (PDF/Excel) still runs after the write below. Non-fatal.
+    const _op = (vessels[0]?.operation_type || "").toLowerCase();
+    let daEstimate: { total?: number; lines?: { description?: string; amount?: number }[] } | null = null;
+    if ((_op.includes("load") || _op.includes("discharge")) && vessels[0]?.grt) {
+      try {
+        daEstimate = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/calculate-da`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": Deno.env.get("INBOUND_API_KEY") ?? "" },
+          body: JSON.stringify({
+            vessel: {
+              vessel_name: vessels[0].name, gt: vessels[0].grt, loa: vessels[0].loa,
+              port_stay: pdas[0]?.port_stay, tugs: pdas[0]?.tugs, linesmen_hours: 2, facility: "Bouy",
+              operation_type: vessels[0].operation_type, cargo_type: vessels[0].cargo_type,
+              cargo_quantity: vessels[0].cargo_quantity, terminal: pdas[0]?.terminal, area: pdas[0]?.area,
+            },
+            store: false, doc_type: "PDA",
+          }),
+        }).then((r) => r.json());
+      } catch (e) {
+        console.error("[manual-email-create] DA estimate failed (non-fatal):", e);
+      }
+    }
+
+    // 5. Compose the quotation email (AI), fed with calculated PDA data + DA figure
     const composeInput = {
       inquiry_kind: (extracted as { inquiry_kind?: string }).inquiry_kind ?? null,
       services_requested: extracted.services_requested ?? null,
       contact: extracted.contact ?? {},
       location: extracted.location ?? {},
+      estimated_disbursement_usd: daEstimate?.total ?? null,
+      cost_breakdown: (daEstimate?.lines ?? []).filter((l) => (l.amount ?? 0) > 0).map((l) => ({ item: l.description, usd: l.amount })),
       vessels: vessels.map((v, i) => ({ ...v, ...pdas[i] })),
     };
     const composed = parseJson<{ subject: string; body: string }>(
