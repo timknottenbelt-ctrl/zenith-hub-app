@@ -65,6 +65,7 @@ import { TransitionLink } from '@/components/TransitionLink';
 import { WEBHOOKS, webhookPostJSON } from '@/lib/webhooks';
 import { preloadGet } from '@/lib/preload';
 import { InquiryDAPanel } from '@/components/inquiries/InquiryDAPanel';
+import { DraftPreview } from '@/components/inquiries/DraftPreview';
 
 type DateFilter = 'all' | 'today' | 'thisWeek' | 'older';
 
@@ -122,6 +123,7 @@ export default function AIInquiries() {
   const [deleting, setDeleting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [detailTab, setDetailTab] = useState<'ai' | 'original'>('ai');
+  const [draftMode, setDraftMode] = useState<'preview' | 'edit'>('preview');
 
   async function copyDraft() {
     const text = [editSubject ? `Subject: ${editSubject}` : '', editBody].filter(Boolean).join('\n\n');
@@ -893,6 +895,12 @@ export default function AIInquiries() {
                       </div>
                       {detailTab === 'ai' && (
                         <div className="ml-auto flex items-center gap-1.5">
+                          {editBody && (
+                            <div className="flex rounded-lg border border-border/60 p-0.5">
+                              <button onClick={() => setDraftMode('preview')} className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${draftMode === 'preview' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>{t('inquiries.preview')}</button>
+                              <button onClick={() => setDraftMode('edit')} className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${draftMode === 'edit' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>{t('common.edit')}</button>
+                            </div>
+                          )}
                           <Button variant="ghost" size="sm" className="h-7 text-xs rounded-lg gap-1.5 px-2" onClick={copyDraft} disabled={!editBody} title={t('inquiries.copyDraft')}>
                             {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                             <span className="hidden sm:inline">{copied ? t('inquiries.copied') : t('inquiries.copyDraft')}</span>
@@ -930,31 +938,37 @@ export default function AIInquiries() {
                             <span>{t('inquiries.noDraftYet')}</span>
                           </div>
                         )}
-                        <div className="space-y-1.5">
-                          <Label htmlFor="subject" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t('inquiries.emailSubject')}</Label>
-                          <Input
-                            id="subject"
-                            value={editSubject}
-                            onChange={(e) => setEditSubject(e.target.value)}
-                            placeholder={t('inquiries.emailSubject')}
-                            className="h-10 rounded-lg bg-muted/20 border-border/60 focus:bg-card text-sm"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="body" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t('inquiries.emailBody')}</Label>
-                            {editBody && (
-                              <span className="text-[10px] text-muted-foreground/50 tabular-nums">{editBody.length.toLocaleString()} tekens</span>
-                            )}
-                          </div>
-                          <Textarea
-                            id="body"
-                            value={editBody}
-                            onChange={(e) => setEditBody(e.target.value)}
-                            placeholder={composing ? t('inquiries.generating') : t('inquiries.emailBody')}
-                            className="h-[400px] text-sm rounded-lg bg-muted/20 border-border/60 focus:bg-card leading-relaxed resize-none"
-                          />
-                        </div>
+                        {draftMode === 'preview' && editBody ? (
+                          <DraftPreview subject={editSubject} body={editBody} />
+                        ) : (
+                          <>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="subject" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t('inquiries.emailSubject')}</Label>
+                              <Input
+                                id="subject"
+                                value={editSubject}
+                                onChange={(e) => setEditSubject(e.target.value)}
+                                placeholder={t('inquiries.emailSubject')}
+                                className="h-10 rounded-lg bg-muted/20 border-border/60 focus:bg-card text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <Label htmlFor="body" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t('inquiries.emailBody')}</Label>
+                                {editBody && (
+                                  <span className="text-[10px] text-muted-foreground/50 tabular-nums">{editBody.length.toLocaleString()} tekens</span>
+                                )}
+                              </div>
+                              <Textarea
+                                id="body"
+                                value={editBody}
+                                onChange={(e) => setEditBody(e.target.value)}
+                                placeholder={composing ? t('inquiries.generating') : t('inquiries.emailBody')}
+                                className="h-[400px] text-sm rounded-lg bg-muted/20 border-border/60 focus:bg-card leading-relaxed resize-none"
+                              />
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
