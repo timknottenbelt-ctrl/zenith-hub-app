@@ -12,6 +12,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.90.1";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { reportError } from "../_shared/tados.ts";
+import { requireUser } from "../_shared/auth.ts";
 import { chat } from "../_shared/openai.ts";
 import { semanticSearch } from "../_shared/rag.ts";
 import { buildKbBlock, normalizeBody, REPLY_EMAIL_PROMPT } from "../_shared/compose-helpers.ts";
@@ -120,14 +121,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return handleOptions();
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
-  // Machine auth: this endpoint is called server-to-server by the n8n Outlook
-  // trigger, which presents the shared INBOUND_API_KEY in the x-api-key header.
+  // Machine auth (n8n presents the shared INBOUND_API_KEY in x-api-key) OR an
+  // authenticated dashboard user (used by the "reprocess this inquiry" action).
   const apiKey = Deno.env.get("INBOUND_API_KEY");
-  if (!apiKey || req.headers.get("x-api-key") !== apiKey) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
+  const apiOk = !!apiKey && req.headers.get("x-api-key") === apiKey;
+  if (!apiOk) {
+    const auth = await requireUser(req);
+    if (!auth.ok) return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  let input: { subject?: string; body?: string; from_email?: string; from_name?: string };
+  // email_id → reprocess an existing row in place (re-run the brain on its
+  // stored original); absent → create a new row (the normal inbound path).
+  let input: { subject?: string; body?: string; from_email?: string; from_name?: string; email_id?: number };
   try {
     input = await req.json();
   } catch {
@@ -151,18 +156,23 @@ Deno.serve(async (req) => {
       ),
     );
 
-    // 2. Out of scope -> just record it
+    // 2. Out of scope -> just record it (reprocess: flip the existing row in place)
     if (cls.type === "OUT_OF_SCOPE") {
-      const { data, error } = await db.from("email").insert({
-        subject: input.subject ?? null,
-        body: input.body ?? null,
-        original_email: input.body ?? null,
+      const oosRow = {
         "Email Type": "OUT_OF_SCOPE",
         status: "out_of_scope",
-        company_name: input.from_name ?? null,
         classification_confidence: cls.confidence ?? null,
         classification_reasoning: cls.reasoning ?? null,
-      }).select().single();
+      };
+      const { data, error } = input.email_id
+        ? await db.from("email").update(oosRow).eq("id", input.email_id).select().single()
+        : await db.from("email").insert({
+            subject: input.subject ?? null,
+            body: input.body ?? null,
+            original_email: input.body ?? null,
+            company_name: input.from_name ?? null,
+            ...oosRow,
+          }).select().single();
       if (error) return jsonResponse({ error: error.message }, 500);
       return jsonResponse({ success: true, classification: cls.type, data });
     }
@@ -245,7 +255,9 @@ Deno.serve(async (req) => {
       body: composed.body,
       original_email: input.body ?? null,
       "Email Type": cls.type,
-      status: "draft",
+      // A real category that produced no usable draft body → flag for human
+      // review instead of leaving a silent empty "draft".
+      status: composed.body && composed.body.trim().length >= 20 ? "draft" : "needs_review",
       vessel_name: v0.name ?? null,
       imo: v0.imo ?? null,
       vessel_imo: v0.imo ?? null,
@@ -275,7 +287,9 @@ Deno.serve(async (req) => {
       row.vessel_2_flag = vessels[1].flag ?? null;
     }
 
-    const { data, error } = await db.from("email").insert(row).select().single();
+    const { data, error } = input.email_id
+      ? await db.from("email").update(row).eq("id", input.email_id).select().single()
+      : await db.from("email").insert(row).select().single();
     if (error) return jsonResponse({ error: error.message }, 500);
 
     // Cargo inquiry -> also produce the DA (cost breakdown) + PDF/Excel and link
