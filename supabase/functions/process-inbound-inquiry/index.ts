@@ -186,7 +186,37 @@ Deno.serve(async (req) => {
     const vessels = (extracted.vessels ?? []).slice(0, 2);
     const pdas = vessels.map((v) => calculatePda(v, config));
 
-    const kbBlock = await buildKbBlock(db, [...(extracted.service_asks ?? []), ...(extracted.questions ?? [])]);
+    // Asks about the disbursement / PDA / EDA / tugs / port stay are answered by
+    // the DA + PDA figures below, NOT by the tariff KB — keep them out of the KB
+    // block so it doesn't punt them as "confirm on nomination".
+    const DA_ANSWERED = /disburs|\bp\.?d\.?a\.?\b|\be\.?d\.?a\.?\b|\btug|port[ -]?stay|estimated cost|total cost|duration|how (long|many days)/i;
+    const kbAsks = [...(extracted.service_asks ?? []), ...(extracted.questions ?? [])]
+      .filter((a) => !DA_ANSWERED.test(String(a)));
+    const kbBlock = await buildKbBlock(db, kbAsks);
+
+    // Compute the DA estimate up front (cargo + GT) so the reply can quote a real
+    // figure. store:false → calculation only, no DB write; the storing DA call
+    // (with PDF/Excel) still runs after the insert below. Non-fatal.
+    let daEstimate: { total?: number; lines?: { description?: string; amount?: number }[] } | null = null;
+    if (cls.type === "LOADING_DISCHARGE_AGENT" && vessels[0]?.grt) {
+      try {
+        daEstimate = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/calculate-da`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": Deno.env.get("INBOUND_API_KEY") ?? "" },
+          body: JSON.stringify({
+            vessel: {
+              vessel_name: vessels[0].name, gt: vessels[0].grt, loa: vessels[0].loa,
+              port_stay: pdas[0]?.port_stay, tugs: pdas[0]?.tugs, linesmen_hours: 2, facility: "Bouy",
+              operation_type: vessels[0].operation_type, cargo_type: vessels[0].cargo_type,
+              cargo_quantity: vessels[0].cargo_quantity, terminal: pdas[0]?.terminal, area: pdas[0]?.area,
+            },
+            store: false, doc_type: "PDA",
+          }),
+        }).then((r) => r.json());
+      } catch (e) {
+        console.error("[process-inbound-inquiry] DA estimate failed (non-fatal):", e);
+      }
+    }
 
     let composed = { subject: input.subject ?? "LBH Curacao - Rate Quotation", body: "" };
     if (vessels.length > 0) {
@@ -198,6 +228,8 @@ Deno.serve(async (req) => {
               services_requested: extracted.services_requested ?? null,
               contact: extracted.contact ?? {},
               location: extracted.location ?? {},
+              estimated_disbursement_usd: daEstimate?.total ?? null,
+              cost_breakdown: (daEstimate?.lines ?? []).filter((l) => (l.amount ?? 0) > 0).map((l) => ({ item: l.description, usd: l.amount })),
               vessels: vessels.map((v, i) => ({ ...v, ...pdas[i] })),
             }) + kbBlock }],
           { model: "gpt-4o", temperature: 0.4 },
