@@ -15,6 +15,7 @@ export interface PCEmail {
   vessel_imo: string | null;
   vessel_grt: number | null;
   vessel_loa: number | null;
+  vessel_dwt: number | null;
   vessel_eta: string | null;
   vessel_2_name: string | null;
   vessel_2_imo: string | null;
@@ -51,6 +52,7 @@ export interface PortCall {
   imo: string | null;
   grt: number | null;
   loa: number | null;
+  dwt: number | null;
   eta: string | null;
   port: string | null;
   terminal: string | null;
@@ -76,7 +78,7 @@ export interface PortCall {
 const VOYAGE_GAP_MS = 30 * 24 * 3600 * 1000; // emails >30 days apart = new voyage
 
 const EMAIL_COLS =
-  'id, subject, vessel_name, vessel_imo, vessel_grt, vessel_loa, vessel_eta, ' +
+  'id, subject, vessel_name, vessel_imo, vessel_grt, vessel_loa, vessel_dwt, vessel_eta, ' +
   'vessel_2_name, vessel_2_imo, port, terminal, cargo_type, cargo_quantity, ' +
   'company_name, contact_name, status, sent_at, created_at, "Email Type", ' +
   'pdf_url, dock_link_2, doc_link, missing_information';
@@ -156,6 +158,7 @@ function buildCall(slug: string, emails: PCEmail[], fda: Map<string, PCDocument>
     imo: latest(emails, (e) => e.vessel_imo),
     grt: latest(emails, (e) => e.vessel_grt),
     loa: latest(emails, (e) => e.vessel_loa),
+    dwt: latest(emails, (e) => e.vessel_dwt),
     eta: latest(emails, (e) => e.vessel_eta),
     port: latest(emails, (e) => e.port),
     terminal: latest(emails, (e) => e.terminal),

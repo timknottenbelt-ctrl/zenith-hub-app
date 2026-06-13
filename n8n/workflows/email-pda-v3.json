@@ -1560,7 +1560,7 @@
         3280,
         2416
       ],
-      "id": "546745d5-806e-43ea-8b79-253e8966504a",
+      "id": "3ac6c7ea-ed88-41f4-809f-23c29a884bb2",
       "name": "Attachment Handling"
     },
     {
@@ -1951,6 +1951,22 @@
             {
               "fieldId": "services_requested",
               "fieldValue": "={{ $('QUERY KNOWLEDGE BASE').first().json.output.services.map(s => s.service).join(', ') }}"
+            },
+            {
+              "fieldId": "vessel_loa",
+              "fieldValue": "={{ ($('QUERY KNOWLEDGE BASE').first().json.output.vessel?.loa_m ?? $('QUERY KNOWLEDGE BASE').first().json.output.vessel?.loa) ?? null }}"
+            },
+            {
+              "fieldId": "vessel_grt",
+              "fieldValue": "={{ $('QUERY KNOWLEDGE BASE').first().json.output.vessel?.grt ?? null }}"
+            },
+            {
+              "fieldId": "vessel_dwt",
+              "fieldValue": "={{ $('QUERY KNOWLEDGE BASE').first().json.output.vessel?.dwt ?? null }}"
+            },
+            {
+              "fieldId": "vessel_flag",
+              "fieldValue": "={{ $('QUERY KNOWLEDGE BASE').first().json.output.vessel?.flag ?? null }}"
             }
           ]
         },
@@ -2012,6 +2028,30 @@
             {
               "fieldId": "Email Type",
               "fieldValue": "CARGO AGENT"
+            },
+            {
+              "fieldId": "vessel_name",
+              "fieldValue": "={{ $('PDA Validator').first().json.output.vessel?.name ?? null }}"
+            },
+            {
+              "fieldId": "vessel_imo",
+              "fieldValue": "={{ $('PDA Validator').first().json.output.vessel?.imo ?? null }}"
+            },
+            {
+              "fieldId": "vessel_loa",
+              "fieldValue": "={{ ($('PDA Validator').first().json.output.vessel?.loa_m ?? $('PDA Validator').first().json.output.vessel?.loa) ?? null }}"
+            },
+            {
+              "fieldId": "vessel_grt",
+              "fieldValue": "={{ $('PDA Validator').first().json.output.vessel?.grt ?? null }}"
+            },
+            {
+              "fieldId": "vessel_dwt",
+              "fieldValue": "={{ $('PDA Validator').first().json.output.vessel?.dwt ?? null }}"
+            },
+            {
+              "fieldId": "vessel_flag",
+              "fieldValue": "={{ $('PDA Validator').first().json.output.vessel?.flag ?? null }}"
             }
           ]
         },
@@ -2064,6 +2104,54 @@
             {
               "fieldId": "Email Type",
               "fieldValue": "CARGO AGENT 2"
+            },
+            {
+              "fieldId": "vessel_name",
+              "fieldValue": "={{ $('Parse Multiple Vessels AI output').first().json.output.vessels?.[0]?.name ?? null }}"
+            },
+            {
+              "fieldId": "vessel_imo",
+              "fieldValue": "={{ $('Parse Multiple Vessels AI output').first().json.output.vessels?.[0]?.imo ?? null }}"
+            },
+            {
+              "fieldId": "vessel_loa",
+              "fieldValue": "={{ ($('Parse Multiple Vessels AI output').first().json.output.vessels?.[0]?.loa_m ?? $('Parse Multiple Vessels AI output').first().json.output.vessels?.[0]?.loa) ?? null }}"
+            },
+            {
+              "fieldId": "vessel_grt",
+              "fieldValue": "={{ $('Parse Multiple Vessels AI output').first().json.output.vessels?.[0]?.grt ?? null }}"
+            },
+            {
+              "fieldId": "vessel_dwt",
+              "fieldValue": "={{ $('Parse Multiple Vessels AI output').first().json.output.vessels?.[0]?.dwt ?? null }}"
+            },
+            {
+              "fieldId": "vessel_flag",
+              "fieldValue": "={{ $('Parse Multiple Vessels AI output').first().json.output.vessels?.[0]?.flag ?? null }}"
+            },
+            {
+              "fieldId": "vessel_2_name",
+              "fieldValue": "={{ $('Parse Multiple Vessels AI output').first().json.output.vessels?.[1]?.name ?? null }}"
+            },
+            {
+              "fieldId": "vessel_2_imo",
+              "fieldValue": "={{ $('Parse Multiple Vessels AI output').first().json.output.vessels?.[1]?.imo ?? null }}"
+            },
+            {
+              "fieldId": "vessel_2_loa",
+              "fieldValue": "={{ ($('Parse Multiple Vessels AI output').first().json.output.vessels?.[1]?.loa_m ?? $('Parse Multiple Vessels AI output').first().json.output.vessels?.[1]?.loa) ?? null }}"
+            },
+            {
+              "fieldId": "vessel_2_grt",
+              "fieldValue": "={{ $('Parse Multiple Vessels AI output').first().json.output.vessels?.[1]?.grt ?? null }}"
+            },
+            {
+              "fieldId": "vessel_2_dwt",
+              "fieldValue": "={{ $('Parse Multiple Vessels AI output').first().json.output.vessels?.[1]?.dwt ?? null }}"
+            },
+            {
+              "fieldId": "vessel_2_flag",
+              "fieldValue": "={{ $('Parse Multiple Vessels AI output').first().json.output.vessels?.[1]?.flag ?? null }}"
             }
           ]
         },
@@ -2324,7 +2412,7 @@
         3504,
         2416
       ],
-      "id": "6262720d-664b-428e-a536-697533f6be82",
+      "id": "400392a8-cc30-4dfe-9430-9a29fb8af9aa",
       "name": "Insert Email Row",
       "credentials": {
         "supabaseApi": {
@@ -2343,7 +2431,7 @@
           },
           "conditions": [
             {
-              "id": "9bb377f7-2e2a-48e3-bc49-8f324f92bf4e",
+              "id": "29262b73-5ca2-498a-862d-b65bac54f045",
               "leftValue": "={{ $('Attachment Handling').first().json.attachmentExists }}",
               "rightValue": "",
               "operator": {
@@ -2363,7 +2451,7 @@
         3664,
         2416
       ],
-      "id": "3e897227-3fc9-45d2-bcbb-592261c3a40d",
+      "id": "68191e9f-42f5-48a5-877b-1f085af012cb",
       "name": "Has Attachments?"
     },
     {
@@ -2376,7 +2464,7 @@
         3840,
         2336
       ],
-      "id": "7fe766ab-4e30-4565-9257-388586818df9",
+      "id": "6a6c84bf-ba7d-4a3c-b6f4-6a99167ce2f6",
       "name": "Split Attachments"
     },
     {
@@ -2409,7 +2497,7 @@
         4064,
         2336
       ],
-      "id": "0a4d681c-9209-4511-9a6c-e757ba55aa38",
+      "id": "c4b1d653-2539-417d-936d-9efe6a5c5c22",
       "name": "Upload to Storage",
       "credentials": {
         "httpHeaderAuth": {
@@ -2448,7 +2536,7 @@
         4288,
         2336
       ],
-      "id": "a0a93725-33c6-487b-9681-04e52eddcc06",
+      "id": "4b6cfcf3-f3c4-4c23-b416-2cd27929d8b0",
       "name": "Insert email_attachments row",
       "credentials": {
         "supabaseApi": {
@@ -2467,7 +2555,7 @@
         4624,
         2416
       ],
-      "id": "4cbf9144-6037-4c4e-b1b4-33f5516e411e",
+      "id": "90d098ae-92d3-428b-b90e-10b7a3088a7c",
       "name": "Pre-filter (deterministic)"
     },
     {
@@ -2480,7 +2568,7 @@
           },
           "conditions": [
             {
-              "id": "f0e3f05f-201c-4cbb-89c2-5ecb445b5776",
+              "id": "71d8ce43-b470-4de5-a42b-2cddf8772adc",
               "leftValue": "={{ $json.passed }}",
               "rightValue": "",
               "operator": {
@@ -2500,7 +2588,7 @@
         4848,
         2416
       ],
-      "id": "0e39898c-748c-4455-87d1-3afdf7fc9af1",
+      "id": "968fa66b-80e4-4e4e-a6e3-75d67e5d84df",
       "name": "Pre-filter Passed?"
     },
     {
@@ -2537,7 +2625,7 @@
         4848,
         2616
       ],
-      "id": "decd5d2f-707f-4f9a-b095-35aa79cc337f",
+      "id": "6cb4ed01-1699-4ded-a165-b83a5faf9405",
       "name": "Mark Out of Scope",
       "credentials": {
         "supabaseApi": {
@@ -2588,7 +2676,7 @@
         5200,
         2416
       ],
-      "id": "39adaa26-90e6-4d15-939d-39e764f4aa04",
+      "id": "6298635d-1bde-4360-ad63-bf2161cff13e",
       "name": "Save Classification",
       "credentials": {
         "supabaseApi": {
@@ -2616,7 +2704,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "05c6eaf4-b72e-4f61-81a7-c7f62c26e3a6"
+                    "id": "f6ee87bd-d3b6-4bf0-8d15-aa31ada9a09a"
                   }
                 ],
                 "combinator": "and"
@@ -2638,7 +2726,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "db8f43d1-dac9-43f3-b82a-909511f5dfd9"
+                    "id": "f05b157f-05a8-4432-aaf0-660d6a0928a7"
                   }
                 ],
                 "combinator": "and"
@@ -2660,7 +2748,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "3ec90827-6e9c-471d-8cb7-9b41463e719c"
+                    "id": "83216ab1-05bd-404c-919d-c76e392c78b9"
                   }
                 ],
                 "combinator": "and"
@@ -2682,7 +2770,7 @@
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "b346aced-f478-497d-9046-39d8ba943a50"
+                    "id": "cd255fc7-0635-46cd-ad25-1c593104199e"
                   }
                 ],
                 "combinator": "and"
@@ -2701,7 +2789,7 @@
         3952,
         2136
       ],
-      "id": "be7a60e4-77de-46f5-a661-c7971ab379fc",
+      "id": "96c7d1e6-b9c8-469e-9480-6644e6c206b7",
       "name": "Route by File Type"
     },
     {
@@ -2716,7 +2804,7 @@
         4176,
         2086
       ],
-      "id": "4b8ff718-1631-438b-944f-a016676658e8",
+      "id": "f77fc41e-ed86-4f2f-8816-9ce59b7510ef",
       "name": "Extract XLSX"
     },
     {
@@ -2731,7 +2819,7 @@
         4176,
         2236
       ],
-      "id": "545b04cd-c5b7-4e66-ba45-69fd92f02573",
+      "id": "4058361f-cb4f-441d-bc8a-4c702f7aacc3",
       "name": "Extract CSV"
     },
     {
@@ -2746,7 +2834,7 @@
         4176,
         2386
       ],
-      "id": "b05d5cb1-3123-416c-adc3-0b84e767eac6",
+      "id": "365bf040-9367-4021-acd7-684661ff9db1",
       "name": "Extract Text"
     }
   ],
