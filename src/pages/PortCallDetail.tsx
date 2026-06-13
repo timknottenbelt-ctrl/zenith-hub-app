@@ -418,6 +418,7 @@ export default function PortCallDetail() {
         setEtb(toLocalInput(rec.etb));
         setEtd(toLocalInput(rec.etd));
         if (c.loa) setBcLoa(String(c.loa));
+        if (c.dwt) setBcDwt(String(c.dwt));
         const rt = resolveTerminal(rec.terminal, c.terminal, c.port);
         if (rt) setBcTerminal(rt.name);
         const [evs, dcs, tks] = await Promise.all([loadEvents(rec.id), loadDocs(rec.id), loadTasks(rec.id)]);

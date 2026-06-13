@@ -219,6 +219,7 @@ Deno.serve(async (req) => {
       vessel_imo: v0.imo ?? null,
       vessel_loa: v0.loa ?? null,
       vessel_grt: v0.grt ?? null,
+      vessel_dwt: v0.dwt ?? null,
       vessel_flag: v0.flag ?? null,
       vessel_eta: extracted.eta ?? v0.eta ?? null,
       eta: extracted.eta ?? v0.eta ?? null,
@@ -238,6 +239,7 @@ Deno.serve(async (req) => {
       row.vessel_2_imo = vessels[1].imo ?? null;
       row.vessel_2_loa = vessels[1].loa ?? null;
       row.vessel_2_grt = vessels[1].grt ?? null;
+      row.vessel_2_dwt = vessels[1].dwt ?? null;
       row.vessel_2_flag = vessels[1].flag ?? null;
     }
 
