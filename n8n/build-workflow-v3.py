@@ -924,6 +924,66 @@ def main() -> int:
             }]
         }
 
+    # 10b. Write the vessel particulars back to the email row on every branch.
+    #      Previously only vessel_name + imo (owners) were stored, so LOA / GRT /
+    #      DWT / flag stayed empty on auto-triaged emails — that's why DWT looked
+    #      "sometimes filled" (only the manual path kept it). Each store node
+    #      reads from the node guaranteed to have executed on its branch, with
+    #      defensive optional-chaining + `?? null` (worst case: null, never an
+    #      error). Field names differ per branch — the single-vessel path uses
+    #      `loa_m`, the multi-vessel path uses `loa` — hence the `loa_m ?? loa`
+    #      fallback. Only adds fields not already mapped.
+    def _expr(src_path: str) -> str:
+        return "={{ " + src_path + " ?? null }}"
+
+    def _add_fields(node_name: str, fields: list) -> None:
+        try:
+            node = find_node(wf["nodes"], node_name)
+        except KeyError:
+            return
+        fvs = node["parameters"].setdefault("fieldsUi", {}).setdefault("fieldValues", [])
+        existing = {f.get("fieldId") for f in fvs}
+        for fid, expr in fields:
+            if fid not in existing:
+                fvs.append({"fieldId": fid, "fieldValue": expr})
+
+    # Cargo, single vessel — source: PDA Validator → output.vessel (uses loa_m)
+    v = "$('PDA Validator').first().json.output.vessel"
+    _add_fields("Store Complete Email2", [
+        ("vessel_name", _expr(f"{v}?.name")),
+        ("vessel_imo", _expr(f"{v}?.imo")),
+        ("vessel_loa", _expr(f"({v}?.loa_m ?? {v}?.loa)")),
+        ("vessel_grt", _expr(f"{v}?.grt")),
+        ("vessel_dwt", _expr(f"{v}?.dwt")),
+        ("vessel_flag", _expr(f"{v}?.flag")),
+    ])
+
+    # Cargo, multiple vessels — source: Parse Multiple Vessels AI output → output.vessels[] (uses loa)
+    vs = "$('Parse Multiple Vessels AI output').first().json.output.vessels"
+    _add_fields("Store Complete Email3", [
+        ("vessel_name", _expr(f"{vs}?.[0]?.name")),
+        ("vessel_imo", _expr(f"{vs}?.[0]?.imo")),
+        ("vessel_loa", _expr(f"({vs}?.[0]?.loa_m ?? {vs}?.[0]?.loa)")),
+        ("vessel_grt", _expr(f"{vs}?.[0]?.grt")),
+        ("vessel_dwt", _expr(f"{vs}?.[0]?.dwt")),
+        ("vessel_flag", _expr(f"{vs}?.[0]?.flag")),
+        ("vessel_2_name", _expr(f"{vs}?.[1]?.name")),
+        ("vessel_2_imo", _expr(f"{vs}?.[1]?.imo")),
+        ("vessel_2_loa", _expr(f"({vs}?.[1]?.loa_m ?? {vs}?.[1]?.loa)")),
+        ("vessel_2_grt", _expr(f"{vs}?.[1]?.grt")),
+        ("vessel_2_dwt", _expr(f"{vs}?.[1]?.dwt")),
+        ("vessel_2_flag", _expr(f"{vs}?.[1]?.flag")),
+    ])
+
+    # Owners agent — source: QUERY KNOWLEDGE BASE → output.vessel (name/imo already mapped)
+    o = "$('QUERY KNOWLEDGE BASE').first().json.output.vessel"
+    _add_fields("Store Owners Agent Email1", [
+        ("vessel_loa", _expr(f"({o}?.loa_m ?? {o}?.loa)")),
+        ("vessel_grt", _expr(f"{o}?.grt")),
+        ("vessel_dwt", _expr(f"{o}?.dwt")),
+        ("vessel_flag", _expr(f"{o}?.flag")),
+    ])
+
     # Blanket rewrite: every $('NodeName').item.json -> $('NodeName').first().json
     #
     # n8n's paired-item tracker loses the link after any IF / merge / multi-
