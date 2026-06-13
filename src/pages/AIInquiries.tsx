@@ -415,6 +415,36 @@ export default function AIInquiries() {
   }
 
   // Generate (or regenerate) a clean, well-formatted AI reply for the open email.
+  // Full re-run of the brain (re-classify + extract + compose) on the stored
+  // original — for an inquiry that came out as needs_review / no usable draft.
+  async function handleReprocess() {
+    if (!selectedEmail) return;
+    setComposing(true);
+    try {
+      const original = selectedEmail.original_email || selectedEmail.orignal_email || selectedEmail.body || '';
+      const { data, error } = await supabase.functions.invoke('process-inbound-inquiry', {
+        body: {
+          email_id: selectedEmail.id,
+          subject: selectedEmail.subject,
+          body: original,
+          from_name: selectedEmail.contact_name,
+        },
+      });
+      if (error) throw error;
+      if (data?.success && data?.data) {
+        setSelectedEmail(data.data as Email);
+        toast({ title: t('common.success'), description: t('inquiries.reprocessDone') });
+        fetchEmails();
+      } else {
+        throw new Error(data?.error || 'reprocess failed');
+      }
+    } catch (e) {
+      toast({ title: t('common.error'), description: (e as Error).message || t('common.error_occurred'), variant: 'destructive' });
+    } finally {
+      setComposing(false);
+    }
+  }
+
   async function handleCompose() {
     if (!selectedEmail) return;
     setComposing(true);
@@ -930,6 +960,18 @@ export default function AIInquiries() {
                             <Send className="w-3 h-3 text-muted-foreground/60 shrink-0" />
                             <span className="text-[11px] text-muted-foreground">{t('inquiries.toEmail')}:</span>
                             <span className="text-[11px] font-medium text-foreground/80 truncate">{selectedEmail.email_to_person}</span>
+                          </div>
+                        )}
+                        {selectedEmail.status === 'needs_review' && (
+                          <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300 text-xs">
+                            <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                            <div className="flex-1">
+                              <p className="font-medium">{t('inquiries.needsReviewHint')}</p>
+                            </div>
+                            <Button variant="outline" size="sm" className="h-6 text-[11px] rounded-md gap-1 px-2 shrink-0" onClick={handleReprocess} disabled={composing}>
+                              {composing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                              {t('inquiries.reprocess')}
+                            </Button>
                           </div>
                         )}
                         {!hasAiReply && !editBody && (
